@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:evmap;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ''
+  liquibase:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+
+evmap:
+  security:
+    jwt-secret: test-secret-with-sufficient-length
+    jwt-ttl: PT1H
+  apple:
+    jwks-uri: https://appleid.apple.com/auth/keys
+    issuer: https://appleid.apple.com
+    audience: ''

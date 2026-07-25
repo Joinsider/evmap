@@ -1,3 +1,33 @@
 spring:
   application:
-    name: evmap_service
+    name: evmap-service
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/evmap}
+    username: ${DATABASE_USERNAME:evmap}
+    password: ${DATABASE_PASSWORD:evmap}
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  jackson:
+    default-property-inclusion: non_null
+
+server:
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+evmap:
+  security:
+    jwt-secret: ${JWT_SECRET:change-this-development-secret-to-a-long-random-value}
+    jwt-ttl: PT12H
+  apple:
+    audience: ${APPLE_CLIENT_ID:}
+    jwks-uri: https://appleid.apple.com/auth/keys
+    issuer: https://appleid.apple.com

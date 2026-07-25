@@ -1,0 +1,11 @@
+spring:
+  main:
+    web-application-type: none
+  task:
+    scheduling:
+      enabled: true
+
+evmap:
+  sync:
+    enabled: true
+    fixed-delay: PT24H
