@@ -55,9 +55,33 @@ tagged, and says what to do about it. Both conditions mean the version state is 
 at the first step with an explanatory `::error::` beats failing three steps later with a git message
 that describes a symptom.
 
-### The loop guard matches the commits it guards against
+### The loop guard matches the commits it guards against — on the subject line only
 
 `[no-CI]` → `[skip CI]`, matching what the workflow actually writes.
+
+**Amended 2026-07-28, after this ADR's own merge was wrongly skipped.** The corrected guard was
+`!contains(github.event.head_commit.message, '[skip CI]')` — a substring test over the *entire*
+message. The pull request implementing this ADR was squash-merged, and a squash concatenates every
+commit message into the merge commit's body; one of those bodies contained the sentence describing
+the `[no-CI]` → `[skip CI]` change. The marker matched its own documentation, and the release was
+skipped.
+
+The lesson is that a commit *body* must be free to discuss the marker without disabling the release.
+Only the subject line carries the intent. GitHub Actions expressions cannot split a string, so the
+check moves into a tiny `guard` job that reads the subject in bash and exposes a boolean output the
+`release` job gates on. The head commit message is passed through `env:` rather than interpolated
+into the script, since a commit message is untrusted input.
+
+That the run was created at all — rather than suppressed before any run existed — is evidence that
+GitHub's native skip handling already has these subject-only semantics. The `guard` job makes the
+project's own guard agree with it instead of being stricter in an unpredictable way.
+
+### Releases can be dispatched manually
+
+`workflow_dispatch` is added. Recovering from a wrongly skipped run otherwise requires an artificial
+commit touching `evmap_service/**`, because re-running a skipped run re-evaluates the same condition
+and skips again. On dispatch there is no `head_commit`, the subject reads empty, and the guard allows
+the release.
 
 ## Consequences
 
@@ -78,6 +102,8 @@ that describes a symptom.
 - **Recovering from the state this ADR was written about is still manual.** The workflow refuses to
   guess. The version was set to `0.0.2-SNAPSHOT` by hand and `v0.0.1` left in place — the tag exists, so
   that release is treated as cut.
+- **The guard costs an extra job** — a runner spin-up per push to run one `grep`. Cheap, and the
+  alternative was a GitHub Actions expression that cannot express the condition correctly.
 - `versions:set` runs before the build, so the jar is built at the release version. Intended — it is
   the artifact that gets published — but it means the build is never exercised at the `-SNAPSHOT`
   version on `master`. `pr-snapshot-build.yml` covers that on pull requests.
