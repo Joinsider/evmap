@@ -13,7 +13,7 @@ on:
   push:
     branches: [main, master]
     paths:
-      - 'evmap_service/**'
+      - "evmap_service/**"
 
 permissions:
   contents: write
@@ -45,7 +45,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '25'
+          java-version: "25"
           cache: maven
 
       - name: Configure git
@@ -70,7 +70,7 @@ jobs:
       - name: Commit release version
         run: |
           git add pom.xml
-          git commit -m "chore(release): ${{ steps.release_version.outputs.release }} [no-CI]"
+          git commit -m "chore(release): ${{ steps.release_version.outputs.release }} [skip CI]"
           git push origin HEAD:${{ github.ref_name }}
 
       - name: Build with Maven
@@ -133,5 +133,5 @@ jobs:
       - name: Commit next development version
         run: |
           git add pom.xml
-          git commit -m "chore: prepare next development version ${{ steps.next_version.outputs.next }} [no-CI]"
+          git commit -m "chore: prepare next development version ${{ steps.next_version.outputs.next }} [skip CI]"
           git push origin HEAD:${{ github.ref_name }}
