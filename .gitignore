@@ -1,3 +1,7 @@
 .env
 .env*
 !.env.example
+
+# Per-user Xcode UI state — not source.
+*.xcuserstate
+xcuserdata/
