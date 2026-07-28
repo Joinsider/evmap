@@ -14,14 +14,14 @@ class CommentService {
         this.comments = comments;
     }
 
-    List<CommentController.CommentResponse> list(UUID stationId) {
-        return comments.findByStationIdOrderByCreatedAtDesc(stationId).stream().map(this::response).toList();
+    List<CommentController.CommentResponse> list(UUID stationId, UUID userId) {
+        return comments.findByStationIdOrderByCreatedAtDesc(stationId).stream().map(comment -> response(comment, userId)).toList();
     }
 
     @Transactional
     CommentController.CommentResponse create(UUID stationId, UUID userId, CommentController.CommentRequest request) {
         validate(request);
-        return response(comments.save(new StationComment(stationId, userId, request)));
+        return response(comments.save(new StationComment(stationId, userId, request)), userId);
     }
 
     @Transactional
@@ -29,7 +29,7 @@ class CommentService {
         validate(request);
         StationComment comment = findOwned(id, userId);
         comment.apply(request);
-        return response(comment);
+        return response(comment, userId);
     }
 
     @Transactional
@@ -41,8 +41,9 @@ class CommentService {
         return comments.findByIdAndUserIdentityId(id, userId).orElseThrow(CommentController.CommentNotFoundException::new);
     }
 
-    private CommentController.CommentResponse response(StationComment comment) {
-        return new CommentController.CommentResponse(comment.id, comment.body, comment.paidPriceCents, comment.experience, comment.createdAt, comment.updatedAt);
+    private CommentController.CommentResponse response(StationComment comment, UUID userId) {
+        return new CommentController.CommentResponse(comment.id, comment.body, comment.paidPriceCents, comment.experience,
+                comment.createdAt, comment.updatedAt, userId != null && userId.equals(comment.userIdentityId));
     }
 
     private void validate(CommentController.CommentRequest request) {

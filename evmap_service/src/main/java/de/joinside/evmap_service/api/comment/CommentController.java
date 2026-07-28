@@ -18,8 +18,8 @@ public class CommentController {
     }
 
     @GetMapping("/api/v1/stations/{stationId}/comments")
-    List<CommentResponse> list(@PathVariable UUID stationId) {
-        return comments.list(stationId);
+    List<CommentResponse> list(@PathVariable UUID stationId, @AuthenticationPrincipal CurrentUser user) {
+        return comments.list(stationId, user == null ? null : user.identityId());
     }
 
     @PostMapping("/api/v1/stations/{stationId}/comments")
@@ -43,7 +43,7 @@ public class CommentController {
     }
 
     record CommentResponse(UUID id, String body, Integer paidPriceCents, String experience, Instant createdAt,
-                           Instant updatedAt) {
+                           Instant updatedAt, boolean ownedByCurrentUser) {
     }
 
     public static class CommentNotFoundException extends RuntimeException {

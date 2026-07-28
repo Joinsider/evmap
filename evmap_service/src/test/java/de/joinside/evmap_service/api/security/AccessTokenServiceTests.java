@@ -16,6 +16,8 @@ class AccessTokenServiceTests {
     }
     @Test void rejectsTamperedToken() {
         String token = tokens.issue(UUID.randomUUID());
-        assertThatThrownBy(() -> tokens.verify(token.substring(0, token.length() - 1) + "x")).isInstanceOf(IllegalArgumentException.class);
+        int index = token.length() - 2;
+        char replacement = token.charAt(index) == 'x' ? 'y' : 'x';
+        assertThatThrownBy(() -> tokens.verify(token.substring(0, index) + replacement + token.substring(index + 1))).isInstanceOf(IllegalArgumentException.class);
     }
 }

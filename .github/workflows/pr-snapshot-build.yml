@@ -1,0 +1,71 @@
+name: PR Snapshot Build
+
+# Builds a snapshot artifact for every PR targeting main/master and publishes it
+# as a pre-release tagged with the version currently in pom.xml (e.g. 0.0.1-SNAPSHOT).
+# Re-running this workflow (new commits pushed to the PR) overwrites the same
+# tag/release rather than creating new ones.
+
+on:
+  pull_request:
+    branches: [main, master]
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'evmap_service/**'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr-snapshot-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: evmap_service
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Build with Maven
+        run: ./mvnw -B -ntp clean package
+
+      - name: Read project version
+        id: version
+        run: |
+          VERSION=$(./mvnw -q -ntp help:evaluate -Dexpression=project.version -DforceStdout)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Determine tag name
+        id: tag
+        run: echo "tag=pr-${{ github.event.pull_request.number }}-${{ steps.version.outputs.version }}" >> "$GITHUB_OUTPUT"
+
+      - name: Move tag to current commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f "${{ steps.tag.outputs.tag }}"
+          git push -f origin "${{ steps.tag.outputs.tag }}"
+
+      - name: Publish/replace pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "PR #${{ github.event.pull_request.number }} snapshot (${{ steps.version.outputs.version }})"
+          prerelease: true
+          make_latest: false
+          files: evmap_service/target/*.jar
+          body: |
+            Automated snapshot build for PR #${{ github.event.pull_request.number }}, commit ${{ github.event.pull_request.head.sha }}.
+            This release is overwritten on every new commit pushed to the PR.

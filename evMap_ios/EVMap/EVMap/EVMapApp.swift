@@ -6,27 +6,21 @@
 //
 
 import SwiftUI
-import SwiftData
 
 @main
 struct EVMapApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+    private let repository: any ChargingStationRepository
+    @StateObject private var authSession: AuthSession
 
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
+    init() {
+        let repository = RESTChargingStationRepository()
+        self.repository = repository
+        _authSession = StateObject(wrappedValue: AuthSession(repository: repository))
+    }
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MapScreen(repository: repository, authSession: authSession)
         }
-        .modelContainer(sharedModelContainer)
     }
 }
