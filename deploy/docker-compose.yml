@@ -14,7 +14,11 @@
 
 services:
   database:
-    image: kartoza/postgis:17-3.5
+    # The PostGIS project's own image, built on the official postgres image — so
+    # POSTGRES_DB/USER/PASSWORD below mean what they say. Do not swap in kartoza/postgis:
+    # it reads POSTGRES_PASS/POSTGRES_DBNAME instead and silently ignores these, leaving a
+    # `gis` database and a randomly generated password the API can never authenticate with.
+    image: postgis/postgis:17-3.5
     restart: unless-stopped
     environment:
       POSTGRES_DB: evmap
@@ -24,8 +28,11 @@ services:
     # Add a mapping temporarily if you need psql from the host.
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    # A real query, not pg_isready: pg_isready exits 0 even when the role or database is
+    # wrong, so it would report healthy and let the API start into a connection it cannot
+    # make. Passwordless because the official entrypoint trusts the local socket.
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U evmap -d evmap"]
+      test: ["CMD-SHELL", "psql -U evmap -d evmap -c 'SELECT 1' > /dev/null || exit 1"]
       interval: 5s
       timeout: 3s
       retries: 20
