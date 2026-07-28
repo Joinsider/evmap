@@ -1,12 +1,14 @@
 name: Release
 
 # Runs on every push to main/master (unless the commit message contains
-# "[no-CI]", which is used by this workflow's own version-bump commits to
+# "[skip CI]", which is used by this workflow's own version-bump commits to
 # avoid triggering itself in a loop).
 #
-# 1. Strips -SNAPSHOT from pom.xml and commits the release version.
-# 2. Builds the jar and a Docker image, publishes both to GHCR and as a
-#    GitHub release tagged vX.Y.Z.
+# 1. Strips -SNAPSHOT from pom.xml and BUILDS. Nothing is pushed until the
+#    build has passed — a broken commit must not be able to mutate master's
+#    version or leave a half-finished release behind.
+# 2. Commits the release version, tags vX.Y.Z, and publishes the jar and a
+#    Docker image to GHCR and as a GitHub release.
 # 3. Bumps the patch version and re-adds -SNAPSHOT for the next dev cycle.
 
 on:
@@ -25,7 +27,7 @@ concurrency:
 
 jobs:
   release:
-    if: ${{ !contains(github.event.head_commit.message, '[no-CI]') }}
+    if: ${{ !contains(github.event.head_commit.message, '[skip CI]') }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -59,7 +61,21 @@ jobs:
         id: release_version
         run: |
           CURRENT_VERSION=$(./mvnw -q -ntp help:evaluate -Dexpression=project.version -DforceStdout)
+          case "$CURRENT_VERSION" in
+            *-SNAPSHOT) ;;
+            *)
+              echo "::error::pom.xml is at '$CURRENT_VERSION', not a -SNAPSHOT version. A previous"
+              echo "::error::release left the version state inconsistent; set it back to a"
+              echo "::error::-SNAPSHOT version on ${{ github.ref_name }} before releasing again."
+              exit 1
+              ;;
+          esac
           RELEASE_VERSION=${CURRENT_VERSION%-SNAPSHOT}
+          if git rev-parse -q --verify "refs/tags/v$RELEASE_VERSION" >/dev/null; then
+            echo "::error::Tag v$RELEASE_VERSION already exists. Bump the version in pom.xml"
+            echo "::error::or remove the stale tag before releasing again."
+            exit 1
+          fi
           echo "current=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
           echo "release=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
 
@@ -69,18 +85,17 @@ jobs:
             -DnewVersion=${{ steps.release_version.outputs.release }} \
             -DgenerateBackupPoms=false
 
-      - name: Commit release version
-        run: |
-          git add pom.xml
-          git commit -m "chore(release): ${{ steps.release_version.outputs.release }} [skip CI]"
-          git push origin HEAD:${{ github.ref_name }}
-
+      # Everything above this point is local to the runner. The build gates all
+      # pushes below it, so a failing build leaves the repository untouched.
       - name: Build with Maven
         run: ./mvnw -B -ntp clean package
 
-      - name: Tag release commit
+      - name: Commit and tag release version
         run: |
+          git add pom.xml
+          git commit -m "chore(release): ${{ steps.release_version.outputs.release }} [skip CI]"
           git tag "v${{ steps.release_version.outputs.release }}"
+          git push origin HEAD:${{ github.ref_name }}
           git push origin "v${{ steps.release_version.outputs.release }}"
 
       - name: Log in to GHCR

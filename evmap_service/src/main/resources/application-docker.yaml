@@ -1,0 +1,11 @@
+# Container logging: same stdout appender, but machine-readable so `docker logs` output can be shipped
+# to a log collector without parsing. Set LOG_FORMAT to an empty value to fall back to plain text,
+# or to gelf/logstash if the collector expects those.
+logging:
+  structured:
+    format:
+      console: ${LOG_FORMAT:ecs}
+    ecs:
+      service:
+        name: evmap-service
+        environment: ${DEPLOY_ENVIRONMENT:docker}
