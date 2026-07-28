@@ -15,7 +15,9 @@ class SecurityConfiguration {
     SecurityFilterChain securityFilterChain(HttpSecurity http, BearerTokenFilter bearerTokenFilter) throws Exception {
         return http.csrf(csrf -> csrf.disable()).sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth ->
-                        auth.requestMatchers("/actuator/health", "/api/v1/stations/**", "/api/v1/auth/apple").permitAll().anyRequest().authenticated())
+                        // health/** covers the group endpoints (/actuator/health/container); details
+                        // stay hidden by default, so this exposes status only.
+                        auth.requestMatchers("/actuator/health/**", "/api/v1/stations/**", "/api/v1/auth/apple").permitAll().anyRequest().authenticated())
                 .addFilterBefore(bearerTokenFilter, UsernamePasswordAuthenticationFilter.class).build();
     }
 }

@@ -4,6 +4,9 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import de.joinside.evmap_service.logging.LogContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -13,6 +16,8 @@ import java.io.IOException;
 
 @Component
 class BearerTokenFilter extends OncePerRequestFilter {
+    private static final Logger log = LoggerFactory.getLogger(BearerTokenFilter.class);
+
     private final AccessTokenService tokens;
 
     BearerTokenFilter(AccessTokenService tokens) {
@@ -26,7 +31,12 @@ class BearerTokenFilter extends OncePerRequestFilter {
             try {
                 CurrentUser user = tokens.verify(authorization.substring(7));
                 SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(user, null, java.util.List.of()));
-            } catch (IllegalArgumentException ignored) {
+                // Makes every subsequent log line of this request attributable to the caller.
+                LogContext.put(LogContext.USER_ID, user.identityId());
+                log.debug("Authenticated request for identity {}", user.identityId());
+            } catch (IllegalArgumentException rejected) {
+                // Never log the token itself — an expired or forged token is a normal, expected event.
+                log.warn("Rejected bearer token on {} {}: {}", request.getMethod(), request.getRequestURI(), rejected.getMessage());
             }
         }
         chain.doFilter(request, response);

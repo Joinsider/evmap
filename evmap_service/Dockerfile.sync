@@ -1,4 +1,25 @@
-FROM eclipse-temurin:25-jre
+FROM eclipse-temurin:25-jdk-alpine AS build
+WORKDIR /build
+COPY mvnw pom.xml ./
+COPY .mvn .mvn
+RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -ntp dependency:go-offline
+COPY src src
+RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -ntp package -DskipTests
+
+FROM build AS extract
+WORKDIR /extract
+RUN java -Djarmode=tools -jar /build/target/evmap-service-*.jar extract --layers --launcher --destination .
+
+# Same unprivileged user as the API image — this container writes master data and needs no root.
+# The runtime stage is deliberately identical to the API's (same base, same layer extraction), so the
+# two images share their layers instead of storing two copies of the same dependencies.
+FROM eclipse-temurin:25-jre-alpine
+RUN addgroup -S spring && adduser -S -G spring spring
 WORKDIR /app
-COPY target/evmap-service-*.jar app.jar
-ENTRYPOINT ["java", "-jar", "/app/app.jar", "--spring.profiles.active=sync"]
+COPY --from=extract --chown=spring:spring /extract/dependencies/ ./
+COPY --from=extract --chown=spring:spring /extract/spring-boot-loader/ ./
+COPY --from=extract --chown=spring:spring /extract/snapshot-dependencies/ ./
+COPY --from=extract --chown=spring:spring /extract/application/ ./
+USER spring
+ENV SPRING_PROFILES_ACTIVE=sync,docker
+ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]

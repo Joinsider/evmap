@@ -12,7 +12,9 @@ struct RESTChargingStationRepository: ChargingStationRepository {
             URLQueryItem(name: "longitude", value: String(longitude)),
             URLQueryItem(name: "radiusKm", value: "20")
         ]
-        if !filter.connectorType.isEmpty { items.append(.init(name: "connectorType", value: filter.connectorType)) }
+        for connector in filter.connectorTypes.map(\.rawValue).sorted() {
+            items.append(.init(name: "connectorType", value: connector))
+        }
         if let power = filter.minimumPower { items.append(.init(name: "minPowerKw", value: String(power))) }
         if !filter.operatorName.isEmpty { items.append(.init(name: "operator", value: filter.operatorName)) }
         components.queryItems = items

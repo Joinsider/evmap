@@ -4,8 +4,51 @@ spring:
   task:
     scheduling:
       enabled: true
+  # The API deployable owns schema migration. Two Liquibase instances bootstrapping the same empty
+  # database race on CREATE TABLE databasechangelog — a race Liquibase's own lock table cannot cover,
+  # because the lock table is one of the tables being created. Start this container only after the
+  # API reports healthy; Hibernate's ddl-auto: validate then fails loudly if the schema is missing.
+  liquibase:
+    enabled: false
 
 evmap:
   sync:
     enabled: true
     fixed-delay: PT24H
+    # Stations committed per transaction. One transaction for the whole run meant a single bad record
+    # discarded everything ingested before it — see ADR 0007. Larger is faster, smaller loses less
+    # when a batch fails; a failed batch is retried record by record either way.
+    batch-size: ${SYNC_BATCH_SIZE:1000}
+
+    # Bundesnetzagentur Ladesäulenregister (CC BY 4.0, attribution "Bundesnetzagentur.de").
+    # The published file name is date-stamped, so the adapter scrapes index-url for the current
+    # edition. Set csv-url to pin an edition, point at a local copy, or recover if that page changes.
+    bnetza:
+      enabled: ${BNETZA_ENABLED:true}
+      index-url: https://www.bundesnetzagentur.de/DE/Fachthemen/ElektrizitaetundGas/E-Mobilitaet/Ladesaeulenkarte/start.html
+      csv-url: ${BNETZA_CSV_URL:}
+      timeout: PT5M
+
+    # Open Charge Map. api-key is mandatory (the API answers 403 without one) and comes from
+    # https://openchargemap.org → my profile → my apps → Register An Application. A blank key skips
+    # the adapter with a warning rather than failing the run, so BNetzA-only deployments still work.
+    # request-delay and max-pages-per-country exist to stay inside OCM's fair usage policy.
+    ocm:
+      enabled: ${OCM_ENABLED:true}
+      base-url: https://api.openchargemap.io/v3
+      api-key: ${OCM_API_KEY:}
+      country-codes: ${OCM_COUNTRY_CODES:DE,AT,CH,NL,BE,LU,FR,IT,DK,PL,CZ}
+      page-size: 500
+      request-delay: PT1S
+      max-pages-per-country: 200
+      open-data-only: true
+      timeout: PT1M
+      client: evmap
+      # Incremental fetching: after a country has been crawled in full once, later runs ask only for
+      # what changed. The watermark advances only when a run ingested every record without failure.
+      # watermark-overlap re-asks a little before it (cheap, ingestion is an upsert);
+      # full-refresh-interval forces a whole-country crawl regularly, because `modifiedsince` never
+      # reveals upstream deletions.
+      incremental: ${OCM_INCREMENTAL:true}
+      watermark-overlap: PT48H
+      full-refresh-interval: P7D
