@@ -1,8 +1,6 @@
 name: Release
 
-# Runs on every push to main/master (unless the commit message contains
-# "[skip CI]", which is used by this workflow's own version-bump commits to
-# avoid triggering itself in a loop).
+# Runs on every push to main/master, and on manual dispatch.
 #
 # 1. Strips -SNAPSHOT from pom.xml and BUILDS. Nothing is pushed until the
 #    build has passed — a broken commit must not be able to mutate master's
@@ -10,12 +8,16 @@ name: Release
 # 2. Commits the release version, tags vX.Y.Z, and publishes the jar and a
 #    Docker image to GHCR and as a GitHub release.
 # 3. Bumps the patch version and re-adds -SNAPSHOT for the next dev cycle.
+#
+# The `guard` job stops step 3's own commits from re-triggering the workflow.
+# It inspects only the SUBJECT line of the head commit — see that job.
 
 on:
   push:
     branches: [main, master]
     paths:
       - "evmap_service/**"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -26,8 +28,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Decides whether this push is one of the workflow's own version-bump commits.
+  #
+  # This deliberately looks at the head commit's SUBJECT line only, and not at
+  # the whole message. A previous version tested the full message with
+  # `contains(github.event.head_commit.message, '[skip CI]')`, which skipped a
+  # legitimate release: a squash-merge concatenates every commit message into
+  # the merge commit body, and one of those bodies merely *described* the skip
+  # marker. A commit body must be free to discuss "[skip ci]" without disabling
+  # the release. GitHub's own native skip handling has the same subject-only
+  # semantics, which is why that run was created at all rather than suppressed.
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.check.outputs.release }}
+    steps:
+      - name: Check head commit subject for a skip marker
+        id: check
+        env:
+          # Via env, not string interpolation: a commit message is untrusted
+          # input and must never be pasted into a shell script.
+          HEAD_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          SUBJECT=$(printf '%s\n' "$HEAD_COMMIT_MESSAGE" | head -n 1)
+          if printf '%s\n' "$SUBJECT" | grep -qiF '[skip ci]'; then
+            echo "Skipping: head commit subject requests a CI skip."
+            echo "  $SUBJECT"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
   release:
-    if: ${{ !contains(github.event.head_commit.message, '[skip CI]') }}
+    needs: guard
+    if: ${{ needs.guard.outputs.release == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
