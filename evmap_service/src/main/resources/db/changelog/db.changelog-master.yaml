@@ -1,3 +1,7 @@
 databaseChangeLog:
   - include:
       file: db/changelog/001-initial-schema.sql
+  - include:
+      file: db/changelog/002-sync-run-history.sql
+  - include:
+      file: db/changelog/003-ingestion-resilience.sql

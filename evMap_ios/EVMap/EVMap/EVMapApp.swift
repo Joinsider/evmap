@@ -13,6 +13,9 @@ struct EVMapApp: App {
     @StateObject private var authSession: AuthSession
 
     init() {
+        // First line of every run: without it, a console full of request logs
+        // gives no clue which backend they were aimed at.
+        AppLogger.app.notice("EVMap \(Bundle.main.appVersion) launched against \(APIEnvironment.baseURL.absoluteString)")
         let repository = RESTChargingStationRepository()
         self.repository = repository
         _authSession = StateObject(wrappedValue: AuthSession(repository: repository))

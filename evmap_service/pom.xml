@@ -74,6 +74,16 @@
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
+        <!--
+          The Bundesnetzagentur register is published as a semicolon-separated CSV whose fields contain
+          both quoted delimiters and embedded newlines (13.751 such fields in the 2026-07-07 edition),
+          so a line-oriented split cannot read it. Not managed by the Spring Boot BOM — version is ours.
+        -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-csv</artifactId>
+            <version>1.14.1</version>
+        </dependency>
 
         <dependency>
             <groupId>com.h2database</groupId>

@@ -22,8 +22,29 @@ management:
     web:
       exposure:
         include: health,info
+  endpoint:
+    health:
+      group:
+        # What the container healthcheck asks: "can this instance serve requests?". Excludes the
+        # ingestion indicator on purpose — sync waits for the API to be healthy, so letting a failed
+        # or never-run ingestion mark the API unhealthy would deadlock a cold start.
+        container:
+          include: db
+
+# Local default: human-readable console output including the request correlation id.
+# The `docker` profile (application-docker.yaml) switches the same appender to structured JSON.
+logging:
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    de.joinside.evmap_service: ${LOG_LEVEL_APP:INFO}
+  pattern:
+    correlation: "[%X{requestId:-}] "
 
 evmap:
+  sync:
+    # How long the last successful ingestion may be ago before /actuator/health reports DOWN.
+    # Twice the 24 h fixed delay, so a single missed run is not an alert.
+    max-age: ${SYNC_MAX_AGE:PT48H}
   security:
     jwt-secret: ${JWT_SECRET:change-this-development-secret-to-a-long-random-value}
     jwt-ttl: PT12H

@@ -28,8 +28,11 @@ struct MapScreen: View {
                     }.tag(station)
                 }
             }
-            .mapControls { MapUserLocationButton(); MapCompass(); MapScaleView() }
+            .mapControls { MapCompass(); MapScaleView() }
             .navigationTitle("app.title")
+            .onChange(of: viewModel.locationFixCount) {
+                position = .region(MKCoordinateRegion(center: viewModel.location, latitudinalMeters: 20_000, longitudinalMeters: 20_000))
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button { viewModel.requestLocation() } label: { Label("map.locate", systemImage: "location.fill") } }
                 ToolbarItem(placement: .topBarTrailing) { Button { showFilters = true } label: { Label("filter.title", systemImage: "line.3.horizontal.decrease.circle") } }

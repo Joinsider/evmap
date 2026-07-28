@@ -20,11 +20,16 @@ final class StationDetailViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         do {
-            async let stationDetail = repository.detail(id: stationID)
-            async let stationComments = repository.comments(stationID: stationID, accessToken: accessToken)
-            detail = try await stationDetail
-            comments = try await stationComments
-        } catch { errorMessage = error.localizedDescription }
+            try await AppLogger.stations.measure("Station \(stationID) detail + comments") {
+                async let stationDetail = repository.detail(id: stationID)
+                async let stationComments = repository.comments(stationID: stationID, accessToken: accessToken)
+                detail = try await stationDetail
+                comments = try await stationComments
+            }
+            AppLogger.stations.debug("Loaded \(detail?.connectors.count ?? 0) connector(s) from source(s) \(detail?.sources.joined(separator: ", ") ?? "-"), \(comments.count) comment(s)")
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     func createComment(_ payload: CommentPayload, accessToken: String) async {
@@ -38,11 +43,22 @@ final class StationDetailViewModel: ObservableObject {
     }
 
     func deleteComment(_ comment: StationComment, accessToken: String) async {
-        do { try await repository.deleteComment(id: comment.id, accessToken: accessToken); comments.removeAll { $0.id == comment.id } }
-        catch { errorMessage = error.localizedDescription }
+        do {
+            try await repository.deleteComment(id: comment.id, accessToken: accessToken)
+            comments.removeAll { $0.id == comment.id }
+            AppLogger.comments.notice("Deleted comment \(comment.id)")
+        } catch {
+            AppLogger.comments.error("Deleting comment \(comment.id) failed", error: error)
+            errorMessage = error.localizedDescription
+        }
     }
 
     private func perform(_ operation: () async throws -> StationComment, onSuccess: (StationComment) -> Void) async {
-        do { onSuccess(try await operation()) } catch { errorMessage = error.localizedDescription }
+        do {
+            onSuccess(try await operation())
+        } catch {
+            AppLogger.comments.error("Comment write on station \(stationID) failed", error: error)
+            errorMessage = error.localizedDescription
+        }
     }
 }
