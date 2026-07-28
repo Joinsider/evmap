@@ -32,7 +32,6 @@ jobs:
         working-directory: evmap_service
     env:
       REGISTRY: ghcr.io
-      IMAGE_NAME: ${{ github.repository }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,6 +39,9 @@ jobs:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
           ssh-key: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Set image name
+        run: echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
       - name: Set up JDK
         uses: actions/setup-java@v4
