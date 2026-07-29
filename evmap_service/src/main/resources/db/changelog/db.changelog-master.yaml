@@ -5,3 +5,5 @@ databaseChangeLog:
       file: db/changelog/002-sync-run-history.sql
   - include:
       file: db/changelog/003-ingestion-resilience.sql
+  - include:
+      file: db/changelog/004-connector-power-lookup.sql

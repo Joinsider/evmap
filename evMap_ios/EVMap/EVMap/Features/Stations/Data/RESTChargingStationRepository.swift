@@ -5,12 +5,14 @@ struct RESTChargingStationRepository: ChargingStationRepository {
 
     init(client: APIClient = APIClient()) { self.client = client }
 
-    func nearby(latitude: Double, longitude: Double, filter: StationFilter) async throws -> [Station] {
+    func nearby(latitude: Double, longitude: Double, radiusKm: Double, limit: Int, filter: StationFilter) async throws -> [Station] {
         var components = URLComponents(url: client.url(path: "/api/v1/stations"), resolvingAgainstBaseURL: false)!
         var items = [
             URLQueryItem(name: "latitude", value: String(latitude)),
             URLQueryItem(name: "longitude", value: String(longitude)),
-            URLQueryItem(name: "radiusKm", value: "20")
+            // The endpoint takes whole kilometres; rounding up keeps the viewport's corners inside.
+            URLQueryItem(name: "radiusKm", value: String(Int(radiusKm.rounded(.up)))),
+            URLQueryItem(name: "limit", value: String(limit))
         ]
         for connector in filter.connectorTypes.map(\.rawValue).sorted() {
             items.append(.init(name: "connectorType", value: connector))

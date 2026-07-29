@@ -16,8 +16,8 @@ public class StationController {
     }
 
     @GetMapping
-    List<StationSummary> nearby(@RequestParam double latitude, @RequestParam double longitude, @RequestParam(defaultValue = "10") int radiusKm, @RequestParam(required = false) List<String> connectorType, @RequestParam(required = false) BigDecimal minPowerKw, @RequestParam(required = false) String operator) {
-        return stations.nearby(latitude, longitude, radiusKm, connectorType, minPowerKw, operator);
+    List<StationSummary> nearby(@RequestParam double latitude, @RequestParam double longitude, @RequestParam(defaultValue = "10") int radiusKm, @RequestParam(required = false) List<String> connectorType, @RequestParam(required = false) BigDecimal minPowerKw, @RequestParam(required = false) String operator, @RequestParam(defaultValue = "500") int limit) {
+        return stations.nearby(latitude, longitude, radiusKm, connectorType, minPowerKw, operator, limit);
     }
 
     @GetMapping("/{id}")
@@ -25,9 +25,14 @@ public class StationController {
         return stations.detail(id);
     }
 
+    /**
+     * @param maxPowerKw strongest connector at the station, {@code null} when no source reported a
+     *                   power rating. Drives the map pin colour, so it is part of the list payload
+     *                   rather than of the detail response.
+     */
     record StationSummary(UUID id, String displayName, String street, String city, String postalCode,
                           String countryCode, String operatorName, double latitude, double longitude,
-                          String availabilityStatus) {
+                          String availabilityStatus, BigDecimal maxPowerKw) {
     }
 
     record Connector(String connectorType, BigDecimal powerKw, int quantity) {

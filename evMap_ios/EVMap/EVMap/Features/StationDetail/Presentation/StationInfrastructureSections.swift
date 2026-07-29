@@ -9,7 +9,7 @@ struct StationInfrastructureSections: View {
                 HStack {
                     Text(connector.connectorType)
                     Spacer()
-                    Text(connector.powerKw.map { String(localized: "station.power \($0)") } ?? "—")
+                    Text(connector.powerKw.map(formattedPower(kW:)) ?? "—")
                 }
             }
         }

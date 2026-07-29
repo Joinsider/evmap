@@ -1,7 +1,7 @@
 "action.apply" = "Apply";
 "action.cancel" = "Cancel";
-"action.edit" = "Edit";
 "action.delete" = "Delete";
+"action.edit" = "Edit";
 "action.ok" = "OK";
 "action.save" = "Save";
 "app.title" = "EVMap";
@@ -21,10 +21,17 @@
 "filter.connection" = "Charging point";
 "filter.connector" = "Connector types";
 "filter.minimumPower" = "Minimum charging power";
-"filter.power.any" = "Any";
 "filter.operator" = "Operator";
+"filter.power.any" = "Any";
 "filter.title" = "Filters";
+"map.cluster %@" = "%@ charging stations";
+"map.legend.accessibility" = "Legend: a pin's colour shows its maximum charging power — blue below 22 kW, green from 22 kW, yellow from 50 kW, orange from 150 kW, red from 300 kW.";
 "map.locate" = "Update location";
+"power.tier.fast" = "Fast charging (DC)";
+"power.tier.highPower" = "High power (DC)";
+"power.tier.slow" = "Slow charging (AC)";
+"power.tier.standard" = "Standard charging (AC)";
+"power.tier.ultra" = "Ultra fast (HPC)";
 "station.addressUnavailable" = "No address available";
 "station.availability.maintenance" = "Under maintenance";
 "station.availability.operational" = "Operational";
@@ -35,5 +42,6 @@
 "station.details" = "Details";
 "station.power %@" = "%@ kW";
 "station.sources" = "Data sources";
-"stations.count %@" = "%@ stations";
 "stations.loading" = "Loading stations …";
+"stations.truncated" = "Showing the highest-powered stations only — zoom in for all";
+"unit.kW" = "kW";

@@ -49,8 +49,7 @@ struct StationFilterScreen: View {
 
     private var powerLabel: String {
         guard let power = filter.minimumPower else { return String(localized: "filter.power.any") }
-        let value = power.formatted(.number.precision(.fractionLength(0)))
-        return String(localized: "station.power \(value)")
+        return formattedPower(kW: power)
     }
 
     private func toggle(_ connector: ConnectorType) {
