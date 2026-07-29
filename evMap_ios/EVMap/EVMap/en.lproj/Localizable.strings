@@ -36,9 +36,8 @@
 "station.availability.maintenance" = "Under maintenance";
 "station.availability.operational" = "Operational";
 "station.availability.outOfService" = "Out of service";
-"station.combinedSources" = "Combination of multiple data sources:";
+"station.combinedSources" = "Merged from multiple data sources.";
 "station.connectors" = "Connectors";
-"station.dataSource" = "Data source:";
 "station.details" = "Details";
 "station.power %@" = "%@ kW";
 "station.sources" = "Data sources";

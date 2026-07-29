@@ -36,9 +36,8 @@
 "station.availability.maintenance" = "In Wartung";
 "station.availability.operational" = "In Betrieb";
 "station.availability.outOfService" = "Außer Betrieb";
-"station.combinedSources" = "Kombination mehrerer Datenquellen:";
+"station.combinedSources" = "Aus mehreren Datenquellen zusammengeführt.";
 "station.connectors" = "Anschlüsse";
-"station.dataSource" = "Datenquelle:";
 "station.details" = "Details";
 "station.power %@" = "%@ kW";
 "station.sources" = "Datenquellen";
