@@ -107,8 +107,15 @@ code — never call networking APIs directly from a ViewModel or View.
 
 Structure follows a feature-module layout under `Features/`, each split into `Domain` (models),
 `Data` (repository implementations), and `Presentation` (SwiftUI views + view models): `Auth`, `Comments`,
-`Map`, `StationDetail`, `Stations`. Shared networking primitives live in `Core/Networking`
+`Map`, `Search`, `StationDetail`, `Stations`. Shared networking primitives live in `Core/Networking`
 (`APIClient`, `APIError`).
+
+`Search` (address autocomplete) deliberately does *not* go through `ChargingStationRepository` — it
+talks to MapKit, not the backend — but has its own `AddressSearchProviding` seam for the same reason.
+Recent searches are device-local and personal: never sent to the backend, and under ADR 0002's rules
+only the *fact* of a search may be logged above `.debug`, never the address or its coordinate. The
+search moves the camera and nothing else; `onMapCameraChange` then loads stations through the normal
+viewport path, so there is no second fetch trigger. See ADR 0011.
 
 ## Constraints worth knowing before changing scope
 

@@ -3,6 +3,7 @@ import SwiftUI
 
 struct MapScreen: View {
     @StateObject private var viewModel: MapViewModel
+    @StateObject private var search = AddressSearchViewModel()
     let repository: any ChargingStationRepository
     @ObservedObject var authSession: AuthSession
     /// Launch view: Germany at overview scale, which loads the highpower backbone straight away and
@@ -17,6 +18,10 @@ struct MapScreen: View {
     @State private var selectedAnnotation: StationAnnotation?
     @State private var selectedStation: Station?
     @State private var showFilters = false
+    /// Focus, not presentation. Dismissing the search *presentation* after a hit would take the
+    /// text with it — UIKit clears the field when the search controller goes away — leaving the map
+    /// on a place the search bar no longer names. Dropping focus only closes the keyboard.
+    @FocusState private var isSearchFieldFocused: Bool
 
     init(repository: any ChargingStationRepository, authSession: AuthSession) {
         self.repository = repository
@@ -28,6 +33,11 @@ struct MapScreen: View {
         NavigationStack {
             Map(position: $position, selection: $selectedAnnotation) {
                 UserAnnotation()
+                // Drawn before the station pins so a searched address never hides one.
+                if let place = search.result {
+                    Marker(place.displayName, systemImage: "mappin", coordinate: place.coordinate)
+                        .tint(.indigo)
+                }
                 ForEach(viewModel.annotations) { annotation in
                     Annotation(annotation.station?.displayName ?? "", coordinate: annotation.coordinate) {
                         StationAnnotationView(annotation: annotation)
@@ -36,10 +46,27 @@ struct MapScreen: View {
             }
             .mapControls { MapCompass(); MapScaleView() }
             .navigationTitle("app.title")
+            // Placement is left to the toolbar, which puts the field in the bottom bar below.
+            .searchable(text: $search.query, prompt: Text("search.prompt"))
+            .searchFocused($isSearchFieldFocused)
+            .searchSuggestions { AddressSearchSuggestions(viewModel: search) }
+            .onChange(of: search.query) { _, query in search.queryChanged(to: query) }
+            .onSubmit(of: .search) { search.submit() }
+            // Moving the map to the hit is what "search" means here; the camera change then loads the
+            // stations around it through the normal viewport path.
+            .onChange(of: search.result) { _, place in
+                guard let place else { return }
+                isSearchFieldFocused = false
+                withAnimation {
+                    position = .region(MKCoordinateRegion(center: place.coordinate, latitudinalMeters: 4_000, longitudinalMeters: 4_000))
+                }
+            }
             // `.onEnd` rather than `.continuous`: the camera settles once per gesture, which is the
             // natural debounce for a network query. The view model decides whether to actually fetch.
             .onMapCameraChange(frequency: .onEnd) { context in
                 visibleSpan = context.region.span
+                // Autocomplete is biased towards what is on screen, so it follows the camera.
+                search.searchRegion = context.region
                 viewModel.cameraChanged(to: context.region)
             }
             .onChange(of: viewModel.locationFixCount) {
@@ -55,14 +82,27 @@ struct MapScreen: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button { viewModel.requestLocation() } label: { Label("map.locate", systemImage: "location.fill") } }
                 ToolbarItem(placement: .topBarTrailing) { Button { showFilters = true } label: { Label("filter.title", systemImage: "line.3.horizontal.decrease.circle") } }
+                // Where iOS 26 puts search: a full-width field in the bottom bar, within thumb
+                // reach, rather than a drawer under the title at the far end of the screen.
+                DefaultToolbarItem(kind: .search, placement: .bottomBar)
             }
-            .overlay(alignment: .top) { MapStatusBadge(isLoading: viewModel.isLoading, isTruncated: viewModel.isTruncated) }
+            .overlay(alignment: .top) {
+                MapStatusBadge(isLoading: viewModel.isLoading, isResolving: search.isResolving, isTruncated: viewModel.isTruncated)
+                    .animation(.default, value: viewModel.isLoading)
+                    .animation(.default, value: viewModel.isTruncated)
+                    .animation(.default, value: search.isResolving)
+            }
             .overlay(alignment: .bottomTrailing) { ChargingPowerLegend().padding(12) }
             .sheet(item: $selectedStation) { StationDetailScreen(station: $0, repository: repository, authSession: authSession) }
             .sheet(isPresented: $showFilters) { StationFilterScreen(filter: $viewModel.filter) { viewModel.reload() } }
-            .alert("error.title", isPresented: Binding(get: { viewModel.errorMessage != nil }, set: { if !$0 { viewModel.errorMessage = nil } })) {
+            // One alert for both sources: SwiftUI presents a single alert per view, and a failed
+            // station load and a failed address lookup are the same kind of interruption.
+            .alert("error.title", isPresented: Binding(
+                get: { viewModel.errorMessage != nil || search.errorMessage != nil },
+                set: { if !$0 { viewModel.errorMessage = nil; search.errorMessage = nil } }
+            )) {
                 Button("action.ok", role: .cancel) { }
-            } message: { Text(viewModel.errorMessage ?? "") }
+            } message: { Text(viewModel.errorMessage ?? search.errorMessage ?? "") }
             // Seeds the first query from the known starting region rather than waiting for MapKit to
             // report a camera; the coverage check keeps its subsequent report from refetching.
             .task { viewModel.cameraChanged(to: Self.initialRegion); viewModel.requestLocation() }
@@ -121,25 +161,34 @@ private struct StationAnnotationView: View {
 }
 
 /// Transient status over the map: loading, or a note that the viewport holds more than was drawn.
+///
+/// The capsule is built per state rather than around a `Group`, because a `Group` with an empty
+/// body still carries the padding and the material — an idle map was left with a blank blob
+/// hovering over it. Nothing to say means no view at all.
 private struct MapStatusBadge: View {
     let isLoading: Bool
+    let isResolving: Bool
     let isTruncated: Bool
 
     var body: some View {
-        Group {
-            if isLoading {
-                Label { Text("stations.loading") } icon: { ProgressView().controlSize(.mini) }
-            } else if isTruncated {
-                Label("stations.truncated", systemImage: "arrow.down.left.and.arrow.up.right")
-            }
+        if isResolving {
+            capsule { Label { Text("search.resolving") } icon: { ProgressView().controlSize(.mini) } }
+        } else if isLoading {
+            capsule { Label { Text("stations.loading") } icon: { ProgressView().controlSize(.mini) } }
+        } else if isTruncated {
+            capsule { Label("stations.truncated", systemImage: "arrow.down.left.and.arrow.up.right") }
         }
-        .font(.caption)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
-        .background(.thinMaterial, in: .capsule)
-        .shadow(radius: 2)
-        .padding(.top, 8)
-        .animation(.default, value: isLoading)
+    }
+
+    private func capsule(@ViewBuilder _ content: () -> some View) -> some View {
+        content()
+            .font(.caption)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(.thinMaterial, in: .capsule)
+            .shadow(radius: 2)
+            .padding(.top, 8)
+            .transition(.opacity)
     }
 }
 

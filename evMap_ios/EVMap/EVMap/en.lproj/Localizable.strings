@@ -28,6 +28,11 @@
 "map.legend.accessibility" = "Legend: a pin's colour shows its maximum charging power — blue below 22 kW, green from 22 kW, yellow from 50 kW, orange from 150 kW, red from 300 kW.";
 "map.locate" = "Update location";
 "power.tier.fast" = "Fast charging (DC)";
+"search.error.notFound" = "No place was found for that address.";
+"search.prompt" = "Search address or place";
+"search.recent" = "Recent searches";
+"search.recent.clear" = "Clear history";
+"search.resolving" = "Looking up address …";
 "power.tier.highPower" = "High power (DC)";
 "power.tier.slow" = "Slow charging (AC)";
 "power.tier.standard" = "Standard charging (AC)";
