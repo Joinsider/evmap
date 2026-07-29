@@ -1,12 +1,16 @@
 import Combine
 import CoreLocation
 import Foundation
+import MapKit
 
 @MainActor
 final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate {
-    @Published var stations: [Station] = []
+    @Published private(set) var annotations: [StationAnnotation] = []
     @Published var filter = StationFilter()
     @Published private(set) var isLoading = false
+    /// True when the last response filled the row limit, i.e. the viewport holds more stations
+    /// than were returned. The map says so rather than pretending to be complete.
+    @Published private(set) var isTruncated = false
     @Published var errorMessage: String?
     @Published private(set) var location = CLLocationCoordinate2D(latitude: 51.1657, longitude: 10.4515)
     /// Bumped on every accepted location fix so the map can recenter without
@@ -15,6 +19,15 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
 
     private let repository: any ChargingStationRepository
     private let locationManager = CLLocationManager()
+
+    private var stations: [Station] = []
+    /// Viewport the current `stations` were fetched for — the yardstick `isCovered(by:)` uses to
+    /// decide whether a camera change needs the network at all.
+    private var loadedViewport: MapViewport?
+    /// Viewport the map is showing now, which may be finer-grained than what was fetched; the
+    /// clusterer works from this so grouping follows the zoom immediately.
+    private var currentViewport: MapViewport?
+    private var loadTask: Task<Void, Never>?
 
     init(repository: any ChargingStationRepository) {
         self.repository = repository
@@ -28,24 +41,73 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         locationManager.startUpdatingLocation()
     }
 
-    func loadStations() async {
+    /// Entry point for `onMapCameraChange`: reclusters for the new zoom always, refetches only when
+    /// the new viewport is no longer covered by what is already loaded.
+    func cameraChanged(to region: MKCoordinateRegion) {
+        let viewport = MapViewport(region: region)
+        currentViewport = viewport
+        recluster()
+
+        if let loadedViewport, viewport.isCovered(by: loadedViewport) {
+            AppLogger.stations.debug("Camera settled inside the loaded area — no refetch")
+            return
+        }
+        load(viewport)
+    }
+
+    /// Refetches the area currently on screen, e.g. after the filter changed.
+    func reload() {
+        guard let currentViewport else { return }
+        load(currentViewport)
+    }
+
+    private func load(_ viewport: MapViewport) {
+        // A pan that outruns the network would otherwise leave two responses racing for `stations`,
+        // and the slower one wins by arriving last.
+        loadTask?.cancel()
+        loadTask = Task { [weak self] in await self?.performLoad(viewport) }
+    }
+
+    private func performLoad(_ viewport: MapViewport) async {
         isLoading = true
         defer { isLoading = false }
+        let query = viewport.effectiveFilter(filter)
         do {
             // The coordinate goes on the debug channel only; the persisted line
             // carries the filter, which is not personal data.
-            AppLogger.stations.debug("Querying around \(AppLogger.coordinate(latitude: location.latitude, longitude: location.longitude))")
-            let fetched = try await AppLogger.stations.measure("Nearby stations \(filter.logDescription)") {
-                try await repository.nearby(latitude: location.latitude, longitude: location.longitude, filter: filter)
+            AppLogger.stations.debug("Querying around \(AppLogger.coordinate(latitude: viewport.center.latitude, longitude: viewport.center.longitude))")
+            let fetched = try await AppLogger.stations.measure("Viewport stations r=\(Int(viewport.radiusKm))km \(query.logDescription)") {
+                try await repository.nearby(
+                    latitude: viewport.center.latitude,
+                    longitude: viewport.center.longitude,
+                    radiusKm: viewport.radiusKm,
+                    limit: MapViewport.maxStations,
+                    filter: query
+                )
             }
+            guard !Task.isCancelled else { return }
             // Filters on the reported state, not on merely having one. Until ingestion populated
             // this field every station was statusless, so "has a status" happened to be a useful
             // proxy; now that BNetzA reports one for all 113k German stations it selects everything.
             stations = fetched.filter { !filter.availabilityOnly || ($0.availability?.isUsable ?? false) }
-            AppLogger.stations.notice("Showing \(stations.count) of \(fetched.count) stations")
+            isTruncated = fetched.count >= MapViewport.maxStations
+            loadedViewport = viewport
+            recluster()
+            AppLogger.stations.notice("Showing \(self.stations.count) of \(fetched.count) stations in \(self.annotations.count) pins\(self.isTruncated ? " (limit reached)" : "")")
+        } catch is CancellationError {
+            AppLogger.stations.debug("Viewport query superseded by a newer one")
         } catch {
+            guard !Task.isCancelled else { return }
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func recluster() {
+        guard let currentViewport else {
+            annotations = StationClusterer.cluster(stations, latitudeSpan: 0)
+            return
+        }
+        annotations = StationClusterer.cluster(stations, latitudeSpan: currentViewport.latitudeSpan)
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
@@ -54,16 +116,15 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         locationFixCount += 1
         // Persisting a stream of fixes would amount to a movement profile in the
         // device log, so only the fact of a fix is durable — the position is not.
-        AppLogger.location.notice("Fix #\(locationFixCount) received (accuracy \(String(format: "%.0f m", locations.last?.horizontalAccuracy ?? -1)))")
-        AppLogger.location.debug("Fix #\(locationFixCount) at \(AppLogger.coordinate(latitude: coordinate.latitude, longitude: coordinate.longitude))")
-        Task { await loadStations() }
+        AppLogger.location.notice("Fix #\(self.locationFixCount) received (accuracy \(String(format: "%.0f m", locations.last?.horizontalAccuracy ?? -1)))")
+        AppLogger.location.debug("Fix #\(self.locationFixCount) at \(AppLogger.coordinate(latitude: coordinate.latitude, longitude: coordinate.longitude))")
+        // No fetch here: recentering moves the camera, and `cameraChanged(to:)` loads what it lands on.
         manager.stopUpdatingLocation()
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        // Not fatal: we keep the last known (or default) coordinate and load anyway.
+        // Not fatal: the map keeps its current viewport, which already has stations loaded for it.
         AppLogger.location.warning("Location fix failed, keeping last known position — \(AppLogger.describe(error))")
-        Task { await loadStations() }
     }
 
     private static func describe(_ status: CLAuthorizationStatus) -> String {
