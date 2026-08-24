@@ -6,7 +6,9 @@ import MapKit
 @MainActor
 final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published private(set) var annotations: [StationAnnotation] = []
-    @Published var filter = StationFilter()
+    /// The criteria the map is currently showing. Owned by the settings (`apply(_:)`) rather than
+    /// editable here, so there is one source of truth for what the user asked to see.
+    @Published private(set) var filter: StationFilter
     @Published private(set) var isLoading = false
     /// True when the last response filled the row limit, i.e. the viewport holds more stations
     /// than were returned. The map says so rather than pretending to be complete.
@@ -29,10 +31,23 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
     private var currentViewport: MapViewport?
     private var loadTask: Task<Void, Never>?
 
-    init(repository: any ChargingStationRepository) {
+    /// `filter` is passed in rather than defaulted so the very first viewport query already carries
+    /// the user's stored settings — otherwise the map would load the unfiltered world once and
+    /// visibly correct itself.
+    init(repository: any ChargingStationRepository, filter: StationFilter = StationFilter()) {
         self.repository = repository
+        self.filter = filter
         super.init()
         locationManager.delegate = self
+    }
+
+    /// Adopts the filter the settings describe, refetching only when it actually differs from what
+    /// is on screen — opening the settings screen and closing it again is not a reason to re-query.
+    func apply(_ filter: StationFilter) {
+        guard filter != self.filter else { return }
+        self.filter = filter
+        AppLogger.stations.notice("Filter changed to \(filter.logDescription) — reloading")
+        reload()
     }
 
     func requestLocation() {

@@ -11,6 +11,9 @@ import SwiftUI
 struct EVMapApp: App {
     private let repository: any ChargingStationRepository
     @StateObject private var authSession: AuthSession
+    /// Loaded once at launch and owned here rather than by a screen, because the map needs the
+    /// stored filter before it builds its first query.
+    @StateObject private var settings = SettingsViewModel()
 
     init() {
         // First line of every run: without it, a console full of request logs
@@ -23,7 +26,7 @@ struct EVMapApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MapScreen(repository: repository, authSession: authSession)
+            MapScreen(repository: repository, authSession: authSession, settings: settings)
         }
     }
 }

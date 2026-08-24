@@ -21,6 +21,18 @@ class StationService {
     private static final int MAX_RADIUS_KM = 1_000;
     /** Ceiling on returned rows — an unbounded list of pins is unusable on a map and slow to draw. */
     private static final int MAX_LIMIT = 2_000;
+    /**
+     * Ceiling on hidden operators. The client sends one name per network the user switched off, and
+     * a plausible user hides a handful; a list this long is a malformed or hostile request, not a
+     * setting, and every entry costs a comparison per candidate row.
+     */
+    static final int MAX_EXCLUDED_OPERATORS = 200;
+    /**
+     * Ceiling on the operator allowlist, for the same reason and at the same size: the app sends
+     * one name per network the user kept visible while hiding the rest, and that is a list a person
+     * curated by hand.
+     */
+    static final int MAX_INCLUDED_OPERATORS = 200;
 
     private final StationSpatialRepository spatialStations;
     private final ChargingStationRepository stations;
@@ -43,6 +55,8 @@ class StationService {
                                                   List<String> connectorTypes,
                                                   BigDecimal minPowerKw,
                                                   String operator,
+                                                  List<String> excludeOperators,
+                                                  List<String> includeOperators,
                                                   int limit) {
 
         if (radiusKm < 1 || radiusKm > MAX_RADIUS_KM) {
@@ -53,12 +67,27 @@ class StationService {
             log.warn("Rejected nearby query with limit={}", limit);
             throw new IllegalArgumentException("limit must be between 1 and " + MAX_LIMIT);
         }
+        if (excludeOperators != null && excludeOperators.size() > MAX_EXCLUDED_OPERATORS) {
+            log.warn("Rejected nearby query excluding {} operators", excludeOperators.size());
+            throw new IllegalArgumentException("excludeOperator must name at most " + MAX_EXCLUDED_OPERATORS + " operators");
+        }
+        if (includeOperators != null && includeOperators.size() > MAX_INCLUDED_OPERATORS) {
+            log.warn("Rejected nearby query restricted to {} operators", includeOperators.size());
+            throw new IllegalArgumentException("includeOperator must name at most " + MAX_INCLUDED_OPERATORS + " operators");
+        }
         var types = connectorTypes == null || connectorTypes.isEmpty() ? null : connectorTypes;
-        log.debug("Nearby query lat={} lon={} radiusKm={} connectorTypes={} minPowerKw={} operator={} limit={}",
-                latitude, longitude, radiusKm, types, minPowerKw, operator, limit);
+        var excluded = excludeOperators == null || excludeOperators.isEmpty() ? null : excludeOperators;
+        // An empty list is treated as "no allowlist", matching how the parameter's absence reads.
+        // The client never gets here with one — an allowlist of nothing means an empty map, which
+        // it answers without a request rather than by sending a query that cannot express it.
+        var included = includeOperators == null || includeOperators.isEmpty() ? null : includeOperators;
+        // The excluded names are logged by count only: which networks somebody switched off is a
+        // preference of theirs, and the list adds nothing to a query trace anyway.
+        log.debug("Nearby query lat={} lon={} radiusKm={} connectorTypes={} minPowerKw={} operator={} excludedOperators={} includedOperators={} limit={}",
+                latitude, longitude, radiusKm, types, minPowerKw, operator, excluded == null ? 0 : excluded.size(), included == null ? 0 : included.size(), limit);
 
         long startedAt = System.nanoTime();
-        var results = spatialStations.findNearby(latitude, longitude, radiusKm, types, minPowerKw, operator, limit);
+        var results = spatialStations.findNearby(latitude, longitude, radiusKm, types, minPowerKw, operator, excluded, included, limit);
         long durationMs = (System.nanoTime() - startedAt) / 1_000_000;
 
         if (durationMs >= SLOW_QUERY_MS)

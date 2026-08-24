@@ -30,7 +30,17 @@ public final class LogContext {
         if (value != null) MDC.put(key, value.toString());
     }
 
-    /** Opens a scope that removes the key again when closed — for background jobs without a request context. */
+    /**
+     * Opens a scope that removes the key again when closed — for background jobs without a request
+     * context.
+     * <p>
+     * <strong>Do not nest two scopes on the same key.</strong> Closing one <em>removes</em> the key
+     * rather than restoring what an enclosing scope had put there, so the inner scope silently
+     * unsets the outer one for everything that follows. Each key needs a single owner: the sync run
+     * owns {@link #SOURCE} for as long as it is ingesting that source, and {@code RequestLoggingFilter}
+     * owns {@link #REQUEST_ID} for the lifetime of a request. Nesting <em>different</em> keys — a
+     * {@link #SOURCE} inside a {@link #JOB} — is fine and intended.
+     */
     public static MDC.MDCCloseable scope(String key, Object value) {
         return MDC.putCloseable(key, String.valueOf(value));
     }

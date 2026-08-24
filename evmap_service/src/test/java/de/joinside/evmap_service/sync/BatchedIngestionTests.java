@@ -1,7 +1,9 @@
 package de.joinside.evmap_service.sync;
 
+import de.joinside.evmap_service.logging.LogContext;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -14,6 +16,23 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class BatchedIngestionTests {
+
+    @Test
+    @DisplayName("leaves the caller's diagnostic context intact, because the run owns the source tag")
+    void doesNotClearTheCallersMdc() {
+        // Regression: this used to open its own MDC scope on `source` per record. MDC.putCloseable
+        // removes the key on close rather than restoring the enclosing value, so the very first record
+        // deleted the tag SyncJob had set for the whole source — and every line after it, including the
+        // ingestion progress and the per-source summary, went out unattributed. Caught in production
+        // logs, not by a test, which is why there is one now.
+        try (var scope = LogContext.scope(LogContext.SOURCE, "BNetzA")) {
+            BatchedIngestion.run(stations(3), 2, new CommittingTransactions(),
+                    ignored -> BatchedIngestion.Outcome.CREATED);
+
+            assertThat(MDC.get(LogContext.SOURCE)).isEqualTo("BNetzA");
+        }
+        assertThat(MDC.get(LogContext.SOURCE)).isNull();
+    }
 
     private static SourceStation station(int id) {
         return new SourceStation("TEST", String.valueOf(id), "Station " + id, "Weg 1", "Berlin", "10115",

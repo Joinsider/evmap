@@ -124,11 +124,20 @@ class BnetzaCsvSourceAdapterTests {
     }
 
     @Test
-    @DisplayName("does nothing when disabled, without touching the network")
+    @DisplayName("reports itself disabled, so the run never asks it to fetch")
     void canBeDisabled() {
         BnetzaProperties disabled = new BnetzaProperties(false, INDEX_URL, "", Duration.ofSeconds(5));
 
-        assertThat(drain(adapter(disabled).fetchStations())).isEmpty();
+        // The flag is checked by SyncJob rather than inside fetchStations(): one place decides which
+        // sources take part, and a disabled source is reported once instead of per adapter.
+        assertThat(adapter(disabled).enabled()).isFalse();
+        assertThat(adapter(properties("")).enabled()).isTrue();
         server.verify();
+    }
+
+    @Test
+    @DisplayName("names the source it writes, matching the records it emits")
+    void namesItsSource() {
+        assertThat(adapter(properties("")).source()).isEqualTo("BNetzA");
     }
 }

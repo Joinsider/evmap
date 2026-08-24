@@ -23,6 +23,7 @@ enum LogCategory: String, CaseIterable, Sendable {
     case stations
     case auth
     case comments
+    case settings
 
     /// Prefix shown in the console so a line's area is readable at a glance.
     fileprivate var label: String {
@@ -34,6 +35,7 @@ enum LogCategory: String, CaseIterable, Sendable {
         case .stations: "stations"
         case .auth: "auth"
         case .comments: "comments"
+        case .settings: "settings"
         }
     }
 }
@@ -110,6 +112,7 @@ struct AppLogger: Sendable {
     static let stations = AppLogger(category: .stations)
     static let auth = AppLogger(category: .auth)
     static let comments = AppLogger(category: .comments)
+    static let settings = AppLogger(category: .settings)
 
     private static let subsystem = Bundle.main.bundleIdentifier ?? "de.joinside.EVMap"
 

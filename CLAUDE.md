@@ -46,27 +46,46 @@ rewrite. Do not blur this boundary:
 
 - **`api` package** — stateless REST API (`station`, `comment`, `auth`, `security` sub-packages). Only
   reads master data, only writes user data.
-- **`sync` package** — ingestion job. `SourceAdapter` is the interface every external data source (BNetzA,
-  OCM) must implement, normalizing into `SourceStation`. `StationIngestionPort` is the _sole_ write
+- **`sync` package** — ingestion job. `SourceAdapter` is the interface every external data source must
+  implement, normalizing into `SourceStation`. `StationIngestionPort` is the _sole_ write
   boundary into master data (`PostgresStationIngestionRepository` implements it). There must be no direct
   reference from `sync` into `api` repositories/entities, or vice versa.
+
+**Read `sync/package-info.java` before touching the sync package** — it holds the layering rules
+(`sync.<source>` → `sync` ← `sync.support`) and the three-type recipe for adding a source. Nothing in
+`sync` names a source; `SyncJob` takes whatever adapters the component scan found.
 
 Ingestion commits in batches (`evmap.sync.batch-size`, default 1000) via `BatchedIngestion`, not in one
 transaction — a failed batch is retried per record so one bad row costs one station, and a run that lost
 records finishes `PARTIAL` with a `failed` count. Never wrap `upsert()` in a single `@Transactional`
 again: 113k+ BNetzA rows made that an all-or-nothing import. Adapters must not receive
 `StationIngestionPort`; incremental sources take the narrow `SyncStateStore` and advance their watermark
-only in `SourceAdapter.commitProgress()`, which `SyncJob` calls solely on a zero-failure run. See ADR 0007.
+only in `SourceAdapter.commitProgress()`. See ADR 0007.
 
-Source adapters live one per sub-package: `sync.bnetza` ingests the Bundesnetzagentur register from its
+Sources are ingested **one at a time**, each through its own `upsert()` call and wrapped in a
+`SourceAdapterRun` that contains its failures: a source that breaks is truncated and recorded, the run
+continues with the rest and finishes `PARTIAL` naming the source that failed. `commitProgress()` is
+therefore decided per source — only one that delivered everything it fetched with zero ingestion
+failures advances its watermark. Do not go back to one composed stream across adapters: it made the
+least reliable government portal in Europe able to fail every other country's daily update. Downstream
+(ingestion) exceptions must keep propagating — swallowing them would report a broken database as a
+broken data source. See ADR 0013.
+
+Source adapters live one per sub-package. `sync.bnetza` ingests the Bundesnetzagentur register from its
 CSV bulk download, discovering the date-stamped URL from the Ladesäulenkarte page each run (the official
-REST service requires a mail request; the ArcGIS route is token-gated now) — see ADR 0005. `sync.ocm`
-crawls Open Charge Map per country with keyset paging, throttled and page-capped because their fair usage
-policy allows automated banning; it needs `OCM_API_KEY` and skips itself with a warning without one — see
-ADR 0006, and fetches incrementally via `modifiedsince` with a weekly full refresh. Both normalize
-connector labels through `sync.ConnectorTypes` and service state through `sync.AvailabilityStatus`, onto
-closed vocabularies the iOS `ConnectorType` / `AvailabilityStatus` enums mirror; adding a value on either
-side without the other leaves it stored but unfilterable, or shown to users as a raw token.
+REST service requires a mail request; the ArcGIS route is token-gated now) — see ADR 0005. `sync.irve`
+ingests the French consolidated register (Etalab/data.gouv.fr, Licence Ouverte, ~51k stations, no key);
+its file has one row per charge point with non-adjacent rows per station, so it groups in memory rather
+than streaming, and it is deliberately lenient about the publishers' data quality — see ADR 0012.
+`sync.ocm` crawls Open Charge Map per country with keyset paging, throttled and page-capped because
+their fair usage policy allows automated banning; it needs `OCM_API_KEY` and skips itself with a warning
+without one — see ADR 0006, and fetches incrementally via `modifiedsince` with a weekly full refresh.
+All normalize connector labels through `sync.ConnectorTypes` and service state through
+`sync.AvailabilityStatus`, onto closed vocabularies the iOS `ConnectorType` / `AvailabilityStatus` enums
+mirror; adding a value on either side without the other leaves it stored but unfilterable, or shown to
+users as a raw token. `SourceAdapterRegistrationTests` asserts the full set of adapters and their source
+tokens — extend it when adding a source, or a wiring mistake ships as a container that starts happily
+and ingests one country less than it should.
 
 Data separation: master/station data (sync-owned, read-only from the API) vs. user data (comments, user
 identities — API-owned). `UserIdentity`/`UserIdentityService` is deliberately a thin internal ID layer so
@@ -75,8 +94,16 @@ additional auth providers can be added later without touching how the rest of th
 Auth: Sign in with Apple only. The API verifies the client's Apple identity token against Apple's JWKS
 endpoint (`AppleIdentityTokenVerifier`), then issues its own bearer access token (`AccessTokenService`)
 validated per-request by `BearerTokenFilter`. `SecurityConfiguration` is stateless (no sessions, CSRF
-disabled since there's no cookie auth) and permits `/actuator/health`, `GET /api/v1/stations/**`, and
-`/api/v1/auth/apple` without auth; everything else requires a bearer token.
+disabled since there's no cookie auth) and permits `/actuator/health`, `GET /api/v1/stations/**`,
+`GET /api/v1/operators`, and `/api/v1/auth/apple` without auth; everything else requires a bearer token.
+
+`GET /api/v1/operators` is the searchable charging-network directory the client's provider settings are
+built from. There is no operator table and no operator id — `operator_name` is a string the adapters
+normalize onto each station — so the directory is a `GROUP BY operator_name` and **the name is the
+identity**, which is what the client keys its preferences by. Hidden networks arrive as repeated
+`excludeOperator` params and are excluded *in the query*, never after it: the row limit is applied
+server-side and ranked by power, so post-filtering would let hidden stations eat slots and silently
+shrink the map. See ADR 0014.
 
 Health: `/actuator/health/container` (group `container`, `include: db`) is what the Docker healthcheck
 asks and must stay free of ingestion state — `IngestionHealthIndicator` contributes to the root
@@ -107,8 +134,20 @@ code — never call networking APIs directly from a ViewModel or View.
 
 Structure follows a feature-module layout under `Features/`, each split into `Domain` (models),
 `Data` (repository implementations), and `Presentation` (SwiftUI views + view models): `Auth`, `Comments`,
-`Map`, `Search`, `StationDetail`, `Stations`. Shared networking primitives live in `Core/Networking`
-(`APIClient`, `APIError`).
+`Map`, `Search`, `Settings`, `StationDetail`, `Stations`. Shared networking primitives live in
+`Core/Networking` (`APIClient`, `APIError`).
+
+`Settings` owns everything that persists between launches. `AppSettings` is the stored value (one JSON
+blob under a single `UserDefaults` key, via the `AppSettingsStoring` seam); `StationFilter` is the
+criteria of one query, and is built **only** by `AppSettings.stationFilter` and `MapViewport
+.effectiveFilter` — never assembled by hand. Keep that split: it is what lets `preferred`/`avoided` feed
+route planning later without the station query knowing the provider vocabulary. `ProviderPreference`
+declares all four cases but `selectableCases` gates the UI to the implemented two; stored values decode
+leniently on purpose (unknown preference → `.shown`, unknown connector dropped, missing key → default),
+because throwing sends the store down its corrupt-data path and resets *everything*. Settings persist on
+change, but the map refetches only on sheet dismiss (`MapViewModel.apply(_:)`) — do not wire a filter
+change straight to a fetch. Reset restores filters and provider preferences only, never the search
+history or the sign-in. See ADR 0014.
 
 `Search` (address autocomplete) deliberately does *not* go through `ChargingStationRepository` — it
 talks to MapKit, not the backend — but has its own `AddressSearchProviding` seam for the same reason.

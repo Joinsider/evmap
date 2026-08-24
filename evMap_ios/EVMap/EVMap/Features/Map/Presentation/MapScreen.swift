@@ -6,6 +6,9 @@ struct MapScreen: View {
     @StateObject private var search = AddressSearchViewModel()
     let repository: any ChargingStationRepository
     @ObservedObject var authSession: AuthSession
+    /// Owned by the app, not by this screen: the settings outlive any one view, and the map has to
+    /// be able to read them before its first query.
+    @ObservedObject var settings: SettingsViewModel
     /// Launch view: Germany at overview scale, which loads the highpower backbone straight away and
     /// gives `onMapCameraChange` a defined starting region instead of whatever `.automatic` picks.
     private static let initialRegion = MKCoordinateRegion(
@@ -17,16 +20,17 @@ struct MapScreen: View {
     @State private var visibleSpan: MKCoordinateSpan?
     @State private var selectedAnnotation: StationAnnotation?
     @State private var selectedStation: Station?
-    @State private var showFilters = false
+    @State private var showSettings = false
     /// Focus, not presentation. Dismissing the search *presentation* after a hit would take the
     /// text with it — UIKit clears the field when the search controller goes away — leaving the map
     /// on a place the search bar no longer names. Dropping focus only closes the keyboard.
     @FocusState private var isSearchFieldFocused: Bool
 
-    init(repository: any ChargingStationRepository, authSession: AuthSession) {
+    init(repository: any ChargingStationRepository, authSession: AuthSession, settings: SettingsViewModel) {
         self.repository = repository
         self.authSession = authSession
-        _viewModel = StateObject(wrappedValue: MapViewModel(repository: repository))
+        self.settings = settings
+        _viewModel = StateObject(wrappedValue: MapViewModel(repository: repository, filter: settings.settings.stationFilter))
     }
 
     var body: some View {
@@ -81,7 +85,7 @@ struct MapScreen: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button { viewModel.requestLocation() } label: { Label("map.locate", systemImage: "location.fill") } }
-                ToolbarItem(placement: .topBarTrailing) { Button { showFilters = true } label: { Label("filter.title", systemImage: "line.3.horizontal.decrease.circle") } }
+                ToolbarItem(placement: .topBarTrailing) { Button { showSettings = true } label: { Label("settings.title", systemImage: "line.3.horizontal.decrease.circle") } }
                 // Where iOS 26 puts search: a full-width field in the bottom bar, within thumb
                 // reach, rather than a drawer under the title at the far end of the screen.
                 DefaultToolbarItem(kind: .search, placement: .bottomBar)
@@ -94,7 +98,11 @@ struct MapScreen: View {
             }
             .overlay(alignment: .bottomTrailing) { ChargingPowerLegend().padding(12) }
             .sheet(item: $selectedStation) { StationDetailScreen(station: $0, repository: repository, authSession: authSession) }
-            .sheet(isPresented: $showFilters) { StationFilterScreen(filter: $viewModel.filter) { viewModel.reload() } }
+            // Applied on dismiss, not on change: the settings persist themselves keystroke by
+            // keystroke, but dragging the power slider must not be one network request per step.
+            .sheet(isPresented: $showSettings, onDismiss: { viewModel.apply(settings.settings.stationFilter) }) {
+                SettingsScreen(model: settings, repository: repository)
+            }
             // One alert for both sources: SwiftUI presents a single alert per view, and a failed
             // station load and a failed address lookup are the same kind of interruption.
             .alert("error.title", isPresented: Binding(

@@ -1,6 +1,5 @@
 package de.joinside.evmap_service.sync;
 
-import de.joinside.evmap_service.logging.LogContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -112,10 +111,18 @@ final class BatchedIngestion {
                 : exception + " | cause: " + cause;
     }
 
+    /**
+     * Deliberately does <em>not</em> scope the MDC to {@code station.source()}.
+     * <p>
+     * It used to, back when one composed stream carried every source's records and each record was the
+     * only thing that knew where it came from. That is no longer true — the run ingests one source at a
+     * time and owns the {@code source} tag for the whole call (ADR 0013) — and re-setting it here was
+     * actively destructive: {@code MDC.putCloseable} removes the key on close instead of restoring the
+     * previous value, so the first record silently deleted the run's own tag. Every log line after it,
+     * including the ingestion progress and the per-source summary, went out unattributed.
+     */
     private static void record(Counters counters, SourceStation station, Function<SourceStation, Outcome> upsert) {
-        try (var scope = LogContext.scope(LogContext.SOURCE, station.source())) {
-            counters.record(upsert.apply(station));
-        }
+        counters.record(upsert.apply(station));
     }
 
     /** Heartbeat on whole intervals rather than per batch, so batch size does not drive log volume. */

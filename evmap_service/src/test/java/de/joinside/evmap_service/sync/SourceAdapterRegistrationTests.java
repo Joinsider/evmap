@@ -22,7 +22,8 @@ class SourceAdapterRegistrationTests {
      * builder directly rather than pulling in HTTP auto-configuration keeps this test about wiring.
      */
     @Configuration
-    @ComponentScan(basePackages = {"de.joinside.evmap_service.sync.bnetza", "de.joinside.evmap_service.sync.ocm"})
+    @ComponentScan(basePackages = {"de.joinside.evmap_service.sync.bnetza", "de.joinside.evmap_service.sync.irve",
+            "de.joinside.evmap_service.sync.ocm"})
     static class AdaptersOnly {
         @Bean
         RestClient.Builder restClientBuilder() {
@@ -49,13 +50,32 @@ class SourceAdapterRegistrationTests {
             .withUserConfiguration(AdaptersOnly.class);
 
     @Test
-    @DisplayName("the sync deployable registers both source adapters")
-    void registersBothAdapters() {
+    @DisplayName("the sync deployable registers every source adapter")
+    void registersEveryAdapter() {
+        runner.withPropertyValues("evmap.sync.enabled=true").run(context -> {
+            assertThat(context).hasNotFailed();
+            // Extend this — and the source tokens below — whenever a source is added. The whole point
+            // of asserting the full set is that a forgotten adapter fails here rather than shipping as
+            // a container that starts happily and ingests one country less than it should.
+            assertThat(context.getBeansOfType(SourceAdapter.class).values())
+                    .extracting(adapter -> adapter.getClass().getSimpleName())
+                    .containsExactlyInAnyOrder("BnetzaCsvSourceAdapter", "IrveCsvSourceAdapter",
+                            "OpenChargeMapSourceAdapter");
+        });
+    }
+
+    @Test
+    @DisplayName("every adapter names a distinct source, because the run and the merge key on it")
+    void namesDistinctSources() {
         runner.withPropertyValues("evmap.sync.enabled=true").run(context -> {
             assertThat(context).hasNotFailed();
             assertThat(context.getBeansOfType(SourceAdapter.class).values())
-                    .extracting(adapter -> adapter.getClass().getSimpleName())
-                    .containsExactlyInAnyOrder("BnetzaCsvSourceAdapter", "OpenChargeMapSourceAdapter");
+                    .extracting(SourceAdapter::source)
+                    // Two adapters sharing a token would silently overwrite each other's stations and
+                    // each other's incremental watermarks.
+                    .containsExactlyInAnyOrder("BNetzA", "IRVE", "OCM")
+                    // master.charging_station_source.source is VARCHAR(32).
+                    .allSatisfy(source -> assertThat(source).isNotBlank().hasSizeLessThanOrEqualTo(32));
         });
     }
 
@@ -83,6 +103,10 @@ class SourceAdapterRegistrationTests {
             Object bnetza = propertiesBean(context.getBeanNamesForType(Object.class), context, "BnetzaProperties");
             assertThat(bnetza).hasFieldOrPropertyWithValue("enabled", true);
             assertThat(bnetza).extracting("indexUrl").asString().contains("Ladesaeulenkarte");
+
+            Object irve = propertiesBean(context.getBeanNamesForType(Object.class), context, "IrveProperties");
+            assertThat(irve).hasFieldOrPropertyWithValue("enabled", true);
+            assertThat(irve).extracting("csvUrl").asString().contains("data.gouv.fr");
         });
     }
 
