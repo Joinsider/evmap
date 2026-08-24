@@ -102,7 +102,7 @@ class IrveCsvParserTests {
             assertThat(station.street()).isEqualTo("93 route de Bitche");
             assertThat(station.postalCode()).isEqualTo("67500");
             assertThat(station.city()).isEqualTo("Haguenau");
-            assertThat(station.connectors())
+            assertThat(connectorsOf(station))
                     .containsExactly(new SourceStation.SourceConnector("Type 2", new BigDecimal("22"), 1));
         });
     }
@@ -134,9 +134,44 @@ class IrveCsvParserTests {
         assertThat(stations)
                 .filteredOn(station -> station.sourceStationId().equals("FRS01P0001"))
                 .singleElement()
-                .satisfies(station -> assertThat(station.connectors())
+                .satisfies(station -> assertThat(connectorsOf(station))
                         // Two charge points of the same kind become one connector with a quantity.
                         .containsExactly(new SourceStation.SourceConnector("Type 2", new BigDecimal("22"), 2)));
+    }
+
+    @Test
+    @DisplayName("keeps id_pdc_itinerance per charge point, which the dynamic IRVE schema joins on")
+    void keepsChargePointIdentifiers() {
+        // ADR 0015 originally claimed this identifier was already stored as the station's key. It was
+        // not — the station is keyed by id_station_itinerance and the pdc id was dropped, which left
+        // France with no join to its dynamic feed. One charge point per row, keyed by its own id.
+        Row first = row();
+        first.pointId = "FRS01E0001";
+        Row second = row();
+        second.pointId = "FRS01E0002";
+
+        assertThat(parse(first, second)).singleElement()
+                .extracting(SourceStation::chargePoints, org.assertj.core.api.InstanceOfAssertFactories.LIST)
+                .extracting("sourceChargePointId", "evseId")
+                .containsExactly(tuple("FRS01E0001", "FRS01E0001"), tuple("FRS01E0002", "FRS01E0002"));
+    }
+
+    @Test
+    @DisplayName("keeps a charge point whose pdc id is prose, without letting it group")
+    void toleratesUnusableChargePointIdentifiers() {
+        // The publishers who write "Non concerné" where a station identifier belongs do it for charge
+        // points too. Grouping on that phrase would fuse unrelated charge points into one; the plugs
+        // are kept regardless, the charge point simply cannot join to a live status.
+        Row first = row();
+        first.pointId = "Non concerné";
+        Row second = row();
+        second.pointId = "Non concerné";
+
+        assertThat(parse(first, second)).singleElement()
+                .extracting(SourceStation::chargePoints, org.assertj.core.api.InstanceOfAssertFactories.LIST)
+                .hasSize(2)
+                .allSatisfy(chargePoint ->
+                        assertThat(((SourceStation.SourceChargePoint) chargePoint).evseId()).isNull());
     }
 
     @Test
@@ -151,7 +186,7 @@ class IrveCsvParserTests {
         row.other = "true";
 
         assertThat(parse(row)).singleElement()
-                .extracting(SourceStation::connectors).asInstanceOf(
+                .extracting(IrveCsvParserTests::connectorsOf).asInstanceOf(
                         org.assertj.core.api.InstanceOfAssertFactories.list(SourceStation.SourceConnector.class))
                 .extracting(SourceStation.SourceConnector::connectorType)
                 .containsExactlyInAnyOrder("Type 2", "CCS", "CHAdeMO", "Schuko");
@@ -165,7 +200,7 @@ class IrveCsvParserTests {
             row.type2 = "false";
             row.chademo = truthy;
             assertThat(parse(row)).singleElement()
-                    .extracting(station -> station.connectors().getFirst().connectorType())
+                    .extracting(station -> connectorsOf(station).getFirst().connectorType())
                     .as("spelling %s", truthy)
                     .isEqualTo("CHAdeMO");
         }
@@ -173,7 +208,7 @@ class IrveCsvParserTests {
             Row row = row();
             row.type2 = falsy;
             assertThat(parse(row)).singleElement()
-                    .extracting(SourceStation::connectors).asList()
+                    .extracting(IrveCsvParserTests::connectorsOf).asList()
                     .as("spelling %s", falsy)
                     .isEmpty();
         }
@@ -186,19 +221,19 @@ class IrveCsvParserTests {
         Row watts = row();
         watts.power = "7360";
         assertThat(parse(watts)).singleElement()
-                .extracting(station -> station.connectors().getFirst().powerKw())
+                .extracting(station -> connectorsOf(station).getFirst().powerKw())
                 .isEqualTo(new BigDecimal("7.36"));
 
         Row roundWatts = row();
         roundWatts.power = "22000";
         assertThat(parse(roundWatts)).singleElement()
-                .extracting(station -> station.connectors().getFirst().powerKw())
+                .extracting(station -> connectorsOf(station).getFirst().powerKw())
                 .isEqualTo(new BigDecimal("22"));
 
         Row kilowatts = row();
         kilowatts.power = "3.7";
         assertThat(parse(kilowatts)).singleElement()
-                .extracting(station -> station.connectors().getFirst().powerKw())
+                .extracting(station -> connectorsOf(station).getFirst().powerKw())
                 .isEqualTo(new BigDecimal("3.7"));
     }
 
@@ -208,7 +243,7 @@ class IrveCsvParserTests {
         Row row = row();
         row.power = "0";
         assertThat(parse(row)).singleElement()
-                .extracting(station -> station.connectors().getFirst().powerKw()).isNull();
+                .extracting(station -> connectorsOf(station).getFirst().powerKw()).isNull();
     }
 
     @Test
@@ -414,7 +449,7 @@ class IrveCsvParserTests {
         twoZeros.pointId = "FRS01E0003";
 
         assertThat(parse(plain, oneZero, twoZeros)).singleElement()
-                .extracting(SourceStation::connectors).asInstanceOf(
+                .extracting(IrveCsvParserTests::connectorsOf).asInstanceOf(
                         org.assertj.core.api.InstanceOfAssertFactories.list(SourceStation.SourceConnector.class))
                 .singleElement()
                 .satisfies(connector -> {
@@ -465,7 +500,7 @@ class IrveCsvParserTests {
         anotherFast.pointId = "FRS01E0003";
 
         assertThat(parse(slow, fast, anotherFast)).singleElement()
-                .extracting(SourceStation::connectors).asInstanceOf(
+                .extracting(IrveCsvParserTests::connectorsOf).asInstanceOf(
                         org.assertj.core.api.InstanceOfAssertFactories.list(SourceStation.SourceConnector.class))
                 .extracting(SourceStation.SourceConnector::connectorType,
                         SourceStation.SourceConnector::powerKw,
@@ -490,4 +525,28 @@ class IrveCsvParserTests {
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("empty");
     }
+
+    /**
+     * The station-level totals the API rebuilds when it serves a station, summed back out of the
+     * charge points the parser now produces.
+     * <p>
+     * Since the charge point inventory landed (ADR 0015) a station's plugs live on its individual
+     * {@code point de charge}, each keyed by {@code id_pdc_itinerance} — the identifier the French
+     * <em>dynamic</em> IRVE schema publishes status against. These tests are about how the
+     * consolidation's columns map onto plugs, not about that shape, so they keep asserting on the
+     * totals; {@code StationService.aggregate} performs the same sum in production.
+     */
+    private static List<SourceStation.SourceConnector> connectorsOf(SourceStation station) {
+        record Plug(String type, BigDecimal powerKw) {
+        }
+        var quantities = new java.util.LinkedHashMap<Plug, Integer>();
+        for (SourceStation.SourceChargePoint chargePoint : station.chargePoints())
+            for (SourceStation.SourceConnector connector : chargePoint.connectors())
+                quantities.merge(new Plug(connector.connectorType(), connector.powerKw()),
+                        connector.quantity(), Integer::sum);
+        return quantities.entrySet().stream()
+                .map(e -> new SourceStation.SourceConnector(e.getKey().type(), e.getKey().powerKw(), e.getValue()))
+                .toList();
+    }
+
 }

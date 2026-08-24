@@ -106,14 +106,7 @@ class StationService {
                     return new StationController.StationNotFoundException(id);
                 });
 
-        var connectorDtos = connectors
-                .findByStationId(id)
-                .stream()
-                .map(connector -> new StationController.Connector(
-                        connector.connectorType,
-                        connector.powerKw,
-                        connector.quantity
-                )).toList();
+        var connectorDtos = aggregate(connectors.findByStationId(id));
 
         var maxPowerKw = connectorDtos.stream()
                 .map(StationController.Connector::powerKw)
@@ -142,5 +135,31 @@ class StationService {
 
         log.debug("Station {} served with {} connectors from sources {}", id, connectorDtos.size(), sourceNames);
         return new StationController.StationDetail(summary, connectorDtos, sourceNames);
+    }
+
+    /**
+     * Sums the station's connector rows per (type, power).
+     * <p>
+     * Since the charge point inventory landed (ADR 0015), sources that describe charge points
+     * individually store one connector row per charge point — four 22 kW Type 2 posts are four rows
+     * of quantity one rather than a single row of quantity four. The client asks "what can I plug in
+     * here, and how many", so the totals are rebuilt on read; the finer rows stay in the database,
+     * where live availability needs them.
+     * <p>
+     * Insertion-ordered so the response keeps the order the ingestion wrote, and a station whose
+     * connectors already were totals — Open Charge Map reports only those — passes through unchanged.
+     */
+    private static List<StationController.Connector> aggregate(List<ChargingConnector> connectors) {
+        record Plug(String connectorType, BigDecimal powerKw) {
+        }
+
+        var quantities = new java.util.LinkedHashMap<Plug, Integer>();
+        for (ChargingConnector connector : connectors)
+            quantities.merge(new Plug(connector.connectorType, connector.powerKw), connector.quantity, Integer::sum);
+
+        return quantities.entrySet().stream()
+                .map(entry -> new StationController.Connector(
+                        entry.getKey().connectorType(), entry.getKey().powerKw(), entry.getValue()))
+                .toList();
     }
 }

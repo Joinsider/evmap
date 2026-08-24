@@ -24,6 +24,7 @@
 "filter.power.any" = "Any";
 "map.cluster %@" = "%@ charging stations";
 "map.legend.accessibility" = "Legend: a pin's colour shows its maximum charging power — blue below 22 kW, green from 22 kW, yellow from 50 kW, orange from 150 kW, red from 300 kW.";
+"map.liveAvailable" = "%lld charge points free";
 "map.locate" = "Update location";
 "power.tier.fast" = "Fast charging (DC)";
 "power.tier.highPower" = "High power (DC)";
@@ -42,10 +43,10 @@
 "provider.section.configured" = "Your selection";
 "provider.section.configured.footer" = "Swipe left to remove. Providers left on whatever the switch above says drop off the list next time you open it.";
 "provider.section.results" = "Search results";
+"provider.stationCount %@" = "%@ charging stations";
 "provider.unlisted" = "Show all other providers";
 "provider.unlisted.footer.hidden" = "The map shows only the providers on this list that are set to “Show”. Everything else is hidden.";
 "provider.unlisted.footer.shown" = "The map shows every provider except the ones you set to “Don’t show” below.";
-"provider.stationCount %@" = "%@ charging stations";
 "search.error.notFound" = "No place was found for that address.";
 "search.prompt" = "Search address or place";
 "search.recent" = "Recent searches";
@@ -69,6 +70,15 @@
 "station.combinedSources" = "Merged from multiple data sources.";
 "station.connectors" = "Connectors";
 "station.details" = "Details";
+"station.live.available" = "Free";
+"station.live.chargePoint" = "Charge point";
+"station.live.observedAt" = "Last reported %@";
+"station.live.occupancy" = "%lld of %lld charge points free";
+"station.live.occupied" = "In use";
+"station.live.outOfOrder" = "Out of order";
+"station.live.title" = "Live availability";
+"station.live.unknown" = "Unknown";
+"station.live.unresolved" = "%lld more charge points without live data";
 "station.power %@" = "%@ kW";
 "station.sources" = "Data sources";
 "stations.loading" = "Loading stations …";

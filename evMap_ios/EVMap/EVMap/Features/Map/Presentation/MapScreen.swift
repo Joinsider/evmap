@@ -152,19 +152,44 @@ private struct StationAnnotationView: View {
                     .overlay(Capsule().strokeBorder(.white, lineWidth: 1.5))
             }
         }
+        .overlay(alignment: .topTrailing) { liveBadge }
         .shadow(radius: 2)
         .accessibilityLabel(accessibilityLabel)
     }
 
-    /// Colour alone must not carry the charging speed, so the pin says it out loud.
+    /// How many charge points behind this pin are free right now.
+    ///
+    /// Drawn only where a live source actually answered, which is a minority of stations — the pin
+    /// keeps its power colour and gains a badge, rather than changing colour, so that the absence of
+    /// live data is never mistaken for a status. A count of zero is still shown: "0 frei" is real
+    /// information, and hiding it would leave the pin looking uncovered.
+    @ViewBuilder
+    private var liveBadge: some View {
+        if let free = annotation.liveAvailableCount {
+            Text(free, format: .number)
+                .font(.system(size: 10, weight: .bold))
+                .monospacedDigit()
+                .foregroundStyle(.white)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 1)
+                .background(free > 0 ? Color.green : Color.orange, in: .capsule)
+                .overlay(Capsule().strokeBorder(.white, lineWidth: 1))
+                .offset(x: 6, y: -4)
+        }
+    }
+
+    /// Colour alone must not carry the charging speed or the live status, so the pin says both out loud.
     private var accessibilityLabel: String {
         let power = annotation.maxPowerKw.map(formattedPower(kW:))
+        let live = annotation.liveAvailableCount.map {
+            ", " + String(format: String(localized: "map.liveAvailable"), $0)
+        } ?? ""
         guard let station = annotation.station else {
             // The count is formatted into a string first: interpolating the `Int` would look up
             // `map.cluster %lld`, which no strings file declares.
-            return String(localized: "map.cluster \(annotation.count.formatted())") + (power.map { ", \($0)" } ?? "")
+            return String(localized: "map.cluster \(annotation.count.formatted())") + (power.map { ", \($0)" } ?? "") + live
         }
-        return station.displayName + (power.map { ", \($0)" } ?? "")
+        return station.displayName + (power.map { ", \($0)" } ?? "") + live
     }
 }
 

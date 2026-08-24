@@ -66,6 +66,29 @@ class BnetzaCsvParserTests {
         return row.toString();
     }
 
+    /** As {@link #row}, with {@code groups} read as (types, powers, EVSE-ID) triples. */
+    private static String rowWithEvseIds(String id, String... groups) {
+        StringBuilder row = new StringBuilder(String.join(";",
+                id, "Betreiber", "Mit EVSE-ID", "In Betrieb", "Normalladeeinrichtung", "2", "22", "11.01.2020",
+                "Weg", "2", "", "10115", "Berlin", "Landkreis Alb-Donau-Kreis", "Baden-Württemberg",
+                "52,5", "13,4", "", "Keine Beschränkung",
+                "\"RFID-Karte;Onlinezahlungsverfahren\"", "247", "\"Montag; Dienstag\"", "\"00:00-23:59; 00:00-23:59\""));
+        for (int point = 0; point < 6; point++) {
+            int base = point * 3;
+            row.append(';').append(base < groups.length ? groups[base] : "")
+                    .append(';').append(base + 1 < groups.length ? groups[base + 1] : "")
+                    .append(';').append(base + 2 < groups.length ? groups[base + 2] : "")
+                    .append(';');
+        }
+        return row.toString();
+    }
+
+    private static SourceStation.SourceChargePoint onlyChargePoint(List<SourceStation> stations) {
+        assertThat(stations).singleElement().extracting(SourceStation::chargePoints,
+                org.assertj.core.api.InstanceOfAssertFactories.LIST).hasSize(1);
+        return stations.getFirst().chargePoints().getFirst();
+    }
+
     private static String file(String... rows) {
         return PREAMBLE.replace("\n", "\r\n") + HEADER + "\r\n" + String.join("\r\n", rows) + "\r\n";
     }
@@ -119,9 +142,11 @@ class BnetzaCsvParserTests {
     }
 
     @Test
-    @DisplayName("merges repeated plugs of one site into a quantity")
-    void mergesIdenticalPlugs() throws IOException {
-        // Four charge points, all Type 2 at 22 kW: one connector row with quantity 4, not four rows.
+    @DisplayName("keeps the register's charge points apart instead of collapsing them into totals")
+    void keepsChargePointsApart() throws IOException {
+        // Four Ladepunkte, all Type 2 at 22 kW. These used to become one connector of quantity four,
+        // which threw away both the count and each point's EVSE-ID; the station's totals are rebuilt
+        // when the API serves it. See ADR 0015.
         List<SourceStation> stations = parse(file(row("2", "Betreiber", "Vier Punkte", "In Betrieb",
                 "Weg", "2", "10115", "Berlin", "52,5", "13,4", "",
                 "AC Typ 2 Steckdose", "22",
@@ -129,10 +154,31 @@ class BnetzaCsvParserTests {
                 "AC Typ 2 Fahrzeugkupplung", "22",
                 "AC Typ 2 Steckdose", "22")));
 
+        assertThat(stations).singleElement().satisfies(station -> {
+            assertThat(station.connectors()).isEmpty();
+            assertThat(station.chargePoints()).hasSize(4);
+            assertThat(station.chargePoints()).allSatisfy(chargePoint ->
+                    assertThat(chargePoint.connectors())
+                            .containsExactly(new SourceStation.SourceConnector("Type 2", new BigDecimal("22"), 1)));
+        });
+    }
+
+    @Test
+    @DisplayName("merges plugs repeated within one charge point into a quantity")
+    void mergesIdenticalPlugsOfOneChargePoint() throws IOException {
+        // A Ladepunkt with two identical sockets is one connector of quantity two — the merge that
+        // used to happen across the whole site still happens inside a charge point.
+        List<SourceStation> stations = parse(file(row("2b", "Betreiber", "Doppeldose", "In Betrieb",
+                "Weg", "2", "10115", "Berlin", "52,5", "13,4", "",
+                "\"AC Typ 2 Steckdose; AC Typ 2 Steckdose\"", "\"22; 22\"")));
+
         assertThat(stations).singleElement()
-                .extracting(SourceStation::connectors, org.assertj.core.api.InstanceOfAssertFactories.LIST)
+                .extracting(SourceStation::chargePoints, org.assertj.core.api.InstanceOfAssertFactories.LIST)
                 .singleElement()
-                .isEqualTo(new SourceStation.SourceConnector("Type 2", new BigDecimal("22"), 4));
+                .extracting(chargePoint -> ((SourceStation.SourceChargePoint) chargePoint).connectors(),
+                        org.assertj.core.api.InstanceOfAssertFactories.LIST)
+                .singleElement()
+                .isEqualTo(new SourceStation.SourceConnector("Type 2", new BigDecimal("22"), 2));
     }
 
     @Test
@@ -142,8 +188,7 @@ class BnetzaCsvParserTests {
                 "Weg", "2", "10115", "Berlin", "52,5", "13,4", "",
                 "\"AC Typ 2 Steckdose; AC Schuko\"", "\"22; 3,7\"")));
 
-        assertThat(stations).singleElement().extracting(SourceStation::connectors).asInstanceOf(
-                        org.assertj.core.api.InstanceOfAssertFactories.list(SourceStation.SourceConnector.class))
+        assertThat(onlyChargePoint(stations).connectors())
                 .extracting(SourceStation.SourceConnector::connectorType, SourceStation.SourceConnector::powerKw)
                 .containsExactly(tuple("Type 2", new BigDecimal("22")), tuple("Schuko", new BigDecimal("3.7")));
     }
@@ -155,10 +200,38 @@ class BnetzaCsvParserTests {
                 "Weg", "2", "10115", "Berlin", "52,5", "13,4", "",
                 "\"DC Fahrzeugkupplung Typ Combo 2 (CCS); DC CHAdeMO\"", "50")));
 
-        assertThat(stations).singleElement().extracting(SourceStation::connectors).asInstanceOf(
-                        org.assertj.core.api.InstanceOfAssertFactories.list(SourceStation.SourceConnector.class))
+        assertThat(onlyChargePoint(stations).connectors())
                 .extracting(SourceStation.SourceConnector::connectorType, SourceStation.SourceConnector::powerKw)
                 .containsExactly(tuple("CCS", new BigDecimal("50")), tuple("CHAdeMO", new BigDecimal("50")));
+    }
+
+    @Test
+    @DisplayName("keeps each charge point's EVSE-ID, which live availability joins on")
+    void keepsEvseIds() throws IOException {
+        // 31 % of Ladeeinrichtungen in the 2026-07-28 edition carry one, in several spellings. The
+        // parser stores them verbatim; normalizing for comparison is EvseIds' job.
+        List<SourceStation> stations = parse(file(rowWithEvseIds("1140762",
+                "AC Typ 2 Steckdose", "22", "DE*EBW*E913553*1",
+                "AC Typ 2 Steckdose", "22", "DEAEWE009903")));
+
+        assertThat(stations).singleElement()
+                .extracting(SourceStation::chargePoints, org.assertj.core.api.InstanceOfAssertFactories.LIST)
+                .extracting("sourceChargePointId", "evseId")
+                .containsExactly(tuple("1140762*1", "DE*EBW*E913553*1"), tuple("1140762*2", "DEAEWE009903"));
+    }
+
+    @Test
+    @DisplayName("leaves the EVSE-ID null where the register publishes none")
+    void toleratesMissingEvseIds() throws IOException {
+        // The common case — 69,7 % of declared Ladepunkte. Such a charge point is still ingested; it
+        // simply can never be matched to a live status.
+        List<SourceStation> stations = parse(file(row("5555", "Betreiber", "Ohne ID", "In Betrieb",
+                "Weg", "2", "10115", "Berlin", "52,5", "13,4", "", "AC Typ 2 Steckdose", "22")));
+
+        assertThat(onlyChargePoint(stations)).satisfies(chargePoint -> {
+            assertThat(chargePoint.sourceChargePointId()).isEqualTo("5555*1");
+            assertThat(chargePoint.evseId()).isNull();
+        });
     }
 
     @Test
@@ -186,7 +259,7 @@ class BnetzaCsvParserTests {
             assertThat(station.operatorName()).isEqualTo("smopi\nMultitalent AG");
             assertThat(station.name()).isEqualTo("Nord; Süd");
             assertThat(station.city()).isEqualTo("Berlin");
-            assertThat(station.connectors()).hasSize(1);
+            assertThat(station.chargePoints()).hasSize(1);
         });
     }
 

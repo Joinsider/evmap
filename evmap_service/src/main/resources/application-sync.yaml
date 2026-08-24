@@ -12,6 +12,12 @@ spring:
     enabled: false
 
 evmap:
+  # The ingestion container has no business polling live feeds: it serves no requests, and a live
+  # status is worthless by the time the next batch run reads it. Off here means the providers and
+  # their cache are never registered at all, rather than registered and idle.
+  availability:
+    enabled: false
+
   sync:
     enabled: true
     fixed-delay: PT24H

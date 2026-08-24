@@ -19,6 +19,10 @@ Die App soll reisenden und privaten E-Auto-Fahrern in Europa eine kartenbasierte
 - Anzeige gemergter Daten aus Bundesnetzagentur-Ladesäulenregister und Open Charge Map
 - Filter nach Steckertyp, Ladeleistung (kW), Anbieter/Betreiber
 - Verfügbarkeitsfilter vorbereiten (Datenfeld einplanen, auch wenn keine Datenquelle es aktuell liefert)
+- Ladepunkt-Inventar je Station (einzelne Ladepunkte mit eigenen Steckern und EVSE-ID), soweit die
+  Quelle sie einzeln ausweist
+- Live-Verfügbarkeit je Ladepunkt, wo eine AFIR-Datenquelle sie liefert und die EVSE-ID exakt
+  zugeordnet werden kann (siehe ADR 0015)
 
 ### Community-Funktionen
 - Kommentarfunktion pro Ladestation
@@ -39,7 +43,6 @@ Die App soll reisenden und privaten E-Auto-Fahrern in Europa eine kartenbasierte
 ## 4. Produktfunktionen (später - vorzubereitende Erweiterungen)
 
 - Routenplanung mit Ladehalt-Vorschlägen (Reichweitenmanagement)
-- Echtzeit-Verfügbarkeit der Ladepunkte
 - Kombination weiterer Kartenanbieter-Datenquellen (Merge über mehrere Kartenanbieter hinweg)
 - Migration der App-Netzwerkschicht von REST auf GraphQL (v2)
 
@@ -108,6 +111,8 @@ Um den späteren Übergang zu einer vollständig getrennten Ingestion-/API-Servi
 - Keine Zahlungsabwicklung oder Ladevorgangs-Steuerung
 - Kein Android-Client
 - Keine Routenplanung/Reichweitenmanagement
-- Keine Echtzeit-Verfügbarkeit
+- Keine flächendeckende Echtzeit-Verfügbarkeit — seit ADR 0015 wird sie dort angezeigt, wo eine
+  nationale AFIR-Datenquelle sie liefert und die EVSE-ID exakt zuzuordnen ist; ohne exakten
+  Treffer bleibt der Status bewusst unbekannt. Kein Anspruch auf vollständige Abdeckung.
 - Kein externer Identity Provider
 - Keine GraphQL-Schnittstelle (nur Vorbereitung der Abstraktion)

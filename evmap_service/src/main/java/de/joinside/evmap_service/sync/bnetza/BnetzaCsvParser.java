@@ -153,7 +153,9 @@ final class BnetzaCsvParser {
                 availability(columns.get(record, "Status"), id),
                 // The register has no per-row timestamp — only the edition date of the whole file.
                 editionDate,
-                connectors(record, columns));
+                // No station-level totals: every BNetzA connector belongs to one of the charge points.
+                List.of(),
+                chargePoints(record, columns, id));
     }
 
     /**
@@ -188,24 +190,50 @@ final class BnetzaCsvParser {
      * into a quantity — a site with four Type 2 sockets at 22 kW is one row with {@code quantity=4}
      * rather than four rows the UI would have to group again.
      */
-    private static List<SourceStation.SourceConnector> connectors(CSVRecord record, CsvColumns columns) {
-        Map<Plug, Integer> quantities = new LinkedHashMap<>();
+    /**
+     * Builds one {@link SourceStation.SourceChargePoint} per populated {@code Steckertypen{n}} column
+     * group, carrying that group's {@code EVSE-ID{n}}.
+     * <p>
+     * The register describes a Ladeeinrichtung as up to six Ladepunkte side by side, and this used to
+     * collapse them into per-station connector totals — which threw away both the count of charge
+     * points and the EVSE-ID that live availability joins on (ADR 0015). The totals are no longer
+     * produced here at all: the API aggregates the charge points' connectors when it serves the
+     * station, so the same payload comes out of finer-grained rows.
+     * <p>
+     * The charge point's own key is {@code <Ladeeinrichtungs-ID>*<n>} rather than the EVSE-ID,
+     * because only 30,3 % of Ladepunkte publish one and re-ingestion needs a key for every row. The
+     * position {@code n} is stable in practice: the register keeps the groups in order, and a
+     * Ladeeinrichtung whose groups are re-ordered would at worst re-key its charge points, which
+     * costs a delete-and-insert of rows that carry no user data.
+     */
+    private static List<SourceStation.SourceChargePoint> chargePoints(CSVRecord record, CsvColumns columns, String stationId) {
+        List<SourceStation.SourceChargePoint> chargePoints = new ArrayList<>(MAX_CHARGE_POINTS);
         for (int point = 1; point <= MAX_CHARGE_POINTS; point++) {
             String[] labels = split(columns.get(record, "Steckertypen" + point));
             if (labels.length == 0) continue;
             String[] powers = split(columns.get(record, "Nennleistung Stecker" + point));
 
+            // Plugs of one charge point still merge: a Ladepunkt with two identical sockets is one
+            // connector of quantity two, which is what the detail screen wants to show.
+            Map<Plug, Integer> quantities = new LinkedHashMap<>();
             for (int i = 0; i < labels.length; i++) {
                 String type = ConnectorTypes.normalize(labels[i]);
                 if (type == null) continue;
                 quantities.merge(new Plug(type, powerOf(powers, i)), 1, Integer::sum);
             }
-        }
+            if (quantities.isEmpty()) continue;
 
-        List<SourceStation.SourceConnector> connectors = new ArrayList<>(quantities.size());
-        quantities.forEach((plug, quantity) ->
-                connectors.add(new SourceStation.SourceConnector(plug.type(), plug.powerKw(), quantity)));
-        return connectors;
+            List<SourceStation.SourceConnector> connectors = new ArrayList<>(quantities.size());
+            quantities.forEach((plug, quantity) ->
+                    connectors.add(new SourceStation.SourceConnector(plug.type(), plug.powerKw(), quantity)));
+
+            String evseId = columns.get(record, "EVSE-ID" + point);
+            chargePoints.add(new SourceStation.SourceChargePoint(
+                    stationId + "*" + point,
+                    evseId.isEmpty() ? null : evseId,
+                    connectors));
+        }
+        return chargePoints;
     }
 
     /**

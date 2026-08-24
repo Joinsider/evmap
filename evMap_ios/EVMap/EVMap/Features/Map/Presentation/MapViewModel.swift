@@ -26,6 +26,11 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
     /// Viewport the current `stations` were fetched for — the yardstick `isCovered(by:)` uses to
     /// decide whether a camera change needs the network at all.
     private var loadedViewport: MapViewport?
+    /// Live occupancy for what is on screen, by station id. Empty is the normal state — only a
+    /// minority of stations is covered by any access point, and none is outside the countries that
+    /// have a provider.
+    private var liveAvailability: [UUID: StationLiveAvailability] = [:]
+    private var liveTask: Task<Void, Never>?
     /// Viewport the map is showing now, which may be finer-grained than what was fetched; the
     /// clusterer works from this so grouping follows the zoom immediately.
     private var currentViewport: MapViewport?
@@ -109,6 +114,7 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
             loadedViewport = viewport
             recluster()
             AppLogger.stations.notice("Showing \(self.stations.count) of \(fetched.count) stations in \(self.annotations.count) pins\(self.isTruncated ? " (limit reached)" : "")")
+            loadLiveAvailability(for: viewport)
         } catch is CancellationError {
             AppLogger.stations.debug("Viewport query superseded by a newer one")
         } catch {
@@ -117,12 +123,52 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         }
     }
 
-    private func recluster() {
-        guard let currentViewport else {
-            annotations = StationClusterer.cluster(stations, latitudeSpan: 0)
+    /// Fetches live occupancy for the area that was just loaded.
+    ///
+    /// Deliberately started after the stations arrived rather than in parallel with them: the pins
+    /// are the map, and live status is a badge on top. Making the map wait for the least reliable
+    /// of the two requests would trade the thing that always works for the thing that often has no
+    /// answer. A failure is swallowed — no error banner for a badge that simply does not appear.
+    ///
+    /// Skipped entirely at overview zoom, where the backend answers nothing anyway and the pins
+    /// stand for whole regions.
+    private func loadLiveAvailability(for viewport: MapViewport) {
+        liveTask?.cancel()
+        guard !viewport.isOverview else {
+            liveAvailability = [:]
+            recluster()
             return
         }
-        annotations = StationClusterer.cluster(stations, latitudeSpan: currentViewport.latitudeSpan)
+        liveTask = Task { [weak self] in await self?.performLiveLoad(viewport) }
+    }
+
+    private func performLiveLoad(_ viewport: MapViewport) async {
+        do {
+            let bounds = viewport.bounds
+            let fetched = try await repository.liveAvailability(
+                latMin: bounds.latMin, lonMin: bounds.lonMin, latMax: bounds.latMax, lonMax: bounds.lonMax)
+            guard !Task.isCancelled else { return }
+            liveAvailability = Dictionary(fetched.map { ($0.stationID, $0) }, uniquingKeysWith: { first, _ in first })
+            recluster()
+            AppLogger.stations.debug("Live availability for \(self.liveAvailability.count) station(s) in view")
+        } catch is CancellationError {
+            AppLogger.stations.debug("Live availability query superseded by a newer one")
+        } catch {
+            // Not surfaced: a live source being down costs the badges, not the map.
+            guard !Task.isCancelled else { return }
+            liveAvailability = [:]
+            recluster()
+            AppLogger.stations.debug("No live availability for this viewport — \(AppLogger.describe(error))")
+        }
+    }
+
+    private func recluster() {
+        guard let currentViewport else {
+            annotations = StationClusterer.cluster(stations, latitudeSpan: 0, liveAvailability: liveAvailability)
+            return
+        }
+        annotations = StationClusterer.cluster(stations, latitudeSpan: currentViewport.latitudeSpan,
+                                               liveAvailability: liveAvailability)
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {

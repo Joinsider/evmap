@@ -24,6 +24,7 @@
 "filter.power.any" = "Beliebig";
 "map.cluster %@" = "%@ Ladestationen";
 "map.legend.accessibility" = "Legende: Die Farbe eines Pins zeigt die maximale Ladeleistung — blau unter 22 kW, grün ab 22 kW, gelb ab 50 kW, orange ab 150 kW, rot ab 300 kW.";
+"map.liveAvailable" = "%lld Ladepunkte frei";
 "map.locate" = "Standort aktualisieren";
 "power.tier.fast" = "Schnellladen (DC)";
 "power.tier.highPower" = "Highpower (DC)";
@@ -42,10 +43,10 @@
 "provider.section.configured" = "Deine Auswahl";
 "provider.section.configured.footer" = "Zum Entfernen nach links wischen. Anbieter, die auf dem Wert des Schalters oben stehen, fallen beim nächsten Öffnen von selbst heraus.";
 "provider.section.results" = "Suchergebnisse";
+"provider.stationCount %@" = "%@ Ladestationen";
 "provider.unlisted" = "Alle übrigen Anbieter anzeigen";
 "provider.unlisted.footer.hidden" = "Die Karte zeigt nur die Anbieter aus dieser Liste, die auf „Anzeigen“ stehen. Alle anderen sind ausgeblendet.";
 "provider.unlisted.footer.shown" = "Die Karte zeigt alle Anbieter außer denen, die du hier unten auf „Nicht anzeigen“ stellst.";
-"provider.stationCount %@" = "%@ Ladestationen";
 "search.error.notFound" = "Zu dieser Adresse wurde kein Ort gefunden.";
 "search.prompt" = "Adresse oder Ort suchen";
 "search.recent" = "Zuletzt gesucht";
@@ -69,6 +70,15 @@
 "station.combinedSources" = "Aus mehreren Datenquellen zusammengeführt.";
 "station.connectors" = "Anschlüsse";
 "station.details" = "Details";
+"station.live.available" = "Frei";
+"station.live.chargePoint" = "Ladepunkt";
+"station.live.observedAt" = "Zuletzt gemeldet %@";
+"station.live.occupancy" = "%lld von %lld Ladepunkten frei";
+"station.live.occupied" = "Belegt";
+"station.live.outOfOrder" = "Gestört";
+"station.live.title" = "Live-Verfügbarkeit";
+"station.live.unknown" = "Unbekannt";
+"station.live.unresolved" = "%lld weitere Ladepunkte ohne Live-Daten";
 "station.power %@" = "%@ kW";
 "station.sources" = "Datenquellen";
 "stations.loading" = "Stationen werden geladen …";

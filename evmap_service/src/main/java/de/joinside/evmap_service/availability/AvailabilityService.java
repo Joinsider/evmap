@@ -1,0 +1,188 @@
+package de.joinside.evmap_service.availability;
+
+import de.joinside.evmap_service.logging.LogContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.stereotype.Service;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * Resolves live status onto stations, across whatever providers the component scan found.
+ * <p>
+ * Nothing here names a provider, exactly as {@code SyncJob} names no source adapter: a country gains
+ * live coverage by a class appearing on the classpath, not by an edit to this file.
+ * <p>
+ * The resolution rule is the one thing this class exists to enforce: a charge point gets a live
+ * status only when its stored EVSE-ID matches one a provider reported, compared in the normalized
+ * form both sides produce through {@link de.joinside.evmap_service.sync.EvseIds}. Everything else is
+ * {@link LiveAvailability#UNKNOWN}. See ADR 0015 for why the tempting alternatives — nearest
+ * coordinate, matching operator name — were measured and rejected.
+ */
+@Service
+@EnableConfigurationProperties(AvailabilityProperties.class)
+@ConditionalOnProperty(name = "evmap.availability.enabled", havingValue = "true", matchIfMissing = true)
+public class AvailabilityService {
+    private static final Logger log = LoggerFactory.getLogger(AvailabilityService.class);
+
+    private final List<AvailabilityProvider> providers;
+    private final ChargePointDirectory directory;
+    private final AvailabilityProperties properties;
+    private final AvailabilityCache cache;
+
+    AvailabilityService(List<AvailabilityProvider> providers,
+                        ChargePointDirectory directory,
+                        AvailabilityProperties properties) {
+        this.providers = providers.stream().filter(AvailabilityProvider::enabled).toList();
+        this.directory = directory;
+        this.properties = properties;
+        this.cache = new AvailabilityCache(properties.ttl(), properties.maxCacheEntries());
+        if (this.providers.isEmpty())
+            log.info("Live availability is enabled but no provider is registered — every station answers UNKNOWN");
+        else
+            log.info("Live availability providers: {}", this.providers.stream().map(AvailabilityProvider::source).toList());
+    }
+
+    /**
+     * Live status of one station, with per-charge-point detail.
+     *
+     * @return empty when the station does not exist, so the caller can answer 404 rather than
+     * inventing an unknown status for an id that means nothing.
+     */
+    public Optional<StationAvailability> forStation(UUID stationId) {
+        Optional<ChargePointDirectory.StationLocation> location = directory.location(stationId);
+        if (location.isEmpty()) return Optional.empty();
+
+        List<ChargePointDirectory.KnownChargePoint> chargePoints = directory.forStation(stationId);
+        if (chargePoints.isEmpty()) return Optional.of(StationAvailability.unknown(stationId, 0));
+
+        boolean anyResolvable = chargePoints.stream().anyMatch(cp -> cp.evseIdNormalized() != null);
+        if (!anyResolvable) {
+            // Common — 69,7 % of declared Ladepunkte publish no EVSE-ID — and not worth an upstream
+            // request: nothing a provider returned could match.
+            log.debug("Station {} has {} charge point(s), none with an EVSE-ID", stationId, chargePoints.size());
+            return Optional.of(StationAvailability.unknown(stationId, chargePoints.size()));
+        }
+
+        ChargePointDirectory.StationLocation at = location.get();
+        GeoBounds bounds = GeoBounds.around(at.latitude(), at.longitude(), properties.stationRadius());
+        Map<String, ChargePointAvailability> live = fetch(bounds, List.of(at.countryCode()));
+        return Optional.of(summarize(stationId, chargePoints, live, true));
+    }
+
+    /**
+     * Live status for every station in a viewport that has one.
+     * <p>
+     * Stations nothing is known about are left out entirely rather than returned as
+     * {@link LiveAvailability#UNKNOWN}: the map already draws them from the station query, and an
+     * unknown status changes nothing about the pin. Sending them would make the response scale with
+     * the viewport instead of with the live coverage in it.
+     */
+    public List<StationAvailability> inBounds(GeoBounds bounds) {
+        if (bounds.heightDegrees() > properties.maxViewportSpan() || bounds.widthDegrees() > properties.maxViewportSpan()) {
+            log.debug("Viewport {}x{}° exceeds the {}° live-availability span — answering empty",
+                    bounds.heightDegrees(), bounds.widthDegrees(), properties.maxViewportSpan());
+            return List.of();
+        }
+
+        List<ChargePointDirectory.KnownChargePoint> chargePoints =
+                directory.inBounds(bounds, properties.maxChargePoints());
+        if (chargePoints.isEmpty()) return List.of();
+
+        Map<String, ChargePointAvailability> live = fetch(bounds, directory.countriesInBounds(bounds));
+        if (live.isEmpty()) return List.of();
+
+        Map<UUID, List<ChargePointDirectory.KnownChargePoint>> byStation = new LinkedHashMap<>();
+        for (ChargePointDirectory.KnownChargePoint chargePoint : chargePoints)
+            byStation.computeIfAbsent(chargePoint.stationId(), key -> new ArrayList<>()).add(chargePoint);
+
+        List<StationAvailability> answers = new ArrayList<>(byStation.size());
+        byStation.forEach((stationId, stationChargePoints) -> {
+            StationAvailability summary = summarize(stationId, stationChargePoints, live, false);
+            if (summary.isKnown()) answers.add(summary.withoutDetail());
+        });
+        log.debug("Viewport live availability: {} of {} stations answered", answers.size(), byStation.size());
+        return answers;
+    }
+
+    /**
+     * Asks every provider that claims one of {@code countryCodes} and merges their answers.
+     * <p>
+     * A provider that throws is contained rather than propagated: one live source failing must cost
+     * its own coverage and nothing else, the same containment ADR 0013 gives sync sources. The first
+     * provider to report an EVSE-ID wins, which matters only once a country has two providers and is
+     * then resolved by registration order — deliberately left simple until a second one exists.
+     */
+    private Map<String, ChargePointAvailability> fetch(GeoBounds bounds, List<String> countryCodes) {
+        Map<String, ChargePointAvailability> merged = new HashMap<>();
+        for (AvailabilityProvider provider : providers) {
+            if (countryCodes.stream().noneMatch(country -> covers(provider, country))) continue;
+            try (var ignored = LogContext.scope(LogContext.SOURCE, provider.source())) {
+                List<ChargePointAvailability> reported =
+                        cache.get(AvailabilityCache.key(provider.source(), bounds), () -> provider.fetch(bounds));
+                for (ChargePointAvailability availability : reported)
+                    if (availability.evseId() != null) merged.putIfAbsent(availability.evseId(), availability);
+            } catch (RuntimeException e) {
+                log.warn("Availability provider {} failed for bounds {} — that area answers UNKNOWN",
+                        provider.source(), bounds, e);
+            }
+        }
+        return merged;
+    }
+
+    private static boolean covers(AvailabilityProvider provider, String countryCode) {
+        return countryCode != null && provider.covers(countryCode.toUpperCase(Locale.ROOT));
+    }
+
+    private static StationAvailability summarize(UUID stationId,
+                                                 List<ChargePointDirectory.KnownChargePoint> chargePoints,
+                                                 Map<String, ChargePointAvailability> live,
+                                                 boolean withDetail) {
+        int available = 0, occupied = 0, outOfOrder = 0, unknown = 0;
+        Instant newest = null;
+        List<StationAvailability.ChargePointStatus> detail = withDetail ? new ArrayList<>(chargePoints.size()) : List.of();
+
+        for (ChargePointDirectory.KnownChargePoint chargePoint : chargePoints) {
+            ChargePointAvailability reported = chargePoint.evseIdNormalized() == null
+                    ? null : live.get(chargePoint.evseIdNormalized());
+            String status = reported == null ? LiveAvailability.UNKNOWN : reported.status();
+            switch (status) {
+                case LiveAvailability.AVAILABLE -> available++;
+                case LiveAvailability.OCCUPIED -> occupied++;
+                case LiveAvailability.OUT_OF_ORDER -> outOfOrder++;
+                default -> unknown++;
+            }
+            if (reported != null && reported.observedAt() != null
+                    && (newest == null || reported.observedAt().isAfter(newest))) newest = reported.observedAt();
+            if (withDetail)
+                detail.add(new StationAvailability.ChargePointStatus(
+                        chargePoint.chargePointId(), chargePoint.evseId(), status,
+                        reported == null ? null : reported.observedAt()));
+        }
+
+        return new StationAvailability(stationId, summaryOf(available, occupied, outOfOrder),
+                available, occupied, outOfOrder, unknown, newest, detail);
+    }
+
+    /**
+     * One free charge point makes the station available: the user's question is whether they can
+     * charge, not whether every stall is empty. Broken only wins when nothing else is known about the
+     * station, so a site with one dead post and three working ones does not read as broken.
+     */
+    private static String summaryOf(int available, int occupied, int outOfOrder) {
+        if (available > 0) return LiveAvailability.AVAILABLE;
+        if (occupied > 0) return LiveAvailability.OCCUPIED;
+        if (outOfOrder > 0) return LiveAvailability.OUT_OF_ORDER;
+        return LiveAvailability.UNKNOWN;
+    }
+}

@@ -179,10 +179,11 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
             outcome = BatchedIngestion.Outcome.UNCHANGED;
             log.debug("Kept BNetzA-owned station {} unchanged, {} did not win the tie", stationId, source.source());
         }
-        // Connectors follow the same tie-break as the station's own fields. Writing them unconditionally
-        // would let whichever adapter ran last overwrite the connectors of a station whose address and
-        // operator came from the other source, leaving the two halves describing different sites.
-        if (outcome != BatchedIngestion.Outcome.UNCHANGED) replaceConnectors(stationId, source);
+        // Charge points and connectors follow the same tie-break as the station's own fields. Writing
+        // them unconditionally would let whichever adapter ran last overwrite the inventory of a station
+        // whose address and operator came from the other source, leaving the two halves describing
+        // different sites — and would attach EVSE-IDs from one site to the coordinates of another.
+        if (outcome != BatchedIngestion.Outcome.UNCHANGED) replaceInventory(stationId, source);
 
         jdbc.sql("INSERT INTO master.station_source " +
                         "(station_id, source, source_station_id, last_updated_at) " +
@@ -198,26 +199,57 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
     }
 
     /**
-     * Replaces a station's connectors with the ones the winning source reports.
+     * Replaces a station's charge points and connectors with the ones the winning source reports.
      * <p>
      * Delete-and-insert rather than a per-row upsert: {@code master.charging_connector} has no natural
      * key to match on — a site can legitimately list the same type at the same rating twice — and a
      * source dropping a connector between runs has to remove the row, not leave a stale one behind.
+     * <p>
+     * Connectors are deleted before charge points even though the foreign key cascades, so that the
+     * order does not depend on the cascade being there: the station-level connectors of a source that
+     * reports no charge points are not covered by it.
      */
-    private void replaceConnectors(UUID stationId, SourceStation source) {
+    private void replaceInventory(UUID stationId, SourceStation source) {
         jdbc.sql("DELETE FROM master.charging_connector WHERE station_id=:stationId")
                 .param("stationId", stationId)
                 .update();
-        for (SourceStation.SourceConnector connector : source.connectors()) {
-            jdbc.sql("INSERT INTO master.charging_connector (id, station_id, connector_type, power_kw, quantity) " +
-                            "VALUES (:id,:stationId,:type,:power,:quantity)")
-                    .param("id", UUID.randomUUID())
+        jdbc.sql("DELETE FROM master.charge_point WHERE station_id=:stationId")
+                .param("stationId", stationId)
+                .update();
+
+        for (SourceStation.SourceChargePoint chargePoint : source.chargePoints()) {
+            UUID chargePointId = UUID.randomUUID();
+            jdbc.sql("INSERT INTO master.charge_point " +
+                            "(id, station_id, source, source_charge_point_id, evse_id, evse_id_normalized) " +
+                            "VALUES (:id,:stationId,:source,:sourceId,:evseId,:evseNormalized)")
+                    .param("id", chargePointId)
                     .param("stationId", stationId)
-                    .param("type", clip(connector.connectorType(), 64))
-                    .param("power", connector.powerKw())
-                    .param("quantity", connector.quantity())
+                    .param("source", clip(source.source(), 32))
+                    .param("sourceId", clip(chargePoint.sourceChargePointId(), 255))
+                    .param("evseId", clip(chargePoint.evseId(), 64))
+                    .param("evseNormalized", EvseIds.normalize(chargePoint.evseId()))
                     .update();
+            for (SourceStation.SourceConnector connector : chargePoint.connectors()) {
+                insertConnector(stationId, chargePointId, connector);
+            }
         }
+        // Sources that only know totals keep hanging their connectors off the station itself.
+        for (SourceStation.SourceConnector connector : source.connectors()) {
+            insertConnector(stationId, null, connector);
+        }
+    }
+
+    private void insertConnector(UUID stationId, UUID chargePointId, SourceStation.SourceConnector connector) {
+        jdbc.sql("INSERT INTO master.charging_connector " +
+                        "(id, station_id, charge_point_id, connector_type, power_kw, quantity) " +
+                        "VALUES (:id,:stationId,:chargePointId,:type,:power,:quantity)")
+                .param("id", UUID.randomUUID())
+                .param("stationId", stationId)
+                .param("chargePointId", chargePointId)
+                .param("type", clip(connector.connectorType(), 64))
+                .param("power", connector.powerKw())
+                .param("quantity", connector.quantity())
+                .update();
     }
 
     private UUID nearby(SourceStation source) {

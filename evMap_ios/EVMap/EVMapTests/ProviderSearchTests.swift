@@ -44,6 +44,8 @@ private actor StubProviderRepository: ChargingStationRepository {
     }
 
     func detail(id: UUID) async throws -> StationDetail { fatalError("unused") }
+    func liveAvailability(stationID: UUID) async throws -> StationLiveAvailability { fatalError("unused") }
+    func liveAvailability(latMin: Double, lonMin: Double, latMax: Double, lonMax: Double) async throws -> [StationLiveAvailability] { fatalError("unused") }
     func comments(stationID: UUID, accessToken: String?) async throws -> [StationComment] { fatalError("unused") }
     func createComment(stationID: UUID, payload: CommentPayload, accessToken: String) async throws -> StationComment { fatalError("unused") }
     func updateComment(id: UUID, payload: CommentPayload, accessToken: String) async throws -> StationComment { fatalError("unused") }

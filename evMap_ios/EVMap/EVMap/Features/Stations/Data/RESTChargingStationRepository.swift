@@ -43,6 +43,21 @@ struct RESTChargingStationRepository: ChargingStationRepository {
         try await client.send(client.url(path: "/api/v1/stations/\(id)"))
     }
 
+    func liveAvailability(stationID: UUID) async throws -> StationLiveAvailability {
+        try await client.send(client.url(path: "/api/v1/stations/\(stationID)/availability"))
+    }
+
+    func liveAvailability(latMin: Double, lonMin: Double, latMax: Double, lonMax: Double) async throws -> [StationLiveAvailability] {
+        var components = URLComponents(url: client.url(path: "/api/v1/stations/availability"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "latMin", value: String(latMin)),
+            URLQueryItem(name: "lonMin", value: String(lonMin)),
+            URLQueryItem(name: "latMax", value: String(latMax)),
+            URLQueryItem(name: "lonMax", value: String(lonMax))
+        ]
+        return try await client.send(components.url!)
+    }
+
     func providers(matching query: String, limit: Int) async throws -> [ChargingProvider] {
         var components = URLComponents(url: client.url(path: "/api/v1/operators"), resolvingAgainstBaseURL: false)!
         var items = [URLQueryItem(name: "limit", value: String(limit))]

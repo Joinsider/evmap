@@ -87,6 +87,27 @@ users as a raw token. `SourceAdapterRegistrationTests` asserts the full set of a
 tokens — extend it when adding a source, or a wiring mistake ships as a container that starts happily
 and ingests one country less than it should.
 
+**`availability` is the second data axis and is not part of `sync`.** Live occupancy is volatile,
+per-EVSE and worthless after minutes, so it never enters `master.*` and never goes through
+`StationIngestionPort`. It mirrors sync's shape — `AvailabilityProvider` is the interface (the
+counterpart to `SourceAdapter`), providers live one per sub-package, nothing in `availability` names a
+provider, and `AvailabilityProviderRegistrationTests` asserts the full set. The two packages do not
+reference each other except for `sync.EvseIds`, deliberately shared so both sides of the join
+normalize identically. Providers are queried **on demand by bounding box** and cached in-process for
+one minute — do not turn this into a scheduled full poll: OCPDB's `last_updated` tracks the static
+description, not the status, so an incremental refresh misses exactly the changes it exists to catch.
+The in-process cache is a documented blocker to running a second API replica. See ADR 0015.
+
+**Live status attaches only on an exact EVSE-ID match.** There is no geographic, name-based or fuzzy
+resolution anywhere in this feature, and adding one would be a regression, not a coverage win: it was
+measured and produced real mispairings (a station at *Hedelfinger Str. 21* taking a live station at
+*Nr. 25*), and operator names never match because the register names the legal entity while the feed
+names the brand. Coverage is consequently partial — 14,5 % of live EVSEs resolved — and the rest is
+honestly `UNKNOWN`. `master.charge_point` holds the EVSE-IDs; `charging_connector.charge_point_id` is
+**nullable** because sources that report only totals (OCM) still hang connectors off the station.
+Sources that describe charge points individually now emit one connector row per charge point, and
+`StationService.aggregate` rebuilds the station totals on read, so the API payload is unchanged.
+
 Data separation: master/station data (sync-owned, read-only from the API) vs. user data (comments, user
 identities — API-owned). `UserIdentity`/`UserIdentityService` is deliberately a thin internal ID layer so
 additional auth providers can be added later without touching how the rest of the app references users.
@@ -158,9 +179,11 @@ viewport path, so there is no second fetch trigger. See ADR 0011.
 
 ## Constraints worth knowing before changing scope
 
-- No Android client, no route planning, no real-time availability, no payment handling, no external
-  identity provider beyond Apple — these are explicit v1 non-goals (Lastenheft §10), not gaps to fill
-  incidentally.
+- No Android client, no route planning, no payment handling, no external identity provider beyond
+  Apple — these are explicit v1 non-goals (Lastenheft §10), not gaps to fill incidentally.
+- Real-time availability *was* on that list and is no longer: ADR 0015 reversed it and the Lastenheft
+  was amended in the same change. What remains a non-goal is *complete* coverage — live status is
+  shown only where a national access point supplies it and the EVSE-ID matches exactly.
 - App strings must go through i18n resources (German base, English), never hardcoded — this is a stated
   requirement, not a style preference.
 - Per-field provenance (`source` + `lastUpdated`) must be preserved through the merge logic; BNetzA wins

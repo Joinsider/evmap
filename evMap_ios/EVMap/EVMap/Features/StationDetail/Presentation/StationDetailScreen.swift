@@ -17,6 +17,8 @@ struct StationDetailScreen: View {
         NavigationStack {
             List {
                 StationInformationSection(station: station)
+                // Above the infrastructure: "can I charge here now" outranks "what is installed here".
+                if let live = viewModel.liveAvailability { StationLiveAvailabilitySection(availability: live) }
                 if let detail = viewModel.detail { StationInfrastructureSections(detail: detail) }
                 CommentListSection(comments: viewModel.comments, edit: { editingComment = $0 }, delete: { comment in Task { await delete(comment) } })
             }

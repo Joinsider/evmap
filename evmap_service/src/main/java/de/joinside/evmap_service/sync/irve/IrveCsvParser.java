@@ -187,7 +187,12 @@ final class IrveCsvParser {
         private Instant lastUpdatedAt;
         /** Set by the first charge point that anyone may use; see {@link #restricted}. */
         private boolean publiclyAccessible;
-        private final Map<Plug, Integer> connectors = new LinkedHashMap<>();
+        /**
+         * One entry per {@code id_pdc_itinerance}, in file order. Keyed rather than appended because
+         * the consolidation repeats a charge point when several publishers describe it, and a repeat
+         * must merge into the existing entry instead of doubling the station's plug count.
+         */
+        private final Map<String, ChargePoint> chargePoints = new LinkedHashMap<>();
 
         private Station(String id) {
             this.id = id;
@@ -226,39 +231,85 @@ final class IrveCsvParser {
         }
 
         /**
-         * Adds this row's plugs. Each row <em>is</em> one charge point, so every plug it declares counts
-         * once and identical (type, power) pairs accumulate into a quantity — a station with four
-         * 22 kW Type 2 points becomes one connector row with {@code quantity=4} rather than four rows
-         * the UI would have to group again.
+         * Adds this row's plugs to the charge point the row describes.
+         * <p>
+         * Each row <em>is</em> one charge point, identified by {@code id_pdc_itinerance} — which is
+         * also the key the French <em>dynamic</em> IRVE schema publishes status against, and therefore
+         * the join live availability needs (ADR 0015). It used to be dropped, and the plugs of all of
+         * a station's charge points were merged into station-level totals; keeping the charge point
+         * preserves both the count and the identifier without changing what the API serves, since the
+         * totals are now derived when the station is read.
          */
         private void mergeConnectors(CSVRecord record, CsvColumns columns) {
+            ChargePoint chargePoint = chargePointOf(record, columns);
             BigDecimal power = powerKw(columns.get(record, "puissance_nominale"));
             // The column already states the standard, so the canonical type is taken directly rather
             // than round-tripped through ConnectorTypes.normalize(), which parses free-text labels.
             // "EF" is the French designation for the domestic type E/F socket, i.e. Schuko.
-            add(record, columns, "prise_type_2", ConnectorTypes.TYPE_2, power);
-            add(record, columns, "prise_type_combo_ccs", ConnectorTypes.CCS, power);
-            add(record, columns, "prise_type_chademo", ConnectorTypes.CHADEMO, power);
-            add(record, columns, "prise_type_ef", ConnectorTypes.SCHUKO, power);
+            add(chargePoint, record, columns, "prise_type_2", ConnectorTypes.TYPE_2, power);
+            add(chargePoint, record, columns, "prise_type_combo_ccs", ConnectorTypes.CCS, power);
+            add(chargePoint, record, columns, "prise_type_chademo", ConnectorTypes.CHADEMO, power);
+            add(chargePoint, record, columns, "prise_type_ef", ConnectorTypes.SCHUKO, power);
             // prise_type_autre is deliberately unmapped: it says a plug exists but not which, and a
             // connector nobody can filter for is worse than an honest gap.
         }
 
-        private void add(CSVRecord record, CsvColumns columns, String column, String type, BigDecimal power) {
-            if (flag(columns.get(record, column))) connectors.merge(new Plug(type, power), 1, Integer::sum);
+        /**
+         * The charge point this row belongs to, created on first sight.
+         * <p>
+         * {@code id_pdc_itinerance} is rejected by the same whitespace rule the station id uses: the
+         * publishers who write {@code "Non concerné"} where a station identifier belongs do it for
+         * charge points too, and grouping on that phrase would fuse unrelated charge points into one.
+         * A row without a usable id still becomes a charge point, keyed by its position, so its plugs
+         * are not lost — it simply cannot take part in the live join.
+         */
+        private ChargePoint chargePointOf(CSVRecord record, CsvColumns columns) {
+            String pdcId = columns.get(record, "id_pdc_itinerance");
+            boolean usable = !pdcId.isEmpty() && !WHITESPACE.matcher(pdcId).find();
+            String key = usable ? pdcId : id + "*" + (chargePoints.size() + 1);
+            return chargePoints.computeIfAbsent(key,
+                    k -> new ChargePoint(k, usable ? pdcId : null));
+        }
+
+        private void add(ChargePoint chargePoint, CSVRecord record, CsvColumns columns, String column, String type, BigDecimal power) {
+            if (flag(columns.get(record, column))) chargePoint.plugs.merge(new Plug(type, power), 1, Integer::sum);
         }
 
         private SourceStation toSourceStation() {
-            List<SourceStation.SourceConnector> mapped = new ArrayList<>(connectors.size());
-            connectors.forEach((plug, quantity) ->
-                    mapped.add(new SourceStation.SourceConnector(plug.type(), plug.powerKw(), quantity)));
+            List<SourceStation.SourceChargePoint> mapped = new ArrayList<>(chargePoints.size());
+            for (ChargePoint chargePoint : chargePoints.values()) {
+                if (chargePoint.plugs.isEmpty()) continue;
+                mapped.add(chargePoint.toSourceChargePoint());
+            }
 
             return new SourceStation(SOURCE, id, name, street, city, postalCode, COUNTRY_CODE, operator,
                     latitude, longitude,
                     // The consolidated schema publishes no operational status, and inventing one would
                     // advertise every French station as working.
                     null,
-                    lastUpdatedAt, mapped);
+                    lastUpdatedAt,
+                    // No station-level totals: every plug belongs to the charge point of its row.
+                    List.of(),
+                    mapped);
+        }
+    }
+
+    /** One {@code point de charge}; the plugs accumulate as the station's rows are read. */
+    private static final class ChargePoint {
+        private final String key;
+        private final String itineranceId;
+        private final Map<Plug, Integer> plugs = new LinkedHashMap<>();
+
+        private ChargePoint(String key, String itineranceId) {
+            this.key = key;
+            this.itineranceId = itineranceId;
+        }
+
+        private SourceStation.SourceChargePoint toSourceChargePoint() {
+            List<SourceStation.SourceConnector> connectors = new ArrayList<>(plugs.size());
+            plugs.forEach((plug, quantity) ->
+                    connectors.add(new SourceStation.SourceConnector(plug.type(), plug.powerKw(), quantity)));
+            return new SourceStation.SourceChargePoint(key, itineranceId, connectors);
         }
     }
 

@@ -9,3 +9,5 @@ databaseChangeLog:
       file: db/changelog/004-connector-power-lookup.sql
   - include:
       file: db/changelog/005-operator-directory.sql
+  - include:
+      file: db/changelog/006-charge-point-inventory.sql

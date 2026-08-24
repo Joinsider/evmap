@@ -45,6 +45,34 @@ evmap:
     # How long the last successful ingestion may be ago before /actuator/health reports DOWN.
     # Twice the 24 h fixed delay, so a single missed run is not an alert.
     max-age: ${SYNC_MAX_AGE:PT48H}
+
+  # Live occupancy of individual charge points, read from national access points (ADR 0015). This is
+  # a different axis from evmap.sync: it never writes master data, is queried on demand rather than
+  # scheduled, and answers UNKNOWN whenever it cannot match a charge point by its exact EVSE-ID.
+  availability:
+    enabled: ${AVAILABILITY_ENABLED:true}
+    # AFIR obliges operators to publish a status change within one minute, so caching longer throws
+    # away freshness the regulation already paid for.
+    ttl: PT1M
+    max-cache-entries: 500
+    # Box asked about when one station is opened. Matching is by identifier, so a wider box costs a
+    # larger response and can never produce a wrong answer.
+    station-radius: 300
+    # Widest viewport answered, in degrees. Beyond it the map shows a country and live pins mean
+    # nothing, while the upstream response would be enormous.
+    max-viewport-span: 1.5
+    max-charge-points: 5000
+
+    # MobiData BW's Open ChargePoint DataBase (dl-de/by-2.0, attribution "MobiData BW").
+    # OCPI 3.0, no API key and no registration. Density is highest in Baden-Württemberg and thins
+    # out across the rest of Germany and Switzerland.
+    mobidata:
+      enabled: ${MOBIDATA_ENABLED:true}
+      base-url: https://api.mobidata-bw.de/ocpdb/api/ocpi/3.0
+      country-codes: DE,CH
+      page-size: 200
+      max-pages: 5
+      timeout: PT10S
   security:
     jwt-secret: ${JWT_SECRET:change-this-development-secret-to-a-long-random-value}
     jwt-ttl: PT12H
