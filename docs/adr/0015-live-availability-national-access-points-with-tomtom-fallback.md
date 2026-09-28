@@ -382,9 +382,13 @@ Four claims from the first revision, and what building against the endpoint show
    heavier than one fixed-delay refresh. The Mobilithek's delta delivery makes this firmer: see the
    survey above.
 
-5. **Attribution of live sources in the app.** dl-de/by-2.0 (MobiData BW) and Licence Ouverte
-   (transport.data.gouv.fr) both require naming the source, and Lastenheft §5 asks for provenance per
-   charge point. The availability response carries no source today and the client shows none.
+5. ~~Attribution of live sources in the app~~ — resolved 2026-09-28. dl-de/by-2.0 (MobiData BW) and
+   Licence Ouverte (transport.data.gouv.fr) both require naming the source, and Lastenheft §5 asks for
+   provenance per charge point. `AvailabilityProvider.attribution()` is now mandatory; the response
+   carries `sources` (name, licence, url) for the station and `source` per charge point, and the
+   detail screen credits them in the live section's footer — with the Lastenheft's "Kombination
+   mehrerer Datenquellen" label and a per-charge-point source when more than one contributed. The
+   names and licence titles are proper names sent by the backend; only the surrounding words are i18n.
 
 ## References
 

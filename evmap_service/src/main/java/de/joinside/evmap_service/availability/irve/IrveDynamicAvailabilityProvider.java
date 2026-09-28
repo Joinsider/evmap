@@ -1,5 +1,6 @@
 package de.joinside.evmap_service.availability.irve;
 
+import de.joinside.evmap_service.availability.Attribution;
 import de.joinside.evmap_service.availability.AvailabilityProvider;
 import de.joinside.evmap_service.availability.ChargePointAvailability;
 import de.joinside.evmap_service.availability.GeoBounds;
@@ -50,6 +51,9 @@ public class IrveDynamicAvailabilityProvider implements AvailabilityProvider {
 
     static final String SOURCE = "IrveDynamique";
 
+    private static final Attribution ATTRIBUTION = new Attribution("transport.data.gouv.fr",
+            "Licence Ouverte 2.0", "https://transport.data.gouv.fr/resources/84098");
+
     /**
      * @param attemptedAt when the last download was tried, successful or not — what the refresh
      *                    interval is measured from, so a failing upstream is retried once per interval
@@ -97,6 +101,11 @@ public class IrveDynamicAvailabilityProvider implements AvailabilityProvider {
     @Override
     public String source() {
         return SOURCE;
+    }
+
+    @Override
+    public Attribution attribution() {
+        return ATTRIBUTION;
     }
 
     @Override

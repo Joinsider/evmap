@@ -37,6 +37,38 @@ struct LiveAvailabilityTests {
         #expect(availability.chargePoints.last?.status == .occupied)
     }
 
+    @Test("Decodes the source credits, per station and per charge point")
+    func decodesSources() throws {
+        let availability: StationLiveAvailability = try decode("""
+        {"stationId":"6C8B4E1E-6C2C-4E9A-9B77-9F0A2E7B1C31","status":"AVAILABLE",
+         "available":1,"occupied":0,"outOfOrder":0,"unknown":1,
+         "chargePoints":[
+           {"id":"1B0F0F5A-1111-4111-8111-111111111111","evseId":"FRS37E219940",
+            "status":"AVAILABLE","observedAt":"2026-09-27T19:01:37Z","source":"transport.data.gouv.fr"},
+           {"id":"1B0F0F5A-2222-4222-8222-222222222222","status":"UNKNOWN"}],
+         "sources":[{"name":"transport.data.gouv.fr","licence":"Licence Ouverte 2.0",
+                     "url":"https://transport.data.gouv.fr/resources/84098"}]}
+        """)
+
+        #expect(availability.sources == [LiveDataSource(name: "transport.data.gouv.fr",
+                                                        licence: "Licence Ouverte 2.0",
+                                                        url: URL(string: "https://transport.data.gouv.fr/resources/84098"))])
+        #expect(availability.chargePoints.first?.source == "transport.data.gouv.fr")
+        // An unresolved charge point credits nobody.
+        #expect(availability.chargePoints.last?.source == nil)
+    }
+
+    @Test("A source without licence or with a malformed URL still decodes and keeps its name")
+    func decodesPartialSource() throws {
+        let source: LiveDataSource = try decode("""
+        {"name":"MobiData BW","url":42}
+        """)
+
+        #expect(source.name == "MobiData BW")
+        #expect(source.licence == nil)
+        #expect(source.url == nil)
+    }
+
     @Test("Decodes a station nothing is known about, whose null fields the backend omits")
     func decodesUnknownPayload() throws {
         let availability: StationLiveAvailability = try decode("""
@@ -46,6 +78,7 @@ struct LiveAvailabilityTests {
         #expect(availability.status == .unknown)
         #expect(availability.observedAt == nil)
         #expect(availability.chargePoints.isEmpty)
+        #expect(availability.sources.isEmpty)
         #expect(availability.available == 0)
         // Nothing resolved, so the detail screen renders no live section at all rather than an
         // empty one that reads as a broken feature.

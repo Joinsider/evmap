@@ -1,5 +1,6 @@
 package de.joinside.evmap_service.availability.mobidata;
 
+import de.joinside.evmap_service.availability.Attribution;
 import de.joinside.evmap_service.availability.AvailabilityProvider;
 import de.joinside.evmap_service.availability.ChargePointAvailability;
 import de.joinside.evmap_service.availability.GeoBounds;
@@ -45,6 +46,9 @@ public class MobiDataBwAvailabilityProvider implements AvailabilityProvider {
 
     static final String SOURCE = "MobiDataBW";
 
+    private static final Attribution ATTRIBUTION = new Attribution("MobiData BW",
+            "Datenlizenz Deutschland – Namensnennung – 2.0", "https://www.mobidata-bw.de");
+
     /**
      * OCPDB's own synthesis for EVSEs it derived from the Bundesnetzagentur register, embedding the
      * {@code Ladeeinrichtungs-ID}. Recognized in order to be <em>skipped</em>.
@@ -88,6 +92,11 @@ public class MobiDataBwAvailabilityProvider implements AvailabilityProvider {
     @Override
     public String source() {
         return SOURCE;
+    }
+
+    @Override
+    public Attribution attribution() {
+        return ATTRIBUTION;
     }
 
     @Override

@@ -36,7 +36,9 @@ class AvailabilityPayloadTests {
                     2, 1, 0, 1, Instant.parse("2026-08-24T02:01:16Z"),
                     List.of(new AvailabilityController.ChargePointResponse(
                             UUID.fromString("1b0f0f5a-1111-4111-8111-111111111111"),
-                            "DE*EBW*E912316*1", "AVAILABLE", Instant.parse("2026-08-24T02:01:16Z"))));
+                            "DE*EBW*E912316*1", "AVAILABLE", Instant.parse("2026-08-24T02:01:16Z"), "MobiData BW")),
+                    List.of(new AvailabilityController.SourceResponse("MobiData BW",
+                            "Datenlizenz Deutschland – Namensnennung – 2.0", "https://www.mobidata-bw.de")));
 
     @Test
     @DisplayName("serializes timestamps as ISO-8601, which is what the client decodes")
@@ -63,7 +65,11 @@ class AvailabilityPayloadTests {
                     .contains("\"chargePoints\":[")
                     // Published spelling, not the normalized comparison form: the client shows this
                     // so it can be read off the physical post.
-                    .contains("\"evseId\":\"DE*EBW*E912316*1\"");
+                    .contains("\"evseId\":\"DE*EBW*E912316*1\"")
+                    // Credit per charge point and per station, as the licences and Lastenheft §5 ask.
+                    .contains("\"source\":\"MobiData BW\"")
+                    .contains("\"sources\":[{\"name\":\"MobiData BW\",\"licence\":")
+                    .contains("\"url\":\"https://www.mobidata-bw.de\"");
         });
     }
 
@@ -72,7 +78,7 @@ class AvailabilityPayloadTests {
     void omitsNullTimestamp() {
         runner.run(context -> {
             var withoutObservation = new AvailabilityController.StationAvailabilityResponse(
-                    UUID.randomUUID(), "UNKNOWN", 0, 0, 0, 4, null, List.of());
+                    UUID.randomUUID(), "UNKNOWN", 0, 0, 0, 4, null, List.of(), List.of());
             String json = context.getBean(ObjectMapper.class).writeValueAsString(withoutObservation);
 
             assertThat(json).doesNotContain("observedAt");

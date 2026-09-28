@@ -22,25 +22,34 @@ import java.util.UUID;
  *                     presented as current.
  * @param chargePoints per-charge-point detail, in ingestion order. Empty for the map, which needs
  *                     only the summary and the counts.
+ * @param sources      every source that contributed a status to this answer, in the order the
+ *                     providers were asked — the credit their licences require. Empty when nothing
+ *                     resolved, so an unknown station never names a source that told us nothing.
  */
 public record StationAvailability(UUID stationId, String status, int available, int occupied,
                                   int outOfOrder, int unknown, Instant observedAt,
-                                  List<ChargePointStatus> chargePoints) {
+                                  List<ChargePointStatus> chargePoints, List<Attribution> sources) {
 
     public StationAvailability {
         chargePoints = chargePoints == null ? List.of() : List.copyOf(chargePoints);
+        sources = sources == null ? List.of() : List.copyOf(sources);
     }
 
     /**
      * @param evseId the EVSE-ID as published, not the normalized comparison form — this one is shown
      *               to users and copied into charging apps, so it must read as the operator wrote it.
+     * @param source {@link Attribution#name()} of the source that reported this status, {@code null}
+     *               when none did. Per charge point because Lastenheft §5 asks for provenance at that
+     *               level, and a station can be answered by more than one source.
      */
-    public record ChargePointStatus(UUID chargePointId, String evseId, String status, Instant observedAt) {
+    public record ChargePointStatus(UUID chargePointId, String evseId, String status, Instant observedAt,
+                                    String source) {
     }
 
     /** A station nothing is known about: no charge points resolved, no provider answered. */
     public static StationAvailability unknown(UUID stationId, int chargePointCount) {
-        return new StationAvailability(stationId, LiveAvailability.UNKNOWN, 0, 0, 0, chargePointCount, null, List.of());
+        return new StationAvailability(stationId, LiveAvailability.UNKNOWN, 0, 0, 0, chargePointCount, null,
+                List.of(), List.of());
     }
 
     /** Whether anything here is worth sending to a map client. */
@@ -50,6 +59,7 @@ public record StationAvailability(UUID stationId, String status, int available, 
 
     /** The same summary without the per-charge-point list, for the viewport response. */
     public StationAvailability withoutDetail() {
-        return new StationAvailability(stationId, status, available, occupied, outOfOrder, unknown, observedAt, List.of());
+        return new StationAvailability(stationId, status, available, occupied, outOfOrder, unknown, observedAt,
+                List.of(), sources);
     }
 }

@@ -76,6 +76,9 @@
 "station.live.occupancy" = "%lld of %lld charge points free";
 "station.live.occupied" = "In use";
 "station.live.outOfOrder" = "Out of order";
+"station.live.source" = "Live data:";
+"station.live.source.licence" = "%@ (%@)";
+"station.live.sources.combined" = "Combination of several data sources:";
 "station.live.title" = "Live availability";
 "station.live.unknown" = "Unknown";
 "station.live.unresolved" = "%lld more charge points without live data";

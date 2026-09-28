@@ -76,6 +76,9 @@
 "station.live.occupancy" = "%lld von %lld Ladepunkten frei";
 "station.live.occupied" = "Belegt";
 "station.live.outOfOrder" = "Gestört";
+"station.live.source" = "Live-Daten:";
+"station.live.source.licence" = "%@ (%@)";
+"station.live.sources.combined" = "Kombination mehrerer Datenquellen:";
 "station.live.title" = "Live-Verfügbarkeit";
 "station.live.unknown" = "Unbekannt";
 "station.live.unresolved" = "%lld weitere Ladepunkte ohne Live-Daten";

@@ -41,7 +41,7 @@ class AvailabilityRoutingTests {
     void viewportPathWins() throws Exception {
         org.mockito.Mockito.when(availability.inBounds(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(List.of(new StationAvailability(STATION_ID, LiveAvailability.OCCUPIED,
-                        0, 2, 0, 0, null, List.of())));
+                        0, 2, 0, 0, null, List.of(), List.of())));
 
         mockMvc.perform(get("/api/v1/stations/availability")
                         .param("latMin", "48.77").param("lonMin", "9.17")
@@ -56,7 +56,7 @@ class AvailabilityRoutingTests {
         UUID id = UUID.randomUUID();
         org.mockito.Mockito.when(availability.forStation(id))
                 .thenReturn(Optional.of(new StationAvailability(id, LiveAvailability.AVAILABLE,
-                        1, 0, 0, 0, null, List.of())));
+                        1, 0, 0, 0, null, List.of(), List.of())));
 
         mockMvc.perform(get("/api/v1/stations/{id}/availability", id))
                 .andExpect(status().isOk())

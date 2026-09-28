@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -78,7 +79,7 @@ public class AvailabilityService {
 
         ChargePointDirectory.StationLocation at = location.get();
         GeoBounds bounds = GeoBounds.around(at.latitude(), at.longitude(), properties.stationRadius());
-        Map<String, ChargePointAvailability> live = fetch(bounds, List.of(at.countryCode()), wanted(chargePoints));
+        Map<String, Reported> live = fetch(bounds, List.of(at.countryCode()), wanted(chargePoints));
         return Optional.of(summarize(stationId, chargePoints, live, true));
     }
 
@@ -101,7 +102,7 @@ public class AvailabilityService {
                 directory.inBounds(bounds, properties.maxChargePoints());
         if (chargePoints.isEmpty()) return List.of();
 
-        Map<String, ChargePointAvailability> live =
+        Map<String, Reported> live =
                 fetch(bounds, directory.countriesInBounds(bounds), wanted(chargePoints));
         if (live.isEmpty()) return List.of();
 
@@ -130,8 +131,8 @@ public class AvailabilityService {
      * area holds — the French consolidation has no coordinates and answers with the whole country —
      * and copying all of that per request would make the cost of a map pan scale with the country.
      */
-    private Map<String, ChargePointAvailability> fetch(GeoBounds bounds, List<String> countryCodes, Set<String> wanted) {
-        Map<String, ChargePointAvailability> merged = new HashMap<>();
+    private Map<String, Reported> fetch(GeoBounds bounds, List<String> countryCodes, Set<String> wanted) {
+        Map<String, Reported> merged = new HashMap<>();
         for (AvailabilityProvider provider : providers) {
             if (countryCodes.stream().noneMatch(country -> covers(provider, country))) continue;
             try (var ignored = LogContext.scope(LogContext.SOURCE, provider.source())) {
@@ -139,13 +140,17 @@ public class AvailabilityService {
                         cache.get(AvailabilityCache.key(provider.source(), bounds), () -> provider.fetch(bounds));
                 for (ChargePointAvailability availability : reported)
                     if (availability.evseId() != null && wanted.contains(availability.evseId()))
-                        merged.putIfAbsent(availability.evseId(), availability);
+                        merged.putIfAbsent(availability.evseId(), new Reported(availability, provider.attribution()));
             } catch (RuntimeException e) {
                 log.warn("Availability provider {} failed for bounds {} — that area answers UNKNOWN",
                         provider.source(), bounds, e);
             }
         }
         return merged;
+    }
+
+    /** One provider's answer for one charge point, kept with the credit its licence requires. */
+    private record Reported(ChargePointAvailability availability, Attribution source) {
     }
 
     private static Set<String> wanted(List<ChargePointDirectory.KnownChargePoint> chargePoints) {
@@ -161,15 +166,18 @@ public class AvailabilityService {
 
     private static StationAvailability summarize(UUID stationId,
                                                  List<ChargePointDirectory.KnownChargePoint> chargePoints,
-                                                 Map<String, ChargePointAvailability> live,
+                                                 Map<String, Reported> live,
                                                  boolean withDetail) {
         int available = 0, occupied = 0, outOfOrder = 0, unknown = 0;
         Instant newest = null;
         List<StationAvailability.ChargePointStatus> detail = withDetail ? new ArrayList<>(chargePoints.size()) : List.of();
+        Set<Attribution> sources = new LinkedHashSet<>();
 
         for (ChargePointDirectory.KnownChargePoint chargePoint : chargePoints) {
-            ChargePointAvailability reported = chargePoint.evseIdNormalized() == null
+            Reported resolved = chargePoint.evseIdNormalized() == null
                     ? null : live.get(chargePoint.evseIdNormalized());
+            ChargePointAvailability reported = resolved == null ? null : resolved.availability();
+            if (resolved != null) sources.add(resolved.source());
             String status = reported == null ? LiveAvailability.UNKNOWN : reported.status();
             switch (status) {
                 case LiveAvailability.AVAILABLE -> available++;
@@ -182,11 +190,12 @@ public class AvailabilityService {
             if (withDetail)
                 detail.add(new StationAvailability.ChargePointStatus(
                         chargePoint.chargePointId(), chargePoint.evseId(), status,
-                        reported == null ? null : reported.observedAt()));
+                        reported == null ? null : reported.observedAt(),
+                        resolved == null ? null : resolved.source().name()));
         }
 
         return new StationAvailability(stationId, summaryOf(available, occupied, outOfOrder),
-                available, occupied, outOfOrder, unknown, newest, detail);
+                available, occupied, outOfOrder, unknown, newest, detail, List.copyOf(sources));
     }
 
     /**

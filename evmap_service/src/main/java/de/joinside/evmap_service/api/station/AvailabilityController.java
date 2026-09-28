@@ -71,13 +71,20 @@ class AvailabilityController {
      * @param observedAt when the newest underlying reading was taken, {@code null} when there is
      *                   none. The client renders its age and shows nothing rather than a bare value —
      *                   a live status without its timestamp cannot be told from a stale one.
+     * @param sources    the sources that contributed, which the client must credit next to the data —
+     *                   their licences require it.
      */
     record StationAvailabilityResponse(UUID stationId, String status, int available, int occupied,
                                        int outOfOrder, int unknown, Instant observedAt,
-                                       List<ChargePointResponse> chargePoints) {
+                                       List<ChargePointResponse> chargePoints,
+                                       List<SourceResponse> sources) {
     }
 
-    record ChargePointResponse(UUID id, String evseId, String status, Instant observedAt) {
+    /** @param source the {@link SourceResponse#name()} that reported this charge point, if any. */
+    record ChargePointResponse(UUID id, String evseId, String status, Instant observedAt, String source) {
+    }
+
+    record SourceResponse(String name, String licence, String url) {
     }
 
     private static StationAvailabilityResponse toResponse(StationAvailability availability) {
@@ -91,7 +98,11 @@ class AvailabilityController {
                 availability.observedAt(),
                 availability.chargePoints().stream()
                         .map(chargePoint -> new ChargePointResponse(chargePoint.chargePointId(),
-                                chargePoint.evseId(), chargePoint.status(), chargePoint.observedAt()))
+                                chargePoint.evseId(), chargePoint.status(), chargePoint.observedAt(),
+                                chargePoint.source()))
+                        .toList(),
+                availability.sources().stream()
+                        .map(source -> new SourceResponse(source.name(), source.licence(), source.url()))
                         .toList());
     }
 }

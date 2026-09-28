@@ -13,9 +13,16 @@ public interface AvailabilityProvider {
 
     /**
      * Stable token identifying this source. Tagged onto log lines and reported per provider in the
-     * service's diagnostics; never shown to users, who see a status and its age, not its origin.
+     * service's diagnostics; never shown to users — what they see is {@link #attribution()}.
      */
     String source();
+
+    /**
+     * How this source is credited next to its data in the app. Required rather than defaulted: every
+     * live source so far is licensed on condition of attribution, so a provider without one would
+     * ship data the app is not allowed to show uncredited.
+     */
+    Attribution attribution();
 
     /**
      * Whether this provider takes part at all. Checked centrally so a disabled provider is reported

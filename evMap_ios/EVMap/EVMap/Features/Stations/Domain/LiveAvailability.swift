@@ -59,8 +59,10 @@ struct ChargePointLiveStatus: Decodable, Hashable, Identifiable {
     let evseId: String?
     let status: LiveAvailability
     let observedAt: Date?
+    /// ``LiveDataSource/name`` of the source that reported this charge point, `nil` when none did.
+    let source: String?
 
-    private enum CodingKeys: String, CodingKey { case id, evseId, status, observedAt }
+    private enum CodingKeys: String, CodingKey { case id, evseId, status, observedAt, source }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -68,13 +70,42 @@ struct ChargePointLiveStatus: Decodable, Hashable, Identifiable {
         evseId = try container.decodeIfPresent(String.self, forKey: .evseId)
         status = LiveAvailability(rawValue: try container.decode(String.self, forKey: .status))
         observedAt = try container.decodeIfPresent(Date.self, forKey: .observedAt)
+        source = try container.decodeIfPresent(String.self, forKey: .source)
     }
 
-    init(id: UUID, evseId: String?, status: LiveAvailability, observedAt: Date?) {
+    init(id: UUID, evseId: String?, status: LiveAvailability, observedAt: Date?, source: String? = nil) {
         self.id = id
         self.evseId = evseId
         self.status = status
         self.observedAt = observedAt
+        self.source = source
+    }
+}
+
+/// A publisher of live data, credited next to what it reported.
+///
+/// Every live source so far is licensed on condition of attribution, and the Lastenheft asks for
+/// provenance per charge point. `name` and `licence` are proper names the backend sends as the
+/// publisher spells them; only the words around them come from the app's own i18n resources.
+struct LiveDataSource: Decodable, Hashable {
+    let name: String
+    let licence: String?
+    let url: URL?
+
+    private enum CodingKeys: String, CodingKey { case name, licence, url }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        licence = try container.decodeIfPresent(String.self, forKey: .licence)
+        // A malformed URL costs the link, never the credit or the whole availability response.
+        url = (try? container.decodeIfPresent(String.self, forKey: .url)).flatMap { $0 }.flatMap(URL.init(string:))
+    }
+
+    init(name: String, licence: String?, url: URL?) {
+        self.name = name
+        self.licence = licence
+        self.url = url
     }
 }
 
@@ -93,11 +124,14 @@ struct StationLiveAvailability: Decodable, Hashable, Identifiable {
     let observedAt: Date?
     /// Per-charge-point detail. Empty in the map response, which needs only the summary.
     let chargePoints: [ChargePointLiveStatus]
+    /// Every source that contributed, which the detail screen must credit. Empty when nothing
+    /// resolved.
+    let sources: [LiveDataSource]
 
     var id: UUID { stationID }
 
     private enum CodingKeys: String, CodingKey {
-        case stationId, status, available, occupied, outOfOrder, unknown, observedAt, chargePoints
+        case stationId, status, available, occupied, outOfOrder, unknown, observedAt, chargePoints, sources
     }
 
     init(from decoder: Decoder) throws {
@@ -110,10 +144,12 @@ struct StationLiveAvailability: Decodable, Hashable, Identifiable {
         unknown = try container.decodeIfPresent(Int.self, forKey: .unknown) ?? 0
         observedAt = try container.decodeIfPresent(Date.self, forKey: .observedAt)
         chargePoints = try container.decodeIfPresent([ChargePointLiveStatus].self, forKey: .chargePoints) ?? []
+        sources = try container.decodeIfPresent([LiveDataSource].self, forKey: .sources) ?? []
     }
 
     init(stationID: UUID, status: LiveAvailability, available: Int, occupied: Int,
-         outOfOrder: Int, unknown: Int, observedAt: Date?, chargePoints: [ChargePointLiveStatus]) {
+         outOfOrder: Int, unknown: Int, observedAt: Date?, chargePoints: [ChargePointLiveStatus],
+         sources: [LiveDataSource] = []) {
         self.stationID = stationID
         self.status = status
         self.available = available
@@ -122,6 +158,7 @@ struct StationLiveAvailability: Decodable, Hashable, Identifiable {
         self.unknown = unknown
         self.observedAt = observedAt
         self.chargePoints = chargePoints
+        self.sources = sources
     }
 
     /// Charge points the backend could actually resolve. Zero means nothing here is live data.

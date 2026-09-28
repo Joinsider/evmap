@@ -27,6 +27,11 @@ class AvailabilityServiceTests {
         }
 
         @Override
+        public Attribution attribution() {
+            return new Attribution("Whole Country", "Licence Ouverte 2.0", "https://example.org");
+        }
+
+        @Override
         public boolean covers(String countryCode) {
             return "FR".equals(countryCode);
         }
@@ -66,6 +71,10 @@ class AvailabilityServiceTests {
         assertThat(answer.outOfOrder()).isZero();
         assertThat(answer.unknown()).isEqualTo(1);
         assertThat(answer.observedAt()).isEqualTo(OBSERVED);
+        // Credited once per station and per resolved charge point; the unresolved one names nobody.
+        assertThat(answer.sources()).extracting(Attribution::name).containsExactly("Whole Country");
+        assertThat(answer.chargePoints()).extracting(StationAvailability.ChargePointStatus::source)
+                .containsExactly("Whole Country", "Whole Country", null);
     }
 
     @Test
