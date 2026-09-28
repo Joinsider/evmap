@@ -123,12 +123,10 @@ jobs:
             -resultBundlePath build/Test.xcresult \
             CODE_SIGNING_ALLOWED=NO
 
-      # Run from the repository root: the report's paths are written relative to it, which is the
-      # analysis' base directory on a different (Linux) runner.
+      # Reads build/Test.xcresult from the step above and writes paths relative to the repository
+      # root, the analysis' base directory on a different (Linux) runner.
       - name: Convert coverage for SonarQube Cloud
-        run: |
-          python3 evMap_ios/scripts/xccov-to-sonar.py \
-            evMap_ios/EVMap/build/Test.xcresult evMap_ios/EVMap/EVMap > sonar-coverage-ios.xml
+        run: python3 evMap_ios/scripts/xccov-to-sonar.py > sonar-coverage-ios.xml
 
       - name: Hand coverage to the analysis
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

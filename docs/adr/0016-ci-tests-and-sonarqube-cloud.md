@@ -39,7 +39,9 @@ Java and Swift together into `Joinsider_evmap`, configured by the root `sonar-pr
   SonarQube's generic coverage XML, with paths relative to the repository root (the analysis runs on a
   different machine than the tests). SonarSource documents a shell script from its examples repository
   for this; fetching it at CI time would execute unreviewed code, so the ~60-line equivalent is kept
-  here. Its arguments are allowlisted before they reach `xccov` (pythonsecurity:S8705).
+  here. It takes **no arguments**: its paths are fixed and derived from its own location, so nothing
+  from a caller reaches the `xccov` command line (pythonsecurity:S8705 — an allowlist check was not
+  recognised as sanitisation, and an argument-free script has nothing to sanitise).
 - **Liquibase changelogs are excluded.** They are PostgreSQL; SonarQube Cloud has no PostgreSQL
   analyzer and applied Oracle PL/SQL rules (`VARCHAR2`) to them.
 - **master is analysed as well**, because SonarQube Cloud computes a PR's "new code" against the main
@@ -60,7 +62,7 @@ rather than suppressed: third-party actions pinned to commit SHAs and permission
 URLs built from path segments instead of `/api/v1/…` literals, unused protocol parameters named `_`,
 intentionally empty closures commented, backticked `default` statics renamed
 (`AppSettings.factoryDefaults`, `ProviderPreference.fallback`), live counts grouped into one
-initializer argument, and the converter's arguments validated. The two base URLs in `APIEnvironment`
+initializer argument, and the converter made argument-free. The two base URLs in `APIEnvironment`
 (swift:S1075) were **accepted** in SonarQube Cloud: that type is the configuration point, and both are
 overridden at runtime by `API_BASE_URL`.
 
