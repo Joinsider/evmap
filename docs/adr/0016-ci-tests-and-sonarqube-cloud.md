@@ -72,11 +72,34 @@ lines).
 5. Optionally make *Backend tests*, *iOS tests* and the SonarQube quality gates required checks on
    `master`.
 
+## State on 2026-09-28: one project under Automatic Analysis
+
+The organisation `joinsider` already analyses the repository as **one** project, `Joinsider_evmap`,
+with Automatic Analysis (master and PR #6 were analysed before any `SONAR_TOKEN` existed). That setup
+is kept for now and configured through `.sonarcloud.properties`, which excludes the PostgreSQL
+Liquibase changelogs — SonarQube Cloud has no PostgreSQL analyzer and applied Oracle PL/SQL rules
+(`VARCHAR2`) to them. The two-project CI configuration above stays dormant until the token exists.
+
+Its first findings (28 on master, 41 on PR #6) were fixed rather than suppressed: third-party actions
+pinned to commit SHAs and permissions granted per job, API URLs built from path segments instead of
+`/api/v1/…` literals, unused protocol parameters named `_`, intentionally empty closures commented,
+backticked `default` statics renamed (`AppSettings.factoryDefaults`, `ProviderPreference.fallback`),
+and the coverage converter's arguments validated before they reach `xccov`.
+
 ## Open points
 
 1. **Quality gate strictness.** SonarQube Cloud's default gate requires 80 % coverage on new code;
    both sides are below that overall. Options: (a) keep the default and let it push coverage up on
    new code only, (b) lower the new-code coverage condition to e.g. 60 % in a custom gate, (c) make
    the gate informational (not a required check) until coverage has caught up.
-2. **Snapshot build duplication** — whether `pr-snapshot-build.yml` should skip tests (`-DskipTests`)
+2. **Automatic Analysis or CI-based analysis.** (a) Keep `Joinsider_evmap` on Automatic Analysis — no
+   token, no coverage; (b) switch to the two CI-analysed projects this ADR prepares — coverage and
+   both quality gates, needs the token and turning Automatic Analysis off.
+
+3. **The two hardcoded base URLs in `APIEnvironment`** (swift:S1075). They are the configuration
+   point themselves and already overridable via `API_BASE_URL`. Options: (a) accept the issue in
+   SonarQube Cloud with that reason, (b) move the URLs into an Info.plist key set per build
+   configuration.
+
+4. **Snapshot build duplication** — whether `pr-snapshot-build.yml` should skip tests (`-DskipTests`)
    now that CI runs them, trading a slower snapshot for a snapshot that can exist for a red PR.
