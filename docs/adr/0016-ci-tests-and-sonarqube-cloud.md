@@ -30,6 +30,12 @@ Java and Swift together into `Joinsider_evmap`, configured by the root `sonar-pr
   main-branch analysis never loses Swift coverage because the last push only touched the backend. UI
   tests are excluded — they drive the real app against a backend CI does not have. The `EVMap` scheme
   is not committed; `xcodebuild` autocreates it, which was checked on a clean clone.
+- **The iOS job is the critical path** (~6 min against the backend's ~1 min; both already start in
+  parallel). It boots its simulator before compiling so the boot overlaps the build, runs the tests on
+  that one simulator (`-parallel-testing-enabled NO` — parallel testing cloned and booted extra
+  simulators after the build, which cost more than 84 unit tests running in ~5 s could save), and
+  skips the index store only the Xcode editor reads. The `changes` job runs only for PRs and needs no
+  checkout, so the iOS job waits seconds for it, not a full job.
 - **One analysis, one job.** A SonarQube Cloud project takes one analysis per commit, so the two test
   jobs cannot each report their own half — the second would replace the first. The `sonar` job
   (Linux) downloads both artifacts, resolves the Maven classpath for `sonar.java.libraries`, and runs
