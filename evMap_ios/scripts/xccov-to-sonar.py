@@ -13,9 +13,21 @@ generated code, which are not what the coverage gate is meant to measure.
 """
 import json
 import os
+import re
 import subprocess
 import sys
 from xml.sax.saxutils import quoteattr
+
+
+# Absolute paths of plain characters only. Anything else — a leading "-" above all — could be read by
+# xccov as an option rather than as a path.
+SAFE_PATH = re.compile(r"^/[A-Za-z0-9_./ +@-]+$")
+
+
+def safe(path):
+    if not SAFE_PATH.match(path):
+        sys.exit(f"xccov-to-sonar: refusing unusual path: {path!r}")
+    return path
 
 
 def xccov(*args):
@@ -29,7 +41,7 @@ def checked_path(value, what, must_be_dir):
     Paths are made absolute before they reach the command line: an absolute path starts with a
     separator and can never start with "-", which is what argument injection needs.
     """
-    path = os.path.realpath(value)
+    path = safe(os.path.realpath(value))
     if not (os.path.isdir(path) if must_be_dir else os.path.isfile(path)):
         sys.exit(f"xccov-to-sonar: {what} not found: {value}")
     return path
@@ -46,7 +58,7 @@ def main(result_bundle, source_root):
         # every path passed back to xccov is absolute.
         if not os.path.realpath(path).startswith(root) or not os.path.isfile(path):
             continue
-        lines = json.loads(xccov("--file", path, "--json", result_bundle)).get(path, [])
+        lines = json.loads(xccov("--file", safe(path), "--json", result_bundle)).get(path, [])
         executable = [entry for entry in lines if entry.get("isExecutable")]
         if not executable:
             continue
