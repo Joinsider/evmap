@@ -109,7 +109,9 @@ struct MapScreen: View {
                 get: { viewModel.errorMessage != nil || search.errorMessage != nil },
                 set: { if !$0 { viewModel.errorMessage = nil; search.errorMessage = nil } }
             )) {
-                Button("action.ok", role: .cancel) { }
+                Button("action.ok", role: .cancel) {
+                    // Dismissing is the whole action; the binding's setter clears both messages.
+                }
             } message: { Text(viewModel.errorMessage ?? search.errorMessage ?? "") }
             // Seeds the first query from the known starting region rather than waiting for MapKit to
             // report a camera; the coverage check keeps its subsequent report from refetching.
