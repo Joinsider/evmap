@@ -6,7 +6,8 @@ package de.joinside.evmap_service.availability;
  * Providers are queried by area rather than by identifier because that is what the national access
  * points offer: MobiData BW filters locations by bounding box or radius, and none of them accepts a
  * list of EVSE-IDs. The station detail path uses a small box around one station, and the map path the
- * viewport itself, so both go through one provider method.
+ * viewport itself, so both go through one provider method. France's consolidation offers no area query
+ * at all and ignores the box; see {@link AvailabilityProvider#fetch(GeoBounds)}.
  */
 public record GeoBounds(double latMin, double lonMin, double latMax, double lonMax) {
 

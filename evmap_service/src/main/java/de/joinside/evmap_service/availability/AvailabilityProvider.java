@@ -42,6 +42,10 @@ public interface AvailabilityProvider {
     /**
      * Live status for every charge point this provider knows inside {@code bounds}.
      * <p>
+     * The box is a ceiling on what is needed, not a filter the result must honour: a source that
+     * cannot be asked by area — a national file without coordinates — may answer with everything it
+     * has, and the service keeps only the identifiers it asked for.
+     * <p>
      * Returns an empty list rather than throwing when the source is unreachable, malformed or out of
      * budget: one live source being down must degrade that area to "unknown", never fail the station
      * or the map around it. Exceptions escaping here are treated as bugs in the provider, contained

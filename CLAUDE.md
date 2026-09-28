@@ -97,6 +97,11 @@ normalize identically. Providers are queried **on demand by bounding box** and c
 one minute — do not turn this into a scheduled full poll: OCPDB's `last_updated` tracks the static
 description, not the status, so an incremental refresh misses exactly the changes it exists to catch.
 The in-process cache is a documented blocker to running a second API replica. See ADR 0015.
+Providers: `availability.mobidata` (MobiData BW, OCPI by bounding box, DE/CH) and `availability.irve`
+(France's national consolidation of `schema-irve-dynamique` — one country-wide CSV without coordinates,
+so it answers every area with all of it, reused for one minute, rows older than 72 h dropped;
+`AvailabilityService` keeps only the EVSE-IDs it asked for). TomTom was rejected (no EVSE-IDs); the
+Mobilithek is blocked on registering an organisation.
 
 **Live status attaches only on an exact EVSE-ID match.** There is no geographic, name-based or fuzzy
 resolution anywhere in this feature, and adding one would be a regression, not a coverage win: it was

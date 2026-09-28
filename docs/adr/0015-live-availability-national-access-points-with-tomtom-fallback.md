@@ -1,13 +1,18 @@
 # 15. Live availability: national access points first, TomTom as fallback
 
-- Status: Accepted — MobiData BW implemented, remaining providers outstanding
-- Date: 2026-08-03, revised 2026-08-24
+- Status: Accepted — MobiData BW and France implemented; TomTom rejected; Mobilithek blocked on registration
+- Date: 2026-08-03, revised 2026-08-24, 2026-09-28
 - Deciders: Johannes Popp
 
 > **Revision 2026-08-24.** The first revision of this ADR was desk research; nothing had been checked
 > against a live endpoint. Building the first provider disproved four of its load-bearing claims. The
 > corrections are kept visible rather than silently edited away, because each one was a plausible
 > assumption that a later reader would otherwise make again. See [Corrections](#corrections-2026-08-24).
+>
+> **Revision 2026-09-28.** France is implemented, against a national consolidation this ADR said did not
+> exist; TomTom was checked and cannot be used under the EVSE-ID rule; the Mobilithek was surveyed and is
+> blocked on organisation registration. See [France](#france-2026-09-28),
+> [TomTom](#tomtom-2026-09-28) and [Mobilithek survey](#mobilithek-survey-2026-09-28).
 
 ## Context
 
@@ -42,7 +47,7 @@ zero — which is exactly the shape that needs a fallback.
 |---|---|---|---|---|
 | **MobiData BW** (OCPDB) | BW-dense, DE-wide + CH | yes — 120.499 EVSEs with a non-static status | **OCPI 3.0** REST, no key, no registration | dl-de/by-2.0 |
 | **Mobilithek** (DE NAP) | Germany | yes, ≤ 1 min | subscription per data offering, pull; DATEX II mandatory 14.04.2026 | free, registration with institutional address |
-| **transport.data.gouv.fr** (FR NAP) | France | yes, per publisher | CSV per `schema-irve-dynamique`, joined via `id_pdc_itinerance`; **no national consolidation** | Licence Ouverte, no key |
+| **transport.data.gouv.fr** (FR NAP) | France | yes — 111k charge points, ~66k reported within 72 h | one consolidated CSV of every publisher's `schema-irve-dynamique` (BETA), joined via `id_pdc_itinerance` — *corrected 2026-09-28* | Licence Ouverte, no key |
 | **NDW DOT-NL** (NL NAP) | Netherlands | yes | OCPI (NDW converts to DATEX II) | free, onboarding via NDW service desk |
 | **NOBIL** | Norway | yes — WebSocket status stream, OCPI-fed | REST + WebSocket | free API key, Creative Commons |
 | **TomTom EV Charging Stations Availability** | Europe-wide, > 800k live points | yes, by connector type and power | REST | free tier: 2.500 non-tile requests/day |
@@ -202,11 +207,102 @@ Being over the free quota must be a logged, healthy state, not an incident.
 
 1. **MobiData BW** — done. One OCPI 3.0 endpoint, no registration, open licence, real AFIR dynamic data
    from several CPOs, and the cheapest way to build the whole mechanism against real data.
-2. **TomTom fallback**, so there is Europe-wide coverage — subject to the EVSE-ID rule above, which
-   may mean TomTom is not usable at all and the fallback slot goes unfilled.
-3. **France**, now that IRVE stores `id_pdc_itinerance` per charge point.
-4. **Mobilithek** for Germany once DATEX II is the mandatory format.
-5. NL and NO as their own providers afterwards.
+2. ~~**TomTom fallback**~~ — rejected 2026-09-28: no EVSE-ID in the response, see [TomTom](#tomtom-2026-09-28).
+3. **France** — done 2026-09-28, see [France](#france-2026-09-28).
+4. **Mobilithek** for Germany — DATEX II is mandatory since 14.04.2026, but subscribing needs a
+   registered organisation. Blocked; see [Mobilithek survey](#mobilithek-survey-2026-09-28).
+5. NL and NO as their own providers afterwards. Neither is useful yet: both need an onboarding or key,
+   and more to the point neither country has a static source in `sync` that writes EVSE-IDs — OCM
+   supplies no charge point identity — so there is nothing for their live status to join onto.
+
+## France (2026-09-28)
+
+The first revision's premise was that France has "no national consolidation" of the dynamic feeds, so
+it would cost one integration per publisher. That was true when written and is not now:
+transport.data.gouv.fr publishes *[BETA] Base nationale consolidée IRVE – données dynamiques*, one CSV
+of every publisher's `schema-irve-dynamique` (v2.3.0) regenerated per request by their proxy. Measured
+on 2026-09-28: 121.965 rows, 111.122 distinct `id_pdc_itinerance`, ~1.000 of them changing per 90 s,
+9 MB raw and 1,6 MB gzipped.
+
+**90,1 % of the live ids resolve** against the `id_pdc_itinerance` the IRVE sync adapter already stores
+as the charge point's EVSE-ID — against 14,5 % for Germany — because both files come from the same
+publishers under the same schema family. No schema change was needed.
+
+`availability.irve.IrveDynamicAvailabilityProvider` is shaped by what the source lacks:
+
+- **No area query, no coordinates.** The file is the country and carries only ids, so a bounding box
+  cannot be applied even after download. The provider answers every area with everything it has, and
+  `AvailabilityService` now keeps only the identifiers it asked for — which it should always have done;
+  it is also what keeps the cost of a map pan from scaling with the country.
+- **Still on demand.** Nothing is downloaded until someone opens a French station or map area, and at
+  most once per `refresh-interval` (1 min) after that. Only the request that finds the copy expired waits
+  for the ~1 s download; concurrent ones get the previous copy. A failed refresh keeps the last good copy
+  for `stale-after` (10 min), then France reads as unknown.
+- **Staleness is filtered at the source.** A quarter of the rows are months old (p75 = 70 days) — feeds
+  that stopped, not charge points that stayed free. Rows older than `max-age` (72 h) are dropped; 66k of
+  111k survive. 72 h is a judgement: it keeps a rural charger nobody used over a weekend, and drops the
+  dead feeds.
+- **Two status axes collapse onto one.** `etat_pdc = hors_service` → `OUT_OF_ORDER` whatever the
+  occupancy; `occupe`/`reserve` → `OCCUPIED`; `libre` → `AVAILABLE` *only* with `en_service`, because
+  "free, state unknown" is the answer that sends a driver to a dead post; everything else `UNKNOWN`.
+- Duplicate ids (operator plus roaming platform) resolve to the newest `horodatage`. Offset-less
+  timestamps are read as Europe/Paris.
+
+Privacy is better than MobiData BW's: the request carries no coordinates at all, so nothing about what
+a user is looking at leaves the server.
+
+## TomTom (2026-09-28)
+
+Open point 2 is answered: the EV Charging Stations Availability API returns counts per connector type
+and power level for a `chargingAvailability` id taken from a Search API result — no EVSE-ID and no
+per-charge-point record. Using it would need a coordinate or name match from our station to TomTom's,
+which is exactly the resolution this ADR forbids. **TomTom is not used**, and there is deliberately no
+Europe-wide fallback; countries without a national provider read as unknown.
+
+## Mobilithek survey (2026-09-28)
+
+Checked against the live catalogue while signed in, ahead of step 4. Nothing is implemented yet; this
+records what an adapter would have to handle, so the order above can be revisited with facts.
+
+- **29 dynamic AFIR offerings** (`AFIR-recharging-dyn-*`) are listed, each paired with a static one:
+  EnBW, Tesla, Volkswagen Group Charging, EWE, Eco-Movement, chargecloud, eliso, LichtBlick, GP JOULE,
+  Qwello, Monta, SMATRICS, Wirelane, Road, e-clearing.net/ladenetz.de (smartlab), vaylens, Audi charging
+  hub and a dozen smaller CPOs. Not found at the time: IONITY, Aral pulse, Allego.
+- **Format is uniform:** DATEX II v3 as JSON, schema profile `AFIR-Recharging-Dynamic-01-00-00_Delta`
+  (schemas at `/schemas/DATEX_2_V3/AFIR-Recharging-Dynamic-01-00-00_Delta/…`). One parser serves all
+  29, which turns "N integrations" into N subscriptions plus one adapter.
+- **Delivery is brokered and delta-based** (`mdpBrokering: true`, `deltaDelivery: true`,
+  `accrualPeriodicity: ON_OCCURRENCE`). A consumer pulls from the Mobilithek broker, not from the CPO.
+- **Licence is open** (e.g. EnBW: CC BY 4.0), and `providerApprovalRequired: false`: subscribing needs
+  no approval from the CPO.
+- **Access requires a registered organisation.** A personal account can browse but not subscribe. The
+  account has to register an organisation (reviewed and activated by the Mobilithek; "company, authority,
+  office, university department or other unit"), hold the *Bestell-Manager* role, and create a machine
+  account whose PKCS#12 certificate authenticates the pull via mTLS (`https://mobilithek.info:8443/…`,
+  conditional GET with `If-Modified-Since`/ETag, 304 = no change). Whether a sole proprietorship
+  (Einzelunternehmen) or a non-German entity qualifies is **not documented** — to be asked of the
+  Mobilithek support. The exact path per endpoint kind is in the *Technische Schnittstellenbeschreibung*
+  v1.3.2 (07.11.2025) and must be verified before coding.
+- The public catalogue search (`/mdp-api/mdp-msa-metadata/v2/offers/search`) is rate-limited by an
+  Azure Application Gateway; a burst of searches got the client blocked site-wide with 403.
+
+What this means for the design:
+
+1. **Delta delivery contradicts "on demand by bounding box".** A delta feed is only correct if it is
+   consumed continuously from a known snapshot; it cannot be asked for a viewport. A Mobilithek
+   provider therefore has to be a *background consumer* holding per-EVSE state in memory, with viewport
+   queries answered from that state — the shape this ADR rejected for OCPDB, where the reason (an
+   unreliable `last_updated`) does not apply. The in-process scale-out blocker gets firmer: two replicas
+   would each hold their own subscription cursor.
+2. **The EVSE-ID join is unchanged.** DATEX II refill points carry the EVSE-ID; the exact-match rule
+   applies as-is.
+3. **Overlap with MobiData BW.** OCPDB already re-publishes some of these feeds (`datex2_ecomovement`,
+   `datex2_chargecloud`, `datex2_tesla`). Two providers answering for the same EVSE need a precedence
+   rule.
+4. **The machine certificate is a secret** under ADR 0002: mounted into the API container, never logged,
+   never committed.
+
+**Status: blocked on organisation registration.** Deferred; the remaining providers go first.
 
 ## Corrections (2026-08-24)
 
@@ -274,9 +370,7 @@ Four claims from the first revision, and what building against the endpoint show
    own `availability_status` saying `MAINTENANCE` are not contradictory but need a display rule.
    Currently the live value wins where present and the reported one is shown otherwise.
 
-2. **Whether TomTom can be used at all** under the exact-identifier rule. If its response carries no
-   EVSE-ID, the fallback slot stays empty and coverage outside MobiData BW's reach is zero until the
-   next NAP adapter lands. Worth confirming against their endpoint before assuming the slot is filled.
+2. ~~Whether TomTom can be used at all~~ — no; see [TomTom](#tomtom-2026-09-28).
 
 3. **How duplicate EVSE-IDs are handled.** 1.657 of the register's EVSE-ID occurrences are repeats of
    an ID used elsewhere in the same edition. Currently the first wins and the rest are counted and
@@ -285,7 +379,12 @@ Four claims from the first revision, and what building against the endpoint show
 
 4. **When the availability poller moves out of the API container** — tied to the first day a second
    replica is wanted, and to whether Mobilithek's per-CPO subscriptions make the polling profile
-   heavier than one fixed-delay refresh.
+   heavier than one fixed-delay refresh. The Mobilithek's delta delivery makes this firmer: see the
+   survey above.
+
+5. **Attribution of live sources in the app.** dl-de/by-2.0 (MobiData BW) and Licence Ouverte
+   (transport.data.gouv.fr) both require naming the source, and Lastenheft §5 asks for provenance per
+   charge point. The availability response carries no source today and the client shows none.
 
 ## References
 
@@ -298,3 +397,7 @@ Four claims from the first revision, and what building against the endpoint show
 - [ADR 0006](0006-open-charge-map-source-adapter.md) — OCM, which supplies no live status and no charge point identity
 - Lastenheft §10 — the non-goal this ADR reverses
 - [MobiData BW OCPDB API](https://api.mobidata-bw.de/ocpdb/documentation/public.html) — OCPI 3.0, no credentials
+- [schema-irve-dynamique](https://schema.data.gouv.fr/etalab/schema-irve-dynamique/) — the French dynamic schema, v2.3.0
+- [Base nationale consolidée IRVE – données dynamiques](https://transport.data.gouv.fr/resources/84098) — the consolidated file
+- [TomTom EV Charging Stations Availability API](https://docs.tomtom.com/ev-charging-stations-availability-api/documentation/ev-charging-stations-availability-api/ev-charging-stations-availability)
+- [Mobilithek](https://mobilithek.info) — German NAP; *Technische Schnittstellenbeschreibung* v1.3.2

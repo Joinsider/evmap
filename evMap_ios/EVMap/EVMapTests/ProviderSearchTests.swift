@@ -5,7 +5,11 @@ import Testing
 
 /// Answers provider lookups and records what it was asked; every other repository method traps,
 /// because the provider picker must not be reaching for one.
-private actor StubProviderRepository: ChargingStationRepository {
+///
+/// Main-actor isolated rather than an `actor`: the app target defaults to `MainActor` isolation, which
+/// makes `ChargingStationRepository` a main-actor protocol that an actor cannot conform to.
+@MainActor
+private final class StubProviderRepository: ChargingStationRepository {
     private var providersToReturn: [ChargingProvider]
     private var error: Error?
     private(set) var queries: [String] = []
@@ -76,7 +80,7 @@ struct ProviderSearchTests {
         try await settle()
 
         #expect(model.providers == sampleProviders)
-        #expect(await repository.queries == [""])
+        #expect(repository.queries == [""])
     }
 
     @Test("a typed word is one request, not one per character")
@@ -87,7 +91,7 @@ struct ProviderSearchTests {
         for query in ["i", "io", "ion", "ioni"] { model.queryChanged(to: query) }
         try await settle()
 
-        #expect(await repository.queries == ["ioni"])
+        #expect(repository.queries == ["ioni"])
     }
 
     @Test("surrounding whitespace is not part of the query")
@@ -98,7 +102,7 @@ struct ProviderSearchTests {
         model.queryChanged(to: "  ionity  ")
         try await settle()
 
-        #expect(await repository.queries == ["ionity"])
+        #expect(repository.queries == ["ionity"])
     }
 
     @Test("a slow answer cannot overwrite the results of the search that replaced it")
@@ -106,16 +110,16 @@ struct ProviderSearchTests {
         // Echoing stub: each query answers with a provider named after itself.
         let repository = StubProviderRepository()
         let model = ProviderSearchViewModel(repository: repository)
-        await repository.gateNextCall()
+        repository.gateNextCall()
 
         model.queryChanged(to: "stale")
         // Past the debounce, so the first lookup is inside the repository and parked there.
         try await Task.sleep(for: .milliseconds(400))
         model.queryChanged(to: "ionity")
-        await repository.releaseGate()
+        repository.releaseGate()
         try await settle()
 
-        #expect(await repository.queries == ["stale", "ionity"])
+        #expect(repository.queries == ["stale", "ionity"])
         #expect(model.loadedQuery == "ionity")
         #expect(model.providers.map(\.name) == ["ionity"])
         #expect(!model.isLoading)

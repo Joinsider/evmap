@@ -154,6 +154,13 @@ DSGVO-Thema.
   zusätzlich. **Restrisiko:** ein Deployment mit sehr wenigen aktiven Nutzern
   macht einzelne Anfragen theoretisch zuordenbar — dieselbe Einschränkung, die
   für jede serverseitige Weiterleitung gilt.
+- **transport.data.gouv.fr (IRVE dynamique)** — Live-Verfügbarkeit für
+  Frankreich (ADR 0015). Abgerufen wird immer die komplette landesweite Datei,
+  höchstens einmal pro Minute und nur, wenn jemand eine französische Station
+  oder einen Kartenausschnitt in Frankreich ansieht. Die Anfrage enthält
+  **keine Koordinaten**, keine Nutzerkennung und keinen Gerätebezug; sie
+  verrät lediglich, dass in dieser Minute irgendein Nutzer Frankreich
+  betrachtet hat.
 
 ## 7. Referenzen
 

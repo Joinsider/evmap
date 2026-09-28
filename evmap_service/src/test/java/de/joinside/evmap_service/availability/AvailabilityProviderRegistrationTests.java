@@ -21,7 +21,9 @@ class AvailabilityProviderRegistrationTests {
 
     /** Scans the provider packages only, and supplies the one collaborator they need. */
     @Configuration
-    @ComponentScan(basePackages = "de.joinside.evmap_service.availability.mobidata")
+    @ComponentScan(basePackages = {
+            "de.joinside.evmap_service.availability.mobidata",
+            "de.joinside.evmap_service.availability.irve"})
     static class ProvidersOnly {
         @Bean
         RestClient.Builder restClientBuilder() {
@@ -40,7 +42,7 @@ class AvailabilityProviderRegistrationTests {
             // Extend this — and the source tokens below — whenever a provider is added.
             assertThat(context.getBeansOfType(AvailabilityProvider.class).values())
                     .extracting(provider -> provider.getClass().getSimpleName())
-                    .containsExactlyInAnyOrder("MobiDataBwAvailabilityProvider");
+                    .containsExactlyInAnyOrder("MobiDataBwAvailabilityProvider", "IrveDynamicAvailabilityProvider");
         });
     }
 
@@ -51,7 +53,7 @@ class AvailabilityProviderRegistrationTests {
             assertThat(context).hasNotFailed();
             assertThat(context.getBeansOfType(AvailabilityProvider.class).values())
                     .extracting(AvailabilityProvider::source)
-                    .containsExactlyInAnyOrder("MobiDataBW")
+                    .containsExactlyInAnyOrder("MobiDataBW", "IrveDynamique")
                     .allSatisfy(source -> assertThat(source).isNotBlank().hasSizeLessThanOrEqualTo(32));
         });
     }
@@ -75,6 +77,13 @@ class AvailabilityProviderRegistrationTests {
             // An unbound List would be null here and fail at the first request rather than at startup.
             assertThat(mobidata).extracting("countryCodes").asInstanceOf(
                     org.assertj.core.api.InstanceOfAssertFactories.list(String.class)).contains("DE", "CH");
+
+            Object irve = propertiesBean(context, "IrveDynamicProperties");
+            assertThat(irve).hasFieldOrPropertyWithValue("enabled", true)
+                    .hasFieldOrPropertyWithValue("maxAge", java.time.Duration.ofHours(72));
+            assertThat(irve).extracting("csvUrl").asString().contains("data.gouv.fr");
+            assertThat(irve).extracting("countryCodes").asInstanceOf(
+                    org.assertj.core.api.InstanceOfAssertFactories.list(String.class)).containsExactly("FR");
         });
     }
 

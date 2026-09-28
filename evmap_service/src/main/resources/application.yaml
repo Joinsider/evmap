@@ -73,6 +73,20 @@ evmap:
       page-size: 200
       max-pages: 5
       timeout: PT10S
+
+    # France: transport.data.gouv.fr's national consolidation of schema-irve-dynamique (Licence
+    # Ouverte 2.0, attribution "transport.data.gouv.fr"). No key, no area query — the whole country is
+    # one ~1,6 MB gzipped CSV, downloaded on demand and reused for refresh-interval. It joins on
+    # id_pdc_itinerance, which the IRVE sync adapter stores as the charge point's EVSE-ID.
+    irve:
+      enabled: ${IRVE_DYNAMIC_ENABLED:true}
+      csv-url: ${IRVE_DYNAMIC_CSV_URL:https://www.data.gouv.fr/api/1/datasets/r/89185b1f-f958-4c5b-9282-399a66ecee97}
+      country-codes: FR
+      refresh-interval: PT1M
+      # A quarter of the file is months old — publishers whose feed stopped. Older rows are dropped.
+      max-age: PT72H
+      stale-after: PT10M
+      timeout: PT15S
   security:
     jwt-secret: ${JWT_SECRET:change-this-development-secret-to-a-long-random-value}
     jwt-ttl: PT12H

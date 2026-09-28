@@ -10,11 +10,13 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -76,7 +78,7 @@ public class AvailabilityService {
 
         ChargePointDirectory.StationLocation at = location.get();
         GeoBounds bounds = GeoBounds.around(at.latitude(), at.longitude(), properties.stationRadius());
-        Map<String, ChargePointAvailability> live = fetch(bounds, List.of(at.countryCode()));
+        Map<String, ChargePointAvailability> live = fetch(bounds, List.of(at.countryCode()), wanted(chargePoints));
         return Optional.of(summarize(stationId, chargePoints, live, true));
     }
 
@@ -99,7 +101,8 @@ public class AvailabilityService {
                 directory.inBounds(bounds, properties.maxChargePoints());
         if (chargePoints.isEmpty()) return List.of();
 
-        Map<String, ChargePointAvailability> live = fetch(bounds, directory.countriesInBounds(bounds));
+        Map<String, ChargePointAvailability> live =
+                fetch(bounds, directory.countriesInBounds(bounds), wanted(chargePoints));
         if (live.isEmpty()) return List.of();
 
         Map<UUID, List<ChargePointDirectory.KnownChargePoint>> byStation = new LinkedHashMap<>();
@@ -122,8 +125,12 @@ public class AvailabilityService {
      * its own coverage and nothing else, the same containment ADR 0013 gives sync sources. The first
      * provider to report an EVSE-ID wins, which matters only once a country has two providers and is
      * then resolved by registration order — deliberately left simple until a second one exists.
+     * <p>
+     * Only the identifiers in {@code wanted} are kept. A provider may answer with far more than the
+     * area holds — the French consolidation has no coordinates and answers with the whole country —
+     * and copying all of that per request would make the cost of a map pan scale with the country.
      */
-    private Map<String, ChargePointAvailability> fetch(GeoBounds bounds, List<String> countryCodes) {
+    private Map<String, ChargePointAvailability> fetch(GeoBounds bounds, List<String> countryCodes, Set<String> wanted) {
         Map<String, ChargePointAvailability> merged = new HashMap<>();
         for (AvailabilityProvider provider : providers) {
             if (countryCodes.stream().noneMatch(country -> covers(provider, country))) continue;
@@ -131,13 +138,21 @@ public class AvailabilityService {
                 List<ChargePointAvailability> reported =
                         cache.get(AvailabilityCache.key(provider.source(), bounds), () -> provider.fetch(bounds));
                 for (ChargePointAvailability availability : reported)
-                    if (availability.evseId() != null) merged.putIfAbsent(availability.evseId(), availability);
+                    if (availability.evseId() != null && wanted.contains(availability.evseId()))
+                        merged.putIfAbsent(availability.evseId(), availability);
             } catch (RuntimeException e) {
                 log.warn("Availability provider {} failed for bounds {} — that area answers UNKNOWN",
                         provider.source(), bounds, e);
             }
         }
         return merged;
+    }
+
+    private static Set<String> wanted(List<ChargePointDirectory.KnownChargePoint> chargePoints) {
+        Set<String> wanted = new HashSet<>(chargePoints.size() * 2);
+        for (ChargePointDirectory.KnownChargePoint chargePoint : chargePoints)
+            if (chargePoint.evseIdNormalized() != null) wanted.add(chargePoint.evseIdNormalized());
+        return wanted;
     }
 
     private static boolean covers(AvailabilityProvider provider, String countryCode) {
