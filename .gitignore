@@ -5,3 +5,6 @@
 # Per-user Xcode UI state — not source.
 *.xcuserstate
 xcuserdata/
+
+# iOS CI output (test result bundle, SonarQube coverage report).
+evMap_ios/EVMap/build/

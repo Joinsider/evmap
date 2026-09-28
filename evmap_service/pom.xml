@@ -28,6 +28,13 @@
     </scm>
     <properties>
         <java.version>25</java.version>
+        <jacoco.version>0.8.15</jacoco.version>
+        <!-- SonarQube Cloud (ADR 0016). The analysis itself only runs in CI, where SONAR_TOKEN is set;
+             a local `./mvnw verify` just produces the JaCoCo report it reads. -->
+        <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+        <sonar.organization>joinsider</sonar.organization>
+        <sonar.projectKey>Joinsider_evmap-service</sonar.projectKey>
+        <sonar.projectName>EVMap Service</sonar.projectName>
     </properties>
     <dependencies>
         <dependency>
@@ -179,6 +186,29 @@
                                 </path>
                             </annotationProcessorPaths>
                         </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Line and branch coverage for SonarQube Cloud, which reads
+                 target/site/jacoco/jacoco.xml by default. The agent is attached at initialize and
+                 the report written at verify, so `./mvnw verify` is all CI has to run. -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>

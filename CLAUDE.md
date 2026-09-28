@@ -37,6 +37,12 @@ iOS (`evMap_ios/EVMap/EVMap.xcodeproj`): open and build in Xcode. To point the a
 backend, set the `API_BASE_URL` launch argument/user default (dev default is `http://127.0.0.1:8080`).
 Sign in with Apple requires the capability enabled for `de.joinside.EVMap` in the Apple Developer portal.
 
+CI (`.github/workflows/ci.yml`, ADR 0016) runs `./mvnw verify` and the iOS unit tests
+(`xcodebuild test -scheme EVMap -only-testing:EVMapTests`, Xcode 26.6 on `macos-26`), each only when its
+own directory changed, and feeds SonarQube Cloud when `SONAR_TOKEN` is set (projects
+`Joinsider_evmap-service` / `Joinsider_evmap-ios`). When upgrading the Xcode project or raising the
+deployment target, move the `XCODE_VERSION` / `SIMULATOR` pin in the workflow with it.
+
 ## Backend architecture
 
 Two deployables share one PostgreSQL/PostGIS database but are built from the same Maven module via
