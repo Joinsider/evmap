@@ -131,6 +131,13 @@
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- A real PostGIS for the SQL behind the ingestion port and the spatial queries: H2 has no
+             geography type, and those queries are exactly what a mock would not test (ADR 0016). -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
