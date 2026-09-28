@@ -141,9 +141,9 @@ final class IrveCsvParser {
         return usable.stream().map(Station::toSourceStation);
     }
 
-    private static void accumulate(CSVRecord record, CsvColumns columns,
+    private static void accumulate(CSVRecord row, CsvColumns columns,
                                    Map<String, Station> stations, Counters counters) {
-        String id = firstIdentifier(columns.get(record, STATION_ID), columns.get(record, STATION_ID_FALLBACK));
+        String id = firstIdentifier(columns.get(row, STATION_ID), columns.get(row, STATION_ID_FALLBACK));
         if (id.isEmpty()) {
             // Neither column holds something a station can be keyed on, and inventing a key would make
             // every run create the station again rather than update it.
@@ -151,8 +151,8 @@ final class IrveCsvParser {
             return;
         }
 
-        Double latitude = coordinate(columns.get(record, "consolidated_latitude"), 90);
-        Double longitude = coordinate(columns.get(record, "consolidated_longitude"), 180);
+        Double latitude = coordinate(columns.get(row, "consolidated_latitude"), 90);
+        Double longitude = coordinate(columns.get(row, "consolidated_longitude"), 180);
         // 24 rows of the 2026-07-29 edition sit at exactly (0, 0) — the Gulf of Guinea, i.e. a missing
         // coordinate that was written as a number rather than left blank.
         if (latitude == null || longitude == null || (latitude == 0 && longitude == 0)) {
@@ -163,7 +163,7 @@ final class IrveCsvParser {
         counters.chargePoints++;
 
         Station station = stations.computeIfAbsent(id, Station::new);
-        station.merge(record, columns, latitude, longitude);
+        station.merge(row, columns, latitude, longitude);
     }
 
     /**
@@ -198,36 +198,36 @@ final class IrveCsvParser {
             this.id = id;
         }
 
-        private void merge(CSVRecord record, CsvColumns columns, double latitude, double longitude) {
+        private void merge(CSVRecord row, CsvColumns columns, double latitude, double longitude) {
             if (!located) {
                 this.latitude = latitude;
                 this.longitude = longitude;
                 this.located = true;
             }
 
-            String operatorName = firstNonBlank(columns.get(record, "nom_operateur"),
-                    columns.get(record, "nom_amenageur"));
+            String operatorName = firstNonBlank(columns.get(row, "nom_operateur"),
+                    columns.get(row, "nom_amenageur"));
             operator = keepFirst(operator, operatorName);
             // nom_station is always filled, but is sometimes an internal code; the retail brand is the
             // better map label when it is there, and the operator is a better one than nothing.
-            name = keepFirst(name, firstNonBlank(columns.get(record, "nom_station"),
-                    columns.get(record, "nom_enseigne"), operatorName));
+            name = keepFirst(name, firstNonBlank(columns.get(row, "nom_station"),
+                    columns.get(row, "nom_enseigne"), operatorName));
 
-            Address address = Address.of(columns.get(record, "adresse_station"),
-                    columns.get(record, "consolidated_code_postal"),
-                    columns.get(record, "consolidated_commune"));
+            Address address = Address.of(columns.get(row, "adresse_station"),
+                    columns.get(row, "consolidated_code_postal"),
+                    columns.get(row, "consolidated_commune"));
             street = keepFirst(street, address.street());
             postalCode = keepFirst(postalCode, address.postalCode());
             city = keepFirst(city, address.city());
 
-            Instant updated = lastUpdated(columns.get(record, "date_maj"), columns.get(record, "last_modified"));
+            Instant updated = lastUpdated(columns.get(row, "date_maj"), columns.get(row, "last_modified"));
             if (updated != null && (lastUpdatedAt == null || updated.isAfter(lastUpdatedAt))) lastUpdatedAt = updated;
 
             // A station counts as usable as soon as one of its charge points is open to everyone. 726
             // stations mix both kinds; dropping those would remove chargers a driver can genuinely use.
-            if (!restricted(columns.get(record, "condition_acces"), id)) publiclyAccessible = true;
+            if (!restricted(columns.get(row, "condition_acces"), id)) publiclyAccessible = true;
 
-            mergeConnectors(record, columns);
+            mergeConnectors(row, columns);
         }
 
         /**
@@ -240,16 +240,16 @@ final class IrveCsvParser {
          * preserves both the count and the identifier without changing what the API serves, since the
          * totals are now derived when the station is read.
          */
-        private void mergeConnectors(CSVRecord record, CsvColumns columns) {
-            ChargePoint chargePoint = chargePointOf(record, columns);
-            BigDecimal power = powerKw(columns.get(record, "puissance_nominale"));
+        private void mergeConnectors(CSVRecord row, CsvColumns columns) {
+            ChargePoint chargePoint = chargePointOf(row, columns);
+            BigDecimal power = powerKw(columns.get(row, "puissance_nominale"));
             // The column already states the standard, so the canonical type is taken directly rather
             // than round-tripped through ConnectorTypes.normalize(), which parses free-text labels.
             // "EF" is the French designation for the domestic type E/F socket, i.e. Schuko.
-            add(chargePoint, record, columns, "prise_type_2", ConnectorTypes.TYPE_2, power);
-            add(chargePoint, record, columns, "prise_type_combo_ccs", ConnectorTypes.CCS, power);
-            add(chargePoint, record, columns, "prise_type_chademo", ConnectorTypes.CHADEMO, power);
-            add(chargePoint, record, columns, "prise_type_ef", ConnectorTypes.SCHUKO, power);
+            add(chargePoint, row, columns, "prise_type_2", ConnectorTypes.TYPE_2, power);
+            add(chargePoint, row, columns, "prise_type_combo_ccs", ConnectorTypes.CCS, power);
+            add(chargePoint, row, columns, "prise_type_chademo", ConnectorTypes.CHADEMO, power);
+            add(chargePoint, row, columns, "prise_type_ef", ConnectorTypes.SCHUKO, power);
             // prise_type_autre is deliberately unmapped: it says a plug exists but not which, and a
             // connector nobody can filter for is worse than an honest gap.
         }
@@ -263,16 +263,16 @@ final class IrveCsvParser {
          * A row without a usable id still becomes a charge point, keyed by its position, so its plugs
          * are not lost — it simply cannot take part in the live join.
          */
-        private ChargePoint chargePointOf(CSVRecord record, CsvColumns columns) {
-            String pdcId = columns.get(record, "id_pdc_itinerance");
+        private ChargePoint chargePointOf(CSVRecord row, CsvColumns columns) {
+            String pdcId = columns.get(row, "id_pdc_itinerance");
             boolean usable = !pdcId.isEmpty() && !WHITESPACE.matcher(pdcId).find();
             String key = usable ? pdcId : id + "*" + (chargePoints.size() + 1);
             return chargePoints.computeIfAbsent(key,
                     k -> new ChargePoint(k, usable ? pdcId : null));
         }
 
-        private void add(ChargePoint chargePoint, CSVRecord record, CsvColumns columns, String column, String type, BigDecimal power) {
-            if (flag(columns.get(record, column))) chargePoint.plugs.merge(new Plug(type, power), 1, Integer::sum);
+        private void add(ChargePoint chargePoint, CSVRecord row, CsvColumns columns, String column, String type, BigDecimal power) {
+            if (flag(columns.get(row, column))) chargePoint.plugs.merge(new Plug(type, power), 1, Integer::sum);
         }
 
         private SourceStation toSourceStation() {
@@ -291,6 +291,81 @@ final class IrveCsvParser {
                     // No station-level totals: every plug belongs to the charge point of its row.
                     List.of(),
                     mapped);
+        }
+
+        /**
+         * Whether a charge point is closed to the general public.
+         * <p>
+         * Matched on the accent-folded stem rather than the exact string, because the same two values
+         * arrive in several encodings: the 2026-07-29 edition holds {@code "Accès libre"} alongside
+         * {@code "Accčs libre"}, {@code "AccĂ¨s libre"} and two more mojibake variants, all produced by
+         * publishers writing Latin-1 into a UTF-8 file. Folding {@code é} away and looking for the stem
+         * survives that; an equality check against {@code "Accès réservé"} would silently classify a
+         * mangled row as public.
+         * <p>
+         * A value matching neither is treated as public and logged: it is not evidence of a restriction,
+         * and dropping stations over an unrecognised label would be the larger mistake.
+         */
+        private static boolean restricted(String conditionAcces, String stationId) {
+            if (conditionAcces.isEmpty()) return false;
+            String folded = fold(conditionAcces);
+            if (folded.contains("serv")) return true;      // "réservé", and its mojibake spellings
+            if (folded.contains("libre")) return false;
+            log.debug("Unmapped IRVE condition_acces '{}' on station {}, treated as public",
+                    conditionAcces, stationId);
+            return false;
+        }
+
+        /**
+         * The consolidation mixes {@code true/True/TRUE} with {@code 1}, and their false counterparts,
+         * inside the same column — every one of the five connector columns carries all eight spellings.
+         */
+        private static boolean flag(String value) {
+            return value.equalsIgnoreCase("true") || value.equals("1");
+        }
+
+        /**
+         * Reads a rating in kW, correcting the rows that state watts.
+         *
+         * @return {@code null} for a blank, unreadable or non-positive rating — 5.273 rows carry
+         * {@code 0}, which is an absent value rather than a charge point that delivers nothing
+         */
+        private static BigDecimal powerKw(String value) {
+            BigDecimal parsed = decimal(value);
+            if (parsed == null || parsed.signum() <= 0) return null;
+
+            BigDecimal kw = parsed.compareTo(WATT_THRESHOLD) <= 0
+                    ? parsed
+                    : parsed.divide(WATTS_PER_KW, 3, RoundingMode.HALF_UP);
+            return normalizeScale(kw);
+        }
+
+        /**
+         * Prefers {@code date_maj}, the operator-declared update date the publication order makes the
+         * pivot column, over {@code last_modified}, which only says when the consolidation last rewrote
+         * the row. Falling back to the run's own clock would make every French station look freshly
+         * updated and win every merge tie it should not.
+         */
+        private static Instant lastUpdated(String dateMaj, String lastModified) {
+            if (!dateMaj.isEmpty()) {
+                try {
+                    return LocalDate.parse(dateMaj, DATE_MAJ).atStartOfDay(ZoneOffset.UTC).toInstant();
+                } catch (DateTimeParseException _) {
+                    log.debug("Unreadable IRVE date_maj '{}'", dateMaj);
+                }
+            }
+            if (!lastModified.isEmpty()) {
+                try {
+                    return OffsetDateTime.parse(lastModified).toInstant();
+                } catch (DateTimeParseException _) {
+                    log.debug("Unreadable IRVE last_modified '{}'", lastModified);
+                }
+            }
+            return null;
+        }
+
+        private static String keepFirst(String current, String candidate) {
+            return current.isEmpty() ? candidate : current;
         }
     }
 
@@ -334,7 +409,8 @@ final class IrveCsvParser {
             if (line.isEmpty()) return new Address("", consolidatedPostalCode, consolidatedCity);
 
             Matcher matcher = POSTAL_CODE.matcher(line);
-            int start = -1, end = -1;
+            int start = -1;
+            int end = -1;
             // The last five-digit group, not the first: a house number can be five digits, a postal
             // code in a French address line cannot precede the street.
             while (matcher.find()) {
@@ -349,62 +425,29 @@ final class IrveCsvParser {
                     firstNonBlank(consolidatedCity, trimSeparators(line.substring(end))));
         }
 
+        /**
+         * Strips whitespace, commas, semicolons and dashes from both ends. A character scan rather than
+         * an anchored {@code [\\s,;-]+$} regex, which backtracks quadratically on a long run of
+         * separators that is not at the end (java:S8786) — and this runs on every row of a free-text
+         * column.
+         */
         private static String trimSeparators(String value) {
-            return value.replaceAll("^[\\s,;-]+", "").replaceAll("[\\s,;-]+$", "");
+            int start = 0;
+            int end = value.length();
+            while (start < end && isSeparator(value.charAt(start))) start++;
+            while (end > start && isSeparator(value.charAt(end - 1))) end--;
+            return value.substring(start, end);
         }
-    }
 
-    /**
-     * Whether a charge point is closed to the general public.
-     * <p>
-     * Matched on the accent-folded stem rather than the exact string, because the same two values
-     * arrive in several encodings: the 2026-07-29 edition holds {@code "Accès libre"} alongside
-     * {@code "Accčs libre"}, {@code "AccĂ¨s libre"} and two more mojibake variants, all produced by
-     * publishers writing Latin-1 into a UTF-8 file. Folding {@code é} away and looking for the stem
-     * survives that; an equality check against {@code "Accès réservé"} would silently classify a
-     * mangled row as public.
-     * <p>
-     * A value matching neither is treated as public and logged: it is not evidence of a restriction,
-     * and dropping stations over an unrecognised label would be the larger mistake.
-     */
-    private static boolean restricted(String conditionAcces, String stationId) {
-        if (conditionAcces.isEmpty()) return false;
-        String folded = fold(conditionAcces);
-        if (folded.contains("serv")) return true;      // "réservé", and its mojibake spellings
-        if (folded.contains("libre")) return false;
-        log.debug("Unmapped IRVE condition_acces '{}' on station {}, treated as public",
-                conditionAcces, stationId);
-        return false;
+        private static boolean isSeparator(char c) {
+            return Character.isWhitespace(c) || c == ',' || c == ';' || c == '-';
+        }
     }
 
     /** Lower-cases and strips diacritics, so {@code "Accès réservé"} becomes {@code "acces reserve"}. */
     private static String fold(String value) {
         String decomposed = Normalizer.normalize(value, Normalizer.Form.NFD);
         return decomposed.replaceAll("\\p{M}+", "").toLowerCase(Locale.ROOT);
-    }
-
-    /**
-     * The consolidation mixes {@code true/True/TRUE} with {@code 1}, and their false counterparts,
-     * inside the same column — every one of the five connector columns carries all eight spellings.
-     */
-    private static boolean flag(String value) {
-        return value.equalsIgnoreCase("true") || value.equals("1");
-    }
-
-    /**
-     * Reads a rating in kW, correcting the rows that state watts.
-     *
-     * @return {@code null} for a blank, unreadable or non-positive rating — 5.273 rows carry
-     * {@code 0}, which is an absent value rather than a charge point that delivers nothing
-     */
-    private static BigDecimal powerKw(String value) {
-        BigDecimal parsed = decimal(value);
-        if (parsed == null || parsed.signum() <= 0) return null;
-
-        BigDecimal kw = parsed.compareTo(WATT_THRESHOLD) <= 0
-                ? parsed
-                : parsed.divide(WATTS_PER_KW, 3, RoundingMode.HALF_UP);
-        return normalizeScale(kw);
     }
 
     /**
@@ -422,30 +465,6 @@ final class IrveCsvParser {
         return stripped.scale() < 0 ? stripped.setScale(0, RoundingMode.UNNECESSARY) : stripped;
     }
 
-    /**
-     * Prefers {@code date_maj}, the operator-declared update date the publication order makes the
-     * pivot column, over {@code last_modified}, which only says when the consolidation last rewrote
-     * the row. Falling back to the run's own clock would make every French station look freshly
-     * updated and win every merge tie it should not.
-     */
-    private static Instant lastUpdated(String dateMaj, String lastModified) {
-        if (!dateMaj.isEmpty()) {
-            try {
-                return LocalDate.parse(dateMaj, DATE_MAJ).atStartOfDay(ZoneOffset.UTC).toInstant();
-            } catch (DateTimeParseException exception) {
-                log.debug("Unreadable IRVE date_maj '{}'", dateMaj);
-            }
-        }
-        if (!lastModified.isEmpty()) {
-            try {
-                return OffsetDateTime.parse(lastModified).toInstant();
-            } catch (DateTimeParseException exception) {
-                log.debug("Unreadable IRVE last_modified '{}'", lastModified);
-            }
-        }
-        return null;
-    }
-
     private static Double coordinate(String value, double limit) {
         BigDecimal parsed = decimal(value);
         if (parsed == null) return null;
@@ -459,7 +478,7 @@ final class IrveCsvParser {
         if (normalized.isEmpty()) return null;
         try {
             return new BigDecimal(normalized);
-        } catch (NumberFormatException exception) {
+        } catch (NumberFormatException _) {
             return null;
         }
     }
@@ -469,10 +488,6 @@ final class IrveCsvParser {
         for (String candidate : candidates)
             if (!candidate.isEmpty() && !WHITESPACE.matcher(candidate).find()) return candidate;
         return "";
-    }
-
-    private static String keepFirst(String current, String candidate) {
-        return current.isEmpty() ? candidate : current;
     }
 
     private static String firstNonBlank(String... candidates) {

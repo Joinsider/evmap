@@ -49,53 +49,50 @@ class StationService {
         this.sources = sources;
     }
 
-    List<StationController.StationSummary> nearby(double latitude,
-                                                  double longitude,
-                                                  int radiusKm,
-                                                  List<String> connectorTypes,
-                                                  BigDecimal minPowerKw,
-                                                  String operator,
-                                                  List<String> excludeOperators,
-                                                  List<String> includeOperators,
-                                                  int limit) {
-
-        if (radiusKm < 1 || radiusKm > MAX_RADIUS_KM) {
-            log.warn("Rejected nearby query with radiusKm={}", radiusKm);
-            throw new IllegalArgumentException("radiusKm must be between 1 and " + MAX_RADIUS_KM);
-        }
-        if (limit < 1 || limit > MAX_LIMIT) {
-            log.warn("Rejected nearby query with limit={}", limit);
-            throw new IllegalArgumentException("limit must be between 1 and " + MAX_LIMIT);
-        }
-        if (excludeOperators != null && excludeOperators.size() > MAX_EXCLUDED_OPERATORS) {
-            log.warn("Rejected nearby query excluding {} operators", excludeOperators.size());
-            throw new IllegalArgumentException("excludeOperator must name at most " + MAX_EXCLUDED_OPERATORS + " operators");
-        }
-        if (includeOperators != null && includeOperators.size() > MAX_INCLUDED_OPERATORS) {
-            log.warn("Rejected nearby query restricted to {} operators", includeOperators.size());
-            throw new IllegalArgumentException("includeOperator must name at most " + MAX_INCLUDED_OPERATORS + " operators");
-        }
-        var types = connectorTypes == null || connectorTypes.isEmpty() ? null : connectorTypes;
-        var excluded = excludeOperators == null || excludeOperators.isEmpty() ? null : excludeOperators;
-        // An empty list is treated as "no allowlist", matching how the parameter's absence reads.
-        // The client never gets here with one — an allowlist of nothing means an empty map, which
-        // it answers without a request rather than by sending a query that cannot express it.
-        var included = includeOperators == null || includeOperators.isEmpty() ? null : includeOperators;
+    List<StationController.StationSummary> nearby(NearbyQuery request) {
+        validate(request);
+        NearbyQuery query = request.normalized();
         // The excluded names are logged by count only: which networks somebody switched off is a
         // preference of theirs, and the list adds nothing to a query trace anyway.
         log.debug("Nearby query lat={} lon={} radiusKm={} connectorTypes={} minPowerKw={} operator={} excludedOperators={} includedOperators={} limit={}",
-                latitude, longitude, radiusKm, types, minPowerKw, operator, excluded == null ? 0 : excluded.size(), included == null ? 0 : included.size(), limit);
+                query.latitude(), query.longitude(), query.radiusKm(), query.connectorTypes(), query.minPowerKw(),
+                query.operator(), NearbyQuery.sizeOf(query.excludeOperators()),
+                NearbyQuery.sizeOf(query.includeOperators()), query.limit());
 
         long startedAt = System.nanoTime();
-        var results = spatialStations.findNearby(latitude, longitude, radiusKm, types, minPowerKw, operator, excluded, included, limit);
+        var results = spatialStations.findNearby(query);
         long durationMs = (System.nanoTime() - startedAt) / 1_000_000;
 
         if (durationMs >= SLOW_QUERY_MS)
-            log.warn("Slow nearby query: {} results in {} ms (lat={} lon={} radiusKm={})", results.size(), durationMs, latitude, longitude, radiusKm);
+            log.warn("Slow nearby query: {} results in {} ms (lat={} lon={} radiusKm={})", results.size(), durationMs,
+                    query.latitude(), query.longitude(), query.radiusKm());
         else log.debug("Nearby query returned {} stations in {} ms", results.size(), durationMs);
         // The client cannot tell a saturated viewport from an empty region otherwise.
-        if (results.size() == limit) log.debug("Nearby query hit the {} row limit — result is the highest-powered slice", limit);
+        if (results.size() == query.limit())
+            log.debug("Nearby query hit the {} row limit — result is the highest-powered slice", query.limit());
         return results;
+    }
+
+    /** Rejects a query outside the bounds the API promises, before it costs a database round trip. */
+    private static void validate(NearbyQuery query) {
+        if (query.radiusKm() < 1 || query.radiusKm() > MAX_RADIUS_KM) {
+            log.warn("Rejected nearby query with radiusKm={}", query.radiusKm());
+            throw new IllegalArgumentException("radiusKm must be between 1 and " + MAX_RADIUS_KM);
+        }
+        if (query.limit() < 1 || query.limit() > MAX_LIMIT) {
+            log.warn("Rejected nearby query with limit={}", query.limit());
+            throw new IllegalArgumentException("limit must be between 1 and " + MAX_LIMIT);
+        }
+        int excluded = NearbyQuery.sizeOf(query.excludeOperators());
+        if (excluded > MAX_EXCLUDED_OPERATORS) {
+            log.warn("Rejected nearby query excluding {} operators", excluded);
+            throw new IllegalArgumentException("excludeOperator must name at most " + MAX_EXCLUDED_OPERATORS + " operators");
+        }
+        int included = NearbyQuery.sizeOf(query.includeOperators());
+        if (included > MAX_INCLUDED_OPERATORS) {
+            log.warn("Rejected nearby query restricted to {} operators", included);
+            throw new IllegalArgumentException("includeOperator must name at most " + MAX_INCLUDED_OPERATORS + " operators");
+        }
     }
 
     StationController.StationDetail detail(UUID id) {

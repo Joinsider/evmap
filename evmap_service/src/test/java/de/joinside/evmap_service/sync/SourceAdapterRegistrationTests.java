@@ -41,6 +41,7 @@ class SourceAdapterRegistrationTests {
 
                 @Override
                 public void recordWatermark(String source, String scope, java.time.Instant watermark) {
+                    // Registration only: nothing in this test advances a watermark.
                 }
             };
         }

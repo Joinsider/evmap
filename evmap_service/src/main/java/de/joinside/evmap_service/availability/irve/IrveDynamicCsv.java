@@ -58,8 +58,10 @@ final class IrveDynamicCsv {
      * @return one entry per normalized charge point id, carrying its newest observation
      */
     static List<ChargePointAvailability> parse(Reader csv, Instant notBefore) throws IOException {
-        Map<String, ChargePointAvailability> newest = new HashMap<>(160_000);
-        int rows = 0, unusable = 0, stale = 0;
+        Map<String, ChargePointAvailability> newest = HashMap.newHashMap(120_000);
+        int rows = 0;
+        int unusable = 0;
+        int stale = 0;
 
         CSVFormat format = CSVFormat.DEFAULT.builder()
                 .setHeader()
@@ -68,21 +70,19 @@ final class IrveDynamicCsv {
                 .setTrim(true)
                 .get();
         try (CSVParser parser = format.parse(csv)) {
-            for (CSVRecord record : parser) {
+            for (CSVRecord row : parser) {
                 rows++;
-                String evseId = EvseIds.normalize(value(record, "id_pdc_itinerance"));
-                Instant observedAt = timestamp(value(record, "horodatage"));
-                String status = toLiveAvailability(value(record, "etat_pdc"), value(record, "occupation_pdc"));
+                String evseId = EvseIds.normalize(value(row, "id_pdc_itinerance"));
+                Instant observedAt = timestamp(value(row, "horodatage"));
+                String status = toLiveAvailability(value(row, "etat_pdc"), value(row, "occupation_pdc"));
                 if (evseId == null || observedAt == null) {
                     unusable++;
-                    continue;
-                }
-                if (observedAt.isBefore(notBefore)) {
+                } else if (observedAt.isBefore(notBefore)) {
                     stale++;
-                    continue;
+                } else {
+                    newest.merge(evseId, new ChargePointAvailability(evseId, status, observedAt),
+                            (kept, candidate) -> candidate.observedAt().isAfter(kept.observedAt()) ? candidate : kept);
                 }
-                newest.merge(evseId, new ChargePointAvailability(evseId, status, observedAt),
-                        (kept, candidate) -> candidate.observedAt().isAfter(kept.observedAt()) ? candidate : kept);
             }
         }
         log.debug("IRVE dynamique: {} row(s), {} charge point(s) reported, {} stale, {} unusable",
@@ -114,16 +114,16 @@ final class IrveDynamicCsv {
         String iso = horodatage.replace(' ', 'T');
         try {
             return OffsetDateTime.parse(iso).toInstant();
-        } catch (DateTimeException withOffset) {
+        } catch (DateTimeException _) {
             try {
                 return LocalDateTime.parse(iso).atZone(PUBLISHER_ZONE).toInstant();
-            } catch (DateTimeException withoutOffset) {
+            } catch (DateTimeException _) {
                 return null;
             }
         }
     }
 
-    private static String value(CSVRecord record, String column) {
-        return record.isMapped(column) && record.isSet(column) ? record.get(column) : null;
+    private static String value(CSVRecord row, String column) {
+        return row.isMapped(column) && row.isSet(column) ? row.get(column) : null;
     }
 }

@@ -24,6 +24,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
@@ -69,7 +70,8 @@ public class IrveDynamicAvailabilityProvider implements AvailabilityProvider {
     private final Clock clock;
     private final Set<String> countryCodes;
     private final ReentrantLock refreshing = new ReentrantLock();
-    private volatile Snapshot snapshot = Snapshot.EMPTY;
+    /** Replaced wholesale, never mutated: a reader sees either the old copy or the new one. */
+    private final AtomicReference<Snapshot> snapshot = new AtomicReference<>(Snapshot.EMPTY);
 
     @Autowired
     IrveDynamicAvailabilityProvider(IrveDynamicProperties properties, RestClient.Builder restClientBuilder) {
@@ -125,12 +127,14 @@ public class IrveDynamicAvailabilityProvider implements AvailabilityProvider {
     @Override
     public List<ChargePointAvailability> fetch(GeoBounds bounds) {
         Instant now = clock.instant();
-        Snapshot current = snapshot;
-        if (!current.attemptedAt().plus(properties.refreshInterval()).isAfter(now) && refreshing.tryLock()) {
+        Snapshot current = snapshot.get();
+        if (isDue(current, now) && refreshing.tryLock()) {
             try {
-                current = snapshot;
-                if (!current.attemptedAt().plus(properties.refreshInterval()).isAfter(now))
-                    current = snapshot = refresh(current, now);
+                current = snapshot.get();
+                if (isDue(current, now)) {
+                    current = refresh(current, now);
+                    snapshot.set(current);
+                }
             } finally {
                 refreshing.unlock();
             }
@@ -141,6 +145,10 @@ public class IrveDynamicAvailabilityProvider implements AvailabilityProvider {
             return List.of();
         }
         return current.entries();
+    }
+
+    private boolean isDue(Snapshot current, Instant now) {
+        return !current.attemptedAt().plus(properties.refreshInterval()).isAfter(now);
     }
 
     /**

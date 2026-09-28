@@ -10,9 +10,14 @@ import java.io.Reader;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.charset.Charset;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.Set;
 import java.util.stream.Stream;
 
 /**
@@ -28,6 +33,8 @@ import java.util.stream.Stream;
  * when the ingestion throws partway through, so an abandoned run leaves no 162 MB file behind.
  */
 public final class BulkDownload {
+    private static final FileAttribute<Set<PosixFilePermission>> OWNER_ONLY =
+            PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"));
     private static final Logger log = LoggerFactory.getLogger(BulkDownload.class);
 
     private final String label;
@@ -85,10 +92,25 @@ public final class BulkDownload {
         }
     }
 
+    /**
+     * A temp file only this process's user can read or write.
+     * <p>
+     * The download lands in the shared temp directory, which every user on the host can list. The
+     * JDK already creates temp files owner-only on POSIX systems; the permissions are stated here
+     * anyway so that the guarantee does not rest on an implementation detail (java:S5443). A
+     * filesystem without POSIX permissions (Windows) falls back to the JDK's default, which is
+     * private to the user there.
+     */
+    private Path createPrivateTempFile() throws IOException {
+        if (FileSystems.getDefault().supportedFileAttributeViews().contains("posix"))
+            return Files.createTempFile(filePrefix, fileSuffix, OWNER_ONLY);
+        return Files.createTempFile(filePrefix, fileSuffix);
+    }
+
     private Path fetch(RestClient client, URI uri) {
         Path file;
         try {
-            file = Files.createTempFile(filePrefix, fileSuffix);
+            file = createPrivateTempFile();
         } catch (IOException exception) {
             throw new UncheckedIOException("Cannot create a temporary file for the " + label + " download", exception);
         }

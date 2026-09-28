@@ -113,18 +113,22 @@ public class MobiDataBwAvailabilityProvider implements AvailabilityProvider {
     public List<ChargePointAvailability> fetch(GeoBounds bounds) {
         List<ChargePointAvailability> availability = new ArrayList<>();
         int offset = 0;
-        for (int page = 0; page < properties.maxPages(); page++) {
+        boolean more = true;
+        for (int page = 0; more && page < properties.maxPages(); page++) {
             OcpdbResponses.LocationPage response = requestPage(bounds, offset);
-            if (response == null || response.items() == null || response.items().isEmpty()) break;
-
-            for (OcpdbResponses.Location location : response.items()) collect(location, availability);
-
-            offset += response.items().size();
-            Integer total = response.totalCount();
-            if (total != null && offset >= total) break;
-            if (page == properties.maxPages() - 1 && total != null && offset < total)
-                log.debug("Stopped at the {}-page cap with {} of {} locations read for bounds {}",
-                        properties.maxPages(), offset, total, bounds);
+            List<OcpdbResponses.Location> items = response == null ? null : response.items();
+            if (items == null || items.isEmpty()) {
+                more = false;
+            } else {
+                for (OcpdbResponses.Location location : items) collect(location, availability);
+                offset += items.size();
+                // Without a total the only end marker is an empty page, so paging goes on to the cap.
+                Integer total = response.totalCount();
+                more = total == null || offset < total;
+                if (more && total != null && page == properties.maxPages() - 1)
+                    log.debug("Stopped at the {}-page cap with {} of {} locations read for bounds {}",
+                            properties.maxPages(), offset, total, bounds);
+            }
         }
         log.debug("MobiData BW reported {} live charge point(s) for bounds {}", availability.size(), bounds);
         return availability;
@@ -159,23 +163,30 @@ public class MobiDataBwAvailabilityProvider implements AvailabilityProvider {
     private static void collect(OcpdbResponses.Location location, List<ChargePointAvailability> into) {
         if (location.chargingPool() == null) return;
         for (OcpdbResponses.ChargeStation chargeStation : location.chargingPool()) {
-            if (chargeStation == null || chargeStation.evses() == null) continue;
-            for (OcpdbResponses.Evse evse : chargeStation.evses()) {
-                String status = OcpiStatus.toLiveAvailability(evse.status());
-                // Null means the status carries no live information — a static register copy, or a
-                // charge point that is planned or removed. Emitting it would put a live badge on a
-                // station that has no live feed behind it.
-                if (status == null) continue;
-
-                String evseId = identifierOf(evse);
-                if (evseId == null) continue;
-
-                // status_last_updated is the timestamp that moves when the status does; last_updated
-                // describes the static record and is sometimes years old.
-                Instant observedAt = evse.statusLastUpdated() != null ? evse.statusLastUpdated() : evse.lastUpdated();
-                into.add(new ChargePointAvailability(evseId, status, observedAt));
+            if (chargeStation != null && chargeStation.evses() != null) {
+                for (OcpdbResponses.Evse evse : chargeStation.evses()) {
+                    ChargePointAvailability availability = toAvailability(evse);
+                    if (availability != null) into.add(availability);
+                }
             }
         }
+    }
+
+    /** One EVSE's live state, or {@code null} when it carries none or cannot be joined. */
+    private static ChargePointAvailability toAvailability(OcpdbResponses.Evse evse) {
+        String status = OcpiStatus.toLiveAvailability(evse.status());
+        // Null means the status carries no live information — a static register copy, or a charge
+        // point that is planned or removed. Emitting it would put a live badge on a station that has no
+        // live feed behind it.
+        if (status == null) return null;
+
+        String evseId = identifierOf(evse);
+        if (evseId == null) return null;
+
+        // status_last_updated is the timestamp that moves when the status does; last_updated describes
+        // the static record and is sometimes years old.
+        Instant observedAt = evse.statusLastUpdated() != null ? evse.statusLastUpdated() : evse.lastUpdated();
+        return new ChargePointAvailability(evseId, status, observedAt);
     }
 
     /**

@@ -135,7 +135,7 @@ public class AvailabilityService {
         Map<String, Reported> merged = new HashMap<>();
         for (AvailabilityProvider provider : providers) {
             if (countryCodes.stream().noneMatch(country -> covers(provider, country))) continue;
-            try (var ignored = LogContext.scope(LogContext.SOURCE, provider.source())) {
+            try (var _ = LogContext.scope(LogContext.SOURCE, provider.source())) {
                 List<ChargePointAvailability> reported =
                         cache.get(AvailabilityCache.key(provider.source(), bounds), () -> provider.fetch(bounds));
                 for (ChargePointAvailability availability : reported)
@@ -154,7 +154,7 @@ public class AvailabilityService {
     }
 
     private static Set<String> wanted(List<ChargePointDirectory.KnownChargePoint> chargePoints) {
-        Set<String> wanted = new HashSet<>(chargePoints.size() * 2);
+        Set<String> wanted = HashSet.newHashSet(chargePoints.size());
         for (ChargePointDirectory.KnownChargePoint chargePoint : chargePoints)
             if (chargePoint.evseIdNormalized() != null) wanted.add(chargePoint.evseIdNormalized());
         return wanted;
@@ -168,34 +168,58 @@ public class AvailabilityService {
                                                  List<ChargePointDirectory.KnownChargePoint> chargePoints,
                                                  Map<String, Reported> live,
                                                  boolean withDetail) {
-        int available = 0, occupied = 0, outOfOrder = 0, unknown = 0;
-        Instant newest = null;
-        List<StationAvailability.ChargePointStatus> detail = withDetail ? new ArrayList<>(chargePoints.size()) : List.of();
-        Set<Attribution> sources = new LinkedHashSet<>();
-
+        Tally tally = new Tally(withDetail, chargePoints.size());
         for (ChargePointDirectory.KnownChargePoint chargePoint : chargePoints) {
-            Reported resolved = chargePoint.evseIdNormalized() == null
-                    ? null : live.get(chargePoint.evseIdNormalized());
+            String evseId = chargePoint.evseIdNormalized();
+            tally.add(chargePoint, evseId == null ? null : live.get(evseId));
+        }
+        return tally.toStation(stationId);
+    }
+
+    /** The running summary of one station's charge points while they are resolved one by one. */
+    private static final class Tally {
+        private final boolean withDetail;
+        private final List<StationAvailability.ChargePointStatus> detail;
+        private final Set<Attribution> sources = new LinkedHashSet<>();
+        private int available;
+        private int occupied;
+        private int outOfOrder;
+        private int unknown;
+        private Instant newest;
+
+        Tally(boolean withDetail, int size) {
+            this.withDetail = withDetail;
+            this.detail = withDetail ? new ArrayList<>(size) : List.of();
+        }
+
+        /** @param resolved the provider's answer for this charge point, {@code null} when there is none */
+        void add(ChargePointDirectory.KnownChargePoint chargePoint, Reported resolved) {
             ChargePointAvailability reported = resolved == null ? null : resolved.availability();
-            if (resolved != null) sources.add(resolved.source());
+            Instant observedAt = reported == null ? null : reported.observedAt();
             String status = reported == null ? LiveAvailability.UNKNOWN : reported.status();
+
+            count(status);
+            if (resolved != null) sources.add(resolved.source());
+            if (observedAt != null && (newest == null || observedAt.isAfter(newest))) newest = observedAt;
+            if (withDetail)
+                detail.add(new StationAvailability.ChargePointStatus(chargePoint.chargePointId(),
+                        chargePoint.evseId(), status, observedAt,
+                        resolved == null ? null : resolved.source().name()));
+        }
+
+        private void count(String status) {
             switch (status) {
                 case LiveAvailability.AVAILABLE -> available++;
                 case LiveAvailability.OCCUPIED -> occupied++;
                 case LiveAvailability.OUT_OF_ORDER -> outOfOrder++;
                 default -> unknown++;
             }
-            if (reported != null && reported.observedAt() != null
-                    && (newest == null || reported.observedAt().isAfter(newest))) newest = reported.observedAt();
-            if (withDetail)
-                detail.add(new StationAvailability.ChargePointStatus(
-                        chargePoint.chargePointId(), chargePoint.evseId(), status,
-                        reported == null ? null : reported.observedAt(),
-                        resolved == null ? null : resolved.source().name()));
         }
 
-        return new StationAvailability(stationId, summaryOf(available, occupied, outOfOrder),
-                available, occupied, outOfOrder, unknown, newest, detail, List.copyOf(sources));
+        StationAvailability toStation(UUID stationId) {
+            return new StationAvailability(stationId, summaryOf(available, occupied, outOfOrder),
+                    available, occupied, outOfOrder, unknown, newest, detail, List.copyOf(sources));
+        }
     }
 
     /**

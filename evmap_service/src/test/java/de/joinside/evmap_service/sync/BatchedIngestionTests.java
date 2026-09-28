@@ -25,7 +25,7 @@ class BatchedIngestionTests {
         // deleted the tag SyncJob had set for the whole source — and every line after it, including the
         // ingestion progress and the per-source summary, went out unattributed. Caught in production
         // logs, not by a test, which is why there is one now.
-        try (var scope = LogContext.scope(LogContext.SOURCE, "BNetzA")) {
+        try (var _ = LogContext.scope(LogContext.SOURCE, "BNetzA")) {
             BatchedIngestion.run(stations(3), 2, new CommittingTransactions(),
                     ignored -> BatchedIngestion.Outcome.CREATED);
 

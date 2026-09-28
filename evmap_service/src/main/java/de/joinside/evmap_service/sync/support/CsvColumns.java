@@ -40,10 +40,10 @@ public final class CsvColumns {
     }
 
     /** @return the trimmed value, or {@code ""} when the column or the field is absent */
-    public String get(CSVRecord record, String column) {
+    public String get(CSVRecord row, String column) {
         Integer index = indices.get(column);
-        if (index == null || index >= record.size()) return "";
-        return clean(record.get(index));
+        if (index == null || index >= row.size()) return "";
+        return clean(row.get(index));
     }
 
     public boolean has(String column) {

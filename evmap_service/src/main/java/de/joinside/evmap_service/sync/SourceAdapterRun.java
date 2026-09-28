@@ -3,6 +3,8 @@ package de.joinside.evmap_service.sync;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.function.Consumer;
@@ -73,7 +75,7 @@ final class SourceAdapterRun {
         try {
             upstream = adapter.fetchStations();
         } catch (RuntimeException exception) {
-            record(exception);
+            recordFailure(exception);
             return Stream.empty();
         }
         if (upstream == null) return Stream.empty();
@@ -85,32 +87,38 @@ final class SourceAdapterRun {
                 source.estimateSize(),
                 source.characteristics() & ~(Spliterator.SIZED | Spliterator.SUBSIZED)) {
 
-            /** Holds the pulled record so the downstream consumer runs outside the guarded block. */
-            private SourceStation pulled;
-
             @Override
             public boolean tryAdvance(Consumer<? super SourceStation> action) {
                 if (failure != null) return false;
-
-                pulled = null;
-                boolean advanced;
-                try {
-                    advanced = source.tryAdvance(station -> pulled = station);
-                } catch (RuntimeException exception) {
-                    record(exception);
-                    return false;
-                }
-                if (!advanced || pulled == null) return false;
+                SourceStation next = pull(source);
+                if (next == null) return false;
 
                 fetched++;
-                // Deliberately outside the try: an exception from here comes from the ingestion, and
-                // swallowing it would report a broken database as a broken data source.
-                action.accept(pulled);
+                // Deliberately outside pull()'s try: an exception from here comes from the ingestion,
+                // and swallowing it would report a broken database as a broken data source.
+                action.accept(next);
                 return true;
             }
         };
 
         return StreamSupport.stream(guarded, false).onClose(() -> closeQuietly(upstream));
+    }
+
+    /**
+     * The source's next record, or {@code null} when it is exhausted or has just failed.
+     * <p>
+     * Pulled into a holder rather than handed straight to the consumer, so that only the source's own
+     * work runs inside the {@code try}; the consumer is the ingestion and must not be caught here.
+     */
+    private SourceStation pull(Spliterator<SourceStation> source) {
+        List<SourceStation> holder = new ArrayList<>(1);
+        try {
+            source.tryAdvance(holder::add);
+        } catch (RuntimeException exception) {
+            recordFailure(exception);
+            return null;
+        }
+        return holder.isEmpty() ? null : holder.getFirst();
     }
 
     /**
@@ -123,12 +131,12 @@ final class SourceAdapterRun {
         try {
             upstream.close();
         } catch (RuntimeException exception) {
-            record(exception);
+            recordFailure(exception);
         }
     }
 
     /** Keeps the first failure: it is the one that explains the truncation, later ones are fallout. */
-    private void record(RuntimeException exception) {
+    private void recordFailure(RuntimeException exception) {
         if (failure != null) return;
         failure = exception;
         log.error("Source {} failed after {} station(s) and contributed nothing further: {}",

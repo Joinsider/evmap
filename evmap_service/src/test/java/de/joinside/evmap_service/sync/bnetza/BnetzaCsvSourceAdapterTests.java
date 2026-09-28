@@ -36,12 +36,15 @@ class BnetzaCsvSourceAdapterTests {
             </body></html>
             """.formatted(DATA_HOST);
 
-    private static final String CSV = ("﻿Ladesäulenregister Bundesnetzagentur;;\r\n"
-            + "Letzte Aktualisierung vom: 07.07.2026;;\r\n"
-            + "Ladeeinrichtungs-ID;Betreiber;Anzeigename (Karte);Status;Straße;Hausnummer;Postleitzahl;Ort;"
-            + "Breitengrad;Längengrad;Standortbezeichnung;Steckertypen1;Nennleistung Stecker1\r\n"
-            + "1010338;Albwerk GmbH;Albwerk Heroldstatt;In Betrieb;Am Berg;1;72535;Heroldstatt;"
-            + "48,442398;9,659075;;AC Typ 2 Steckdose;22\r\n");
+    // \r\n line endings and the BOM are the register's own; the parser must survive both.
+    private static final String CSV = """
+            \uFEFFLadesäulenregister Bundesnetzagentur;;\r
+            Letzte Aktualisierung vom: 07.07.2026;;\r
+            Ladeeinrichtungs-ID;Betreiber;Anzeigename (Karte);Status;Straße;Hausnummer;Postleitzahl;Ort;\
+            Breitengrad;Längengrad;Standortbezeichnung;Steckertypen1;Nennleistung Stecker1\r
+            1010338;Albwerk GmbH;Albwerk Heroldstatt;In Betrieb;Am Berg;1;72535;Heroldstatt;\
+            48,442398;9,659075;;AC Typ 2 Steckdose;22\r
+            """;
 
     private RestClient.Builder builder;
     private MockRestServiceServer server;

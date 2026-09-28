@@ -357,11 +357,14 @@ class OpenChargeMapSourceAdapter implements SourceAdapter {
         if (poi.connections() == null) return List.of();
         List<SourceStation.SourceConnector> connectors = new ArrayList<>();
         for (OcmResponses.Connection connection : poi.connections()) {
-            if (connection.connectionTypeId() == null) continue;
-            String type = ConnectorTypes.normalize(lookups.connectionTypes().get(connection.connectionTypeId()));
-            if (type == null) continue;
-            int quantity = connection.quantity() == null || connection.quantity() < 1 ? 1 : connection.quantity();
-            connectors.add(new SourceStation.SourceConnector(type, connection.powerKw(), quantity));
+            // A connection without a type, or with one outside the closed vocabulary, is not a
+            // connector the app could filter on and is left out.
+            String type = connection.connectionTypeId() == null ? null
+                    : ConnectorTypes.normalize(lookups.connectionTypes().get(connection.connectionTypeId()));
+            if (type != null) {
+                int quantity = connection.quantity() == null || connection.quantity() < 1 ? 1 : connection.quantity();
+                connectors.add(new SourceStation.SourceConnector(type, connection.powerKw(), quantity));
+            }
         }
         return connectors;
     }

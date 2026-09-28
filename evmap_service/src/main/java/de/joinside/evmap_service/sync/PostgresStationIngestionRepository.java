@@ -24,6 +24,14 @@ import java.util.stream.Stream;
 class PostgresStationIngestionRepository implements StationIngestionPort, SyncStateStore {
     private static final Logger log = LoggerFactory.getLogger(PostgresStationIngestionRepository.class);
 
+    // Named parameters shared by several statements; the SQL refers to them as :source, :sourceId, ….
+    private static final String PARAM_SOURCE = "source";
+    private static final String PARAM_SOURCE_ID = "sourceId";
+    private static final String PARAM_STATION_ID = "stationId";
+    private static final String PARAM_COUNTRY = "country";
+    private static final String PARAM_LATITUDE = "latitude";
+    private static final String PARAM_LONGITUDE = "longitude";
+
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
     private final int batchSize;
@@ -87,7 +95,7 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
     @Override
     public Optional<Instant> watermark(String source, String scope) {
         return jdbc.sql("SELECT watermark FROM master.source_sync_state WHERE source=:source AND scope=:scope")
-                .param("source", source)
+                .param(PARAM_SOURCE, source)
                 .param("scope", scope)
                 .query(OffsetDateTime.class)
                 .optional()
@@ -101,7 +109,7 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
                         "VALUES (:source,:scope,:watermark, now()) " +
                         "ON CONFLICT (source, scope) " +
                         "DO UPDATE SET watermark=EXCLUDED.watermark, updated_at=EXCLUDED.updated_at")
-                .param("source", source)
+                .param(PARAM_SOURCE, source)
                 .param("scope", scope)
                 .param("watermark", timestamp(watermark))
                 .update();
@@ -132,8 +140,8 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
         UUID stationId = jdbc.sql("SELECT station_id " +
                         "FROM master.station_source " +
                         "WHERE source=:source AND source_station_id=:sourceId")
-                .param("source", source.source())
-                .param("sourceId", source.sourceStationId())
+                .param(PARAM_SOURCE, source.source())
+                .param(PARAM_SOURCE_ID, source.sourceStationId())
                 .query(UUID.class).optional().orElseGet(() -> nearby(source));
 
         BatchedIngestion.Outcome outcome;
@@ -148,10 +156,10 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
                     .param("street", clip(source.street(), 500))
                     .param("city", clip(source.city(), 200))
                     .param("postal", clip(source.postalCode(), 32))
-                    .param("country", clip(source.countryCode(), 2))
+                    .param(PARAM_COUNTRY, clip(source.countryCode(), 2))
                     .param("operator", clip(source.operatorName(), 500))
-                    .param("latitude", source.latitude())
-                    .param("longitude", source.longitude())
+                    .param(PARAM_LATITUDE, source.latitude())
+                    .param(PARAM_LONGITUDE, source.longitude())
                     .param("availability", clip(source.availabilityStatus(), 32))
                     .update();
             outcome = BatchedIngestion.Outcome.CREATED;
@@ -167,10 +175,10 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
                     .param("street", clip(source.street(), 500))
                     .param("city", clip(source.city(), 200))
                     .param("postal", clip(source.postalCode(), 32))
-                    .param("country", clip(source.countryCode(), 2))
+                    .param(PARAM_COUNTRY, clip(source.countryCode(), 2))
                     .param("operator", clip(source.operatorName(), 500))
-                    .param("latitude", source.latitude())
-                    .param("longitude", source.longitude())
+                    .param(PARAM_LATITUDE, source.latitude())
+                    .param(PARAM_LONGITUDE, source.longitude())
                     .param("availability", clip(source.availabilityStatus(), 32))
                     .update();
             outcome = BatchedIngestion.Outcome.UPDATED;
@@ -190,9 +198,9 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
                         "VALUES (:stationId,:source,:sourceId,:updated) " +
                         "ON CONFLICT (source, source_station_id) " +
                         "DO UPDATE SET station_id=EXCLUDED.station_id, last_updated_at=EXCLUDED.last_updated_at")
-                .param("stationId", stationId)
-                .param("source", clip(source.source(), 32))
-                .param("sourceId", clip(source.sourceStationId(), 255))
+                .param(PARAM_STATION_ID, stationId)
+                .param(PARAM_SOURCE, clip(source.source(), 32))
+                .param(PARAM_SOURCE_ID, clip(source.sourceStationId(), 255))
                 .param("updated", timestamp(source.lastUpdatedAt()))
                 .update();
         return outcome;
@@ -211,10 +219,10 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
      */
     private void replaceInventory(UUID stationId, SourceStation source) {
         jdbc.sql("DELETE FROM master.charging_connector WHERE station_id=:stationId")
-                .param("stationId", stationId)
+                .param(PARAM_STATION_ID, stationId)
                 .update();
         jdbc.sql("DELETE FROM master.charge_point WHERE station_id=:stationId")
-                .param("stationId", stationId)
+                .param(PARAM_STATION_ID, stationId)
                 .update();
 
         for (SourceStation.SourceChargePoint chargePoint : source.chargePoints()) {
@@ -223,9 +231,9 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
                             "(id, station_id, source, source_charge_point_id, evse_id, evse_id_normalized) " +
                             "VALUES (:id,:stationId,:source,:sourceId,:evseId,:evseNormalized)")
                     .param("id", chargePointId)
-                    .param("stationId", stationId)
-                    .param("source", clip(source.source(), 32))
-                    .param("sourceId", clip(chargePoint.sourceChargePointId(), 255))
+                    .param(PARAM_STATION_ID, stationId)
+                    .param(PARAM_SOURCE, clip(source.source(), 32))
+                    .param(PARAM_SOURCE_ID, clip(chargePoint.sourceChargePointId(), 255))
                     .param("evseId", clip(chargePoint.evseId(), 64))
                     .param("evseNormalized", EvseIds.normalize(chargePoint.evseId()))
                     .update();
@@ -244,7 +252,7 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
                         "(id, station_id, charge_point_id, connector_type, power_kw, quantity) " +
                         "VALUES (:id,:stationId,:chargePointId,:type,:power,:quantity)")
                 .param("id", UUID.randomUUID())
-                .param("stationId", stationId)
+                .param(PARAM_STATION_ID, stationId)
                 .param("chargePointId", chargePointId)
                 .param("type", clip(connector.connectorType(), 64))
                 .param("power", connector.powerKw())
@@ -256,9 +264,9 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
         return jdbc.sql("SELECT id FROM master.charging_station " +
                         "WHERE country_code=:country AND ST_DWithin(location, ST_SetSRID(ST_MakePoint(:longitude,:latitude),4326)::geography, 30) " +
                         "ORDER BY location <-> ST_SetSRID(ST_MakePoint(:longitude,:latitude),4326)::geography LIMIT 1")
-                .param("country", clip(source.countryCode(), 2))
-                .param("latitude", source.latitude())
-                .param("longitude", source.longitude())
+                .param(PARAM_COUNTRY, clip(source.countryCode(), 2))
+                .param(PARAM_LATITUDE, source.latitude())
+                .param(PARAM_LONGITUDE, source.longitude())
                 .query(UUID.class)
                 .optional()
                 .orElse(null);

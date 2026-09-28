@@ -29,7 +29,8 @@ public class StationController {
      */
     @GetMapping
     List<StationSummary> nearby(@RequestParam double latitude, @RequestParam double longitude, @RequestParam(defaultValue = "10") int radiusKm, @RequestParam(required = false) List<String> connectorType, @RequestParam(required = false) BigDecimal minPowerKw, @RequestParam(required = false) String operator, @RequestParam(required = false) List<String> excludeOperator, @RequestParam(required = false) List<String> includeOperator, @RequestParam(defaultValue = "500") int limit) {
-        return stations.nearby(latitude, longitude, radiusKm, connectorType, minPowerKw, operator, excludeOperator, includeOperator, limit);
+        return stations.nearby(new NearbyQuery(latitude, longitude, radiusKm, connectorType, minPowerKw, operator,
+                excludeOperator, includeOperator, limit));
     }
 
     @GetMapping("/{id}")

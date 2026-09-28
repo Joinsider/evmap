@@ -78,18 +78,14 @@ final class BnetzaCsvParser {
         // It is a handful of records regardless of how large the file is.
         Instant updatedAt = fallbackUpdatedAt;
         CsvColumns columns = null;
-        while (records.hasNext()) {
-            CSVRecord record = records.next();
-            if (record.size() == 0) continue;
-            String first = CsvColumns.clean(record.get(0));
+        while (columns == null && records.hasNext()) {
+            CSVRecord row = records.next();
+            String first = row.size() == 0 ? "" : CsvColumns.clean(row.get(0));
             if (first.startsWith(LAST_UPDATE_PREFIX)) {
                 Instant parsed = parseEditionDate(first);
                 if (parsed != null) updatedAt = parsed;
             }
-            if (ID_COLUMN.equals(first)) {
-                columns = CsvColumns.of(record);
-                break;
-            }
+            if (ID_COLUMN.equals(first)) columns = CsvColumns.of(row);
         }
         if (columns == null) {
             parser.close();
@@ -101,7 +97,7 @@ final class BnetzaCsvParser {
         Instant edition = updatedAt;
         return StreamSupport
                 .stream(Spliterators.spliteratorUnknownSize(records, Spliterator.ORDERED | Spliterator.NONNULL), false)
-                .map(record -> toStation(record, header, edition))
+                .map(row -> toStation(row, header, edition))
                 .filter(Objects::nonNull)
                 .onClose(() -> {
                     try {
@@ -116,46 +112,46 @@ final class BnetzaCsvParser {
         String value = preambleLine.substring(LAST_UPDATE_PREFIX.length()).trim();
         try {
             return LocalDate.parse(value, GERMAN_DATE).atStartOfDay(ZoneOffset.UTC).toInstant();
-        } catch (DateTimeParseException exception) {
+        } catch (DateTimeParseException _) {
             log.warn("Unreadable edition date '{}' in the register preamble", value);
             return null;
         }
     }
 
-    private static SourceStation toStation(CSVRecord record, CsvColumns columns, Instant editionDate) {
-        String id = columns.get(record, ID_COLUMN);
+    private static SourceStation toStation(CSVRecord row, CsvColumns columns, Instant editionDate) {
+        String id = columns.get(row, ID_COLUMN);
         if (id.isEmpty()) return null;
 
-        Double latitude = decimal(columns.get(record, "Breitengrad"));
-        Double longitude = decimal(columns.get(record, "Längengrad"));
+        Double latitude = decimal(columns.get(row, "Breitengrad"));
+        Double longitude = decimal(columns.get(row, "Längengrad"));
         if (latitude == null || longitude == null) {
             log.debug("Skipped charge point {} without coordinates", id);
             return null;
         }
 
-        String operator = columns.get(record, "Betreiber");
+        String operator = columns.get(row, "Betreiber");
         // "Anzeigename (Karte)" is optional and blank for 63.290 of 113.385 rows in the 2026-07-07
         // edition, so the map label falls back to the site description and finally to the operator.
-        String name = firstNonBlank(columns.get(record, "Anzeigename (Karte)"),
-                columns.get(record, "Standortbezeichnung"),
+        String name = firstNonBlank(columns.get(row, "Anzeigename (Karte)"),
+                columns.get(row, "Standortbezeichnung"),
                 operator);
 
         return new SourceStation(SOURCE,
                 id,
                 name,
-                street(record, columns),
-                columns.get(record, "Ort"),
-                columns.get(record, "Postleitzahl"),
+                street(row, columns),
+                columns.get(row, "Ort"),
+                columns.get(row, "Postleitzahl"),
                 COUNTRY_CODE,
                 operator,
                 latitude,
                 longitude,
-                availability(columns.get(record, "Status"), id),
+                availability(columns.get(row, "Status"), id),
                 // The register has no per-row timestamp — only the edition date of the whole file.
                 editionDate,
                 // No station-level totals: every BNetzA connector belongs to one of the charge points.
                 List.of(),
-                chargePoints(record, columns, id));
+                chargePoints(row, columns, id));
     }
 
     /**
@@ -179,17 +175,12 @@ final class BnetzaCsvParser {
         };
     }
 
-    private static String street(CSVRecord record, CsvColumns columns) {
-        String street = columns.get(record, "Straße");
-        String houseNumber = columns.get(record, "Hausnummer");
+    private static String street(CSVRecord row, CsvColumns columns) {
+        String street = columns.get(row, "Straße");
+        String houseNumber = columns.get(row, "Hausnummer");
         return houseNumber.isEmpty() ? street : (street + " " + houseNumber).trim();
     }
 
-    /**
-     * Flattens the six Ladepunkt column groups into connectors, merging identical (type, power) pairs
-     * into a quantity — a site with four Type 2 sockets at 22 kW is one row with {@code quantity=4}
-     * rather than four rows the UI would have to group again.
-     */
     /**
      * Builds one {@link SourceStation.SourceChargePoint} per populated {@code Steckertypen{n}} column
      * group, carrying that group's {@code EVSE-ID{n}}.
@@ -206,34 +197,36 @@ final class BnetzaCsvParser {
      * Ladeeinrichtung whose groups are re-ordered would at worst re-key its charge points, which
      * costs a delete-and-insert of rows that carry no user data.
      */
-    private static List<SourceStation.SourceChargePoint> chargePoints(CSVRecord record, CsvColumns columns, String stationId) {
+    private static List<SourceStation.SourceChargePoint> chargePoints(CSVRecord row, CsvColumns columns, String stationId) {
         List<SourceStation.SourceChargePoint> chargePoints = new ArrayList<>(MAX_CHARGE_POINTS);
         for (int point = 1; point <= MAX_CHARGE_POINTS; point++) {
-            String[] labels = split(columns.get(record, "Steckertypen" + point));
-            if (labels.length == 0) continue;
-            String[] powers = split(columns.get(record, "Nennleistung Stecker" + point));
-
-            // Plugs of one charge point still merge: a Ladepunkt with two identical sockets is one
-            // connector of quantity two, which is what the detail screen wants to show.
-            Map<Plug, Integer> quantities = new LinkedHashMap<>();
-            for (int i = 0; i < labels.length; i++) {
-                String type = ConnectorTypes.normalize(labels[i]);
-                if (type == null) continue;
-                quantities.merge(new Plug(type, powerOf(powers, i)), 1, Integer::sum);
-            }
-            if (quantities.isEmpty()) continue;
-
-            List<SourceStation.SourceConnector> connectors = new ArrayList<>(quantities.size());
-            quantities.forEach((plug, quantity) ->
-                    connectors.add(new SourceStation.SourceConnector(plug.type(), plug.powerKw(), quantity)));
-
-            String evseId = columns.get(record, "EVSE-ID" + point);
-            chargePoints.add(new SourceStation.SourceChargePoint(
-                    stationId + "*" + point,
-                    evseId.isEmpty() ? null : evseId,
-                    connectors));
+            SourceStation.SourceChargePoint chargePoint = chargePointAt(row, columns, stationId, point);
+            if (chargePoint != null) chargePoints.add(chargePoint);
         }
         return chargePoints;
+    }
+
+    /** Column group {@code point}, or {@code null} when it lists no plug the register vocabulary knows. */
+    private static SourceStation.SourceChargePoint chargePointAt(CSVRecord row, CsvColumns columns,
+                                                                 String stationId, int point) {
+        String[] labels = split(columns.get(row, "Steckertypen" + point));
+        String[] powers = split(columns.get(row, "Nennleistung Stecker" + point));
+
+        // Plugs of one charge point still merge: a Ladepunkt with two identical sockets is one
+        // connector of quantity two, which is what the detail screen wants to show.
+        Map<Plug, Integer> quantities = new LinkedHashMap<>();
+        for (int i = 0; i < labels.length; i++) {
+            String type = ConnectorTypes.normalize(labels[i]);
+            if (type != null) quantities.merge(new Plug(type, powerOf(powers, i)), 1, Integer::sum);
+        }
+        if (quantities.isEmpty()) return null;
+
+        List<SourceStation.SourceConnector> connectors = new ArrayList<>(quantities.size());
+        quantities.forEach((plug, quantity) ->
+                connectors.add(new SourceStation.SourceConnector(plug.type(), plug.powerKw(), quantity)));
+
+        String evseId = columns.get(row, "EVSE-ID" + point);
+        return new SourceStation.SourceChargePoint(stationId + "*" + point, evseId.isEmpty() ? null : evseId, connectors);
     }
 
     /**
@@ -262,7 +255,7 @@ final class BnetzaCsvParser {
         if (normalized.isEmpty()) return null;
         try {
             return new BigDecimal(normalized);
-        } catch (NumberFormatException exception) {
+        } catch (NumberFormatException _) {
             return null;
         }
     }

@@ -36,7 +36,7 @@ class SyncJob {
     @Scheduled(fixedDelayString = "${evmap.sync.fixed-delay}")
     void synchronize() {
         // The sync deployable has no HTTP request to hang a correlation id on, so the job names itself.
-        try (var scope = LogContext.scope(LogContext.JOB, JOB_NAME)) {
+        try (var _ = LogContext.scope(LogContext.JOB, JOB_NAME)) {
             UUID runId = ingestion.startRun();
 
             List<SourceAdapter> active = activeAdapters();
@@ -99,7 +99,7 @@ class SyncJob {
             SourceAdapterRun run = new SourceAdapterRun(adapter);
             runs.add(run);
 
-            try (var scope = LogContext.scope(LogContext.SOURCE, adapter.source())) {
+            try (var _ = LogContext.scope(LogContext.SOURCE, adapter.source())) {
                 long startedAt = System.nanoTime();
                 StationIngestionPort.IngestionResult result;
                 // Closing releases whatever the adapter holds open even when the ingestion throws.
@@ -126,7 +126,11 @@ class SyncJob {
     }
 
     private static StationIngestionPort.IngestionResult totalOf(List<SourceAdapterRun> runs) {
-        int processed = 0, created = 0, updated = 0, unchanged = 0, failed = 0;
+        int processed = 0;
+        int created = 0;
+        int updated = 0;
+        int unchanged = 0;
+        int failed = 0;
         for (SourceAdapterRun run : runs) {
             StationIngestionPort.IngestionResult result = run.result();
             processed += result.processed();
