@@ -38,10 +38,10 @@ backend, set the `API_BASE_URL` launch argument/user default (dev default is `ht
 Sign in with Apple requires the capability enabled for `de.joinside.EVMap` in the Apple Developer portal.
 
 CI (`.github/workflows/ci.yml`, ADR 0016) runs `./mvnw verify` and the iOS unit tests
-(`xcodebuild test -scheme EVMap -only-testing:EVMapTests`, Xcode 26.6 on `macos-26`), each only when its
-own directory changed, and feeds SonarQube Cloud when `SONAR_TOKEN` is set (projects
-`Joinsider_evmap-service` / `Joinsider_evmap-ios`). When upgrading the Xcode project or raising the
-deployment target, move the `XCODE_VERSION` / `SIMULATOR` pin in the workflow with it.
+(`xcodebuild test -scheme EVMap -only-testing:EVMapTests`, Xcode 26.6 on `macos-26`; on PRs only when
+`evMap_ios/**` changed), then a `sonar` job analyses both into the single SonarQube Cloud project
+`Joinsider_evmap` (root `sonar-project.properties`) from the other jobs' artifacts. When upgrading the
+Xcode project or raising the deployment target, move the `XCODE_VERSION` / `SIMULATOR` pin with it.
 
 ## Backend architecture
 

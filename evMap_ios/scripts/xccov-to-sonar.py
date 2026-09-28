@@ -3,6 +3,9 @@
 
 Usage: xccov-to-sonar.py <Test.xcresult> <source root> > coverage.xml
 
+Run it from the SonarQube project's base directory: file paths are written relative to the
+current directory, because the analysis runs on a different machine than the tests.
+
 SonarQube Cloud cannot read an .xcresult bundle; it reads line coverage in its generic XML format
 (sonar.coverageReportPaths). SonarSource's sonar-scanning-examples ship a shell script for this,
 but downloading it at CI time would run unreviewed code with the SONAR_TOKEN in scope, so the
@@ -62,7 +65,7 @@ def main(result_bundle, source_root):
         executable = [entry for entry in lines if entry.get("isExecutable")]
         if not executable:
             continue
-        print(f"  <file path={quoteattr(path)}>")
+        print(f"  <file path={quoteattr(os.path.relpath(path))}>")
         for entry in executable:
             covered = "true" if entry.get("executionCount", 0) > 0 else "false"
             print(f'    <lineToCover lineNumber="{entry["line"]}" covered="{covered}"/>')

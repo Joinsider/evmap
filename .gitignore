@@ -8,3 +8,4 @@ xcuserdata/
 
 # iOS CI output (test result bundle, SonarQube coverage report).
 evMap_ios/EVMap/build/
+sonar-coverage-ios.xml
