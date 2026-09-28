@@ -17,7 +17,9 @@ class SecurityConfiguration {
                 .authorizeHttpRequests(auth ->
                         // health/** covers the group endpoints (/actuator/health/container); details
                         // stay hidden by default, so this exposes status only.
-                        auth.requestMatchers("/actuator/health/**", "/api/v1/stations/**", "/api/v1/auth/apple").permitAll().anyRequest().authenticated())
+                        // The operator directory is master data like the stations themselves: the
+                        // filter UI it feeds has to work before anybody signs in.
+                        auth.requestMatchers("/actuator/health/**", "/api/v1/stations/**", "/api/v1/operators", "/api/v1/auth/apple").permitAll().anyRequest().authenticated())
                 .addFilterBefore(bearerTokenFilter, UsernamePasswordAuthenticationFilter.class).build();
     }
 }

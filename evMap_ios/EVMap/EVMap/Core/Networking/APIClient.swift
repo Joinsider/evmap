@@ -9,7 +9,14 @@ struct APIClient {
         self.session = session
     }
 
-    func url(path: String) -> URL { baseURL.appending(path: path) }
+    /// The versioned API root every endpoint hangs off.
+    private static let apiRoot = ["api", "v1"]
+
+    /// An endpoint under the API root, built from path segments rather than a "/api/v1/…" string:
+    /// each segment is percent-encoded on its own, so an id can never inject a path separator.
+    func endpoint(_ segments: String...) -> URL {
+        (Self.apiRoot + segments).reduce(baseURL) { $0.appending(component: $1) }
+    }
 
     func send<T: Decodable>(_ url: URL, method: String = "GET", body: (any Encodable)? = nil, accessToken: String? = nil) async throws -> T {
         var request = URLRequest(url: url)

@@ -113,7 +113,7 @@ extension MapKitAddressSearchProvider: MKLocalSearchCompleterDelegate {
         finishPending(with: results.map { AddressSuggestion(title: $0.title, subtitle: $0.subtitle) })
     }
 
-    func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {
+    func completer(_: MKLocalSearchCompleter, didFailWithError error: Error) {
         // Not surfaced to the user: a failing keystroke is followed by the next one, and an alert
         // per character typed offline would be unusable. The empty list is the message.
         AppLogger.map.warning("Autocomplete failed — \(AppLogger.describe(error))")

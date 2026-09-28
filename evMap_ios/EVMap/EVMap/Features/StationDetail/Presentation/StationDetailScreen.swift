@@ -17,6 +17,8 @@ struct StationDetailScreen: View {
         NavigationStack {
             List {
                 StationInformationSection(station: station)
+                // Above the infrastructure: "can I charge here now" outranks "what is installed here".
+                if let live = viewModel.liveAvailability { StationLiveAvailabilitySection(availability: live) }
                 if let detail = viewModel.detail { StationInfrastructureSections(detail: detail) }
                 CommentListSection(comments: viewModel.comments, edit: { editingComment = $0 }, delete: { comment in Task { await delete(comment) } })
             }
@@ -32,7 +34,9 @@ struct StationDetailScreen: View {
             .sheet(isPresented: $showCommentEditor) { CommentEditorScreen { await create($0) } }
             .sheet(item: $editingComment) { comment in CommentEditorScreen(comment: comment) { await update(comment, payload: $0) } }
             .alert("error.title", isPresented: Binding(get: { viewModel.errorMessage != nil }, set: { if !$0 { viewModel.errorMessage = nil } })) {
-                Button("action.ok", role: .cancel) { }
+                Button("action.ok", role: .cancel) {
+                    // Dismissing is the whole action; the binding's setter clears the message.
+                }
             } message: { Text(viewModel.errorMessage ?? "") }
             .task(id: authSession.accessToken) { await viewModel.load(accessToken: authSession.accessToken) }
         }

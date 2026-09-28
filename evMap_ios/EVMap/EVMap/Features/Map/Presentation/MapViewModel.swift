@@ -6,7 +6,9 @@ import MapKit
 @MainActor
 final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published private(set) var annotations: [StationAnnotation] = []
-    @Published var filter = StationFilter()
+    /// The criteria the map is currently showing. Owned by the settings (`apply(_:)`) rather than
+    /// editable here, so there is one source of truth for what the user asked to see.
+    @Published private(set) var filter: StationFilter
     @Published private(set) var isLoading = false
     /// True when the last response filled the row limit, i.e. the viewport holds more stations
     /// than were returned. The map says so rather than pretending to be complete.
@@ -24,15 +26,33 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
     /// Viewport the current `stations` were fetched for — the yardstick `isCovered(by:)` uses to
     /// decide whether a camera change needs the network at all.
     private var loadedViewport: MapViewport?
+    /// Live occupancy for what is on screen, by station id. Empty is the normal state — only a
+    /// minority of stations is covered by any access point, and none is outside the countries that
+    /// have a provider.
+    private var liveAvailability: [UUID: StationLiveAvailability] = [:]
+    private var liveTask: Task<Void, Never>?
     /// Viewport the map is showing now, which may be finer-grained than what was fetched; the
     /// clusterer works from this so grouping follows the zoom immediately.
     private var currentViewport: MapViewport?
     private var loadTask: Task<Void, Never>?
 
-    init(repository: any ChargingStationRepository) {
+    /// `filter` is passed in rather than defaulted so the very first viewport query already carries
+    /// the user's stored settings — otherwise the map would load the unfiltered world once and
+    /// visibly correct itself.
+    init(repository: any ChargingStationRepository, filter: StationFilter = StationFilter()) {
         self.repository = repository
+        self.filter = filter
         super.init()
         locationManager.delegate = self
+    }
+
+    /// Adopts the filter the settings describe, refetching only when it actually differs from what
+    /// is on screen — opening the settings screen and closing it again is not a reason to re-query.
+    func apply(_ filter: StationFilter) {
+        guard filter != self.filter else { return }
+        self.filter = filter
+        AppLogger.stations.notice("Filter changed to \(filter.logDescription) — reloading")
+        reload()
     }
 
     func requestLocation() {
@@ -94,6 +114,7 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
             loadedViewport = viewport
             recluster()
             AppLogger.stations.notice("Showing \(self.stations.count) of \(fetched.count) stations in \(self.annotations.count) pins\(self.isTruncated ? " (limit reached)" : "")")
+            loadLiveAvailability(for: viewport)
         } catch is CancellationError {
             AppLogger.stations.debug("Viewport query superseded by a newer one")
         } catch {
@@ -102,12 +123,52 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         }
     }
 
-    private func recluster() {
-        guard let currentViewport else {
-            annotations = StationClusterer.cluster(stations, latitudeSpan: 0)
+    /// Fetches live occupancy for the area that was just loaded.
+    ///
+    /// Deliberately started after the stations arrived rather than in parallel with them: the pins
+    /// are the map, and live status is a badge on top. Making the map wait for the least reliable
+    /// of the two requests would trade the thing that always works for the thing that often has no
+    /// answer. A failure is swallowed — no error banner for a badge that simply does not appear.
+    ///
+    /// Skipped entirely at overview zoom, where the backend answers nothing anyway and the pins
+    /// stand for whole regions.
+    private func loadLiveAvailability(for viewport: MapViewport) {
+        liveTask?.cancel()
+        guard !viewport.isOverview else {
+            liveAvailability = [:]
+            recluster()
             return
         }
-        annotations = StationClusterer.cluster(stations, latitudeSpan: currentViewport.latitudeSpan)
+        liveTask = Task { [weak self] in await self?.performLiveLoad(viewport) }
+    }
+
+    private func performLiveLoad(_ viewport: MapViewport) async {
+        do {
+            let bounds = viewport.bounds
+            let fetched = try await repository.liveAvailability(
+                latMin: bounds.latMin, lonMin: bounds.lonMin, latMax: bounds.latMax, lonMax: bounds.lonMax)
+            guard !Task.isCancelled else { return }
+            liveAvailability = Dictionary(fetched.map { ($0.stationID, $0) }, uniquingKeysWith: { first, _ in first })
+            recluster()
+            AppLogger.stations.debug("Live availability for \(self.liveAvailability.count) station(s) in view")
+        } catch is CancellationError {
+            AppLogger.stations.debug("Live availability query superseded by a newer one")
+        } catch {
+            // Not surfaced: a live source being down costs the badges, not the map.
+            guard !Task.isCancelled else { return }
+            liveAvailability = [:]
+            recluster()
+            AppLogger.stations.debug("No live availability for this viewport — \(AppLogger.describe(error))")
+        }
+    }
+
+    private func recluster() {
+        guard let currentViewport else {
+            annotations = StationClusterer.cluster(stations, latitudeSpan: 0, liveAvailability: liveAvailability)
+            return
+        }
+        annotations = StationClusterer.cluster(stations, latitudeSpan: currentViewport.latitudeSpan,
+                                               liveAvailability: liveAvailability)
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
@@ -122,7 +183,7 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         manager.stopUpdatingLocation()
     }
 
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+    func locationManager(_: CLLocationManager, didFailWithError error: Error) {
         // Not fatal: the map keeps its current viewport, which already has stations loaded for it.
         AppLogger.location.warning("Location fix failed, keeping last known position — \(AppLogger.describe(error))")
     }

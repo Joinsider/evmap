@@ -21,6 +21,18 @@ class StationService {
     private static final int MAX_RADIUS_KM = 1_000;
     /** Ceiling on returned rows — an unbounded list of pins is unusable on a map and slow to draw. */
     private static final int MAX_LIMIT = 2_000;
+    /**
+     * Ceiling on hidden operators. The client sends one name per network the user switched off, and
+     * a plausible user hides a handful; a list this long is a malformed or hostile request, not a
+     * setting, and every entry costs a comparison per candidate row.
+     */
+    static final int MAX_EXCLUDED_OPERATORS = 200;
+    /**
+     * Ceiling on the operator allowlist, for the same reason and at the same size: the app sends
+     * one name per network the user kept visible while hiding the rest, and that is a list a person
+     * curated by hand.
+     */
+    static final int MAX_INCLUDED_OPERATORS = 200;
 
     private final StationSpatialRepository spatialStations;
     private final ChargingStationRepository stations;
@@ -37,36 +49,50 @@ class StationService {
         this.sources = sources;
     }
 
-    List<StationController.StationSummary> nearby(double latitude,
-                                                  double longitude,
-                                                  int radiusKm,
-                                                  List<String> connectorTypes,
-                                                  BigDecimal minPowerKw,
-                                                  String operator,
-                                                  int limit) {
-
-        if (radiusKm < 1 || radiusKm > MAX_RADIUS_KM) {
-            log.warn("Rejected nearby query with radiusKm={}", radiusKm);
-            throw new IllegalArgumentException("radiusKm must be between 1 and " + MAX_RADIUS_KM);
-        }
-        if (limit < 1 || limit > MAX_LIMIT) {
-            log.warn("Rejected nearby query with limit={}", limit);
-            throw new IllegalArgumentException("limit must be between 1 and " + MAX_LIMIT);
-        }
-        var types = connectorTypes == null || connectorTypes.isEmpty() ? null : connectorTypes;
-        log.debug("Nearby query lat={} lon={} radiusKm={} connectorTypes={} minPowerKw={} operator={} limit={}",
-                latitude, longitude, radiusKm, types, minPowerKw, operator, limit);
+    List<StationController.StationSummary> nearby(NearbyQuery request) {
+        validate(request);
+        NearbyQuery query = request.normalized();
+        // The excluded names are logged by count only: which networks somebody switched off is a
+        // preference of theirs, and the list adds nothing to a query trace anyway.
+        log.debug("Nearby query lat={} lon={} radiusKm={} connectorTypes={} minPowerKw={} operator={} excludedOperators={} includedOperators={} limit={}",
+                query.latitude(), query.longitude(), query.radiusKm(), query.connectorTypes(), query.minPowerKw(),
+                query.operator(), NearbyQuery.sizeOf(query.excludeOperators()),
+                NearbyQuery.sizeOf(query.includeOperators()), query.limit());
 
         long startedAt = System.nanoTime();
-        var results = spatialStations.findNearby(latitude, longitude, radiusKm, types, minPowerKw, operator, limit);
+        var results = spatialStations.findNearby(query);
         long durationMs = (System.nanoTime() - startedAt) / 1_000_000;
 
         if (durationMs >= SLOW_QUERY_MS)
-            log.warn("Slow nearby query: {} results in {} ms (lat={} lon={} radiusKm={})", results.size(), durationMs, latitude, longitude, radiusKm);
+            log.warn("Slow nearby query: {} results in {} ms (lat={} lon={} radiusKm={})", results.size(), durationMs,
+                    query.latitude(), query.longitude(), query.radiusKm());
         else log.debug("Nearby query returned {} stations in {} ms", results.size(), durationMs);
         // The client cannot tell a saturated viewport from an empty region otherwise.
-        if (results.size() == limit) log.debug("Nearby query hit the {} row limit — result is the highest-powered slice", limit);
+        if (results.size() == query.limit())
+            log.debug("Nearby query hit the {} row limit — result is the highest-powered slice", query.limit());
         return results;
+    }
+
+    /** Rejects a query outside the bounds the API promises, before it costs a database round trip. */
+    private static void validate(NearbyQuery query) {
+        if (query.radiusKm() < 1 || query.radiusKm() > MAX_RADIUS_KM) {
+            log.warn("Rejected nearby query with radiusKm={}", query.radiusKm());
+            throw new IllegalArgumentException("radiusKm must be between 1 and " + MAX_RADIUS_KM);
+        }
+        if (query.limit() < 1 || query.limit() > MAX_LIMIT) {
+            log.warn("Rejected nearby query with limit={}", query.limit());
+            throw new IllegalArgumentException("limit must be between 1 and " + MAX_LIMIT);
+        }
+        int excluded = NearbyQuery.sizeOf(query.excludeOperators());
+        if (excluded > MAX_EXCLUDED_OPERATORS) {
+            log.warn("Rejected nearby query excluding {} operators", excluded);
+            throw new IllegalArgumentException("excludeOperator must name at most " + MAX_EXCLUDED_OPERATORS + " operators");
+        }
+        int included = NearbyQuery.sizeOf(query.includeOperators());
+        if (included > MAX_INCLUDED_OPERATORS) {
+            log.warn("Rejected nearby query restricted to {} operators", included);
+            throw new IllegalArgumentException("includeOperator must name at most " + MAX_INCLUDED_OPERATORS + " operators");
+        }
     }
 
     StationController.StationDetail detail(UUID id) {
@@ -77,14 +103,7 @@ class StationService {
                     return new StationController.StationNotFoundException(id);
                 });
 
-        var connectorDtos = connectors
-                .findByStationId(id)
-                .stream()
-                .map(connector -> new StationController.Connector(
-                        connector.connectorType,
-                        connector.powerKw,
-                        connector.quantity
-                )).toList();
+        var connectorDtos = aggregate(connectors.findByStationId(id));
 
         var maxPowerKw = connectorDtos.stream()
                 .map(StationController.Connector::powerKw)
@@ -113,5 +132,31 @@ class StationService {
 
         log.debug("Station {} served with {} connectors from sources {}", id, connectorDtos.size(), sourceNames);
         return new StationController.StationDetail(summary, connectorDtos, sourceNames);
+    }
+
+    /**
+     * Sums the station's connector rows per (type, power).
+     * <p>
+     * Since the charge point inventory landed (ADR 0015), sources that describe charge points
+     * individually store one connector row per charge point — four 22 kW Type 2 posts are four rows
+     * of quantity one rather than a single row of quantity four. The client asks "what can I plug in
+     * here, and how many", so the totals are rebuilt on read; the finer rows stay in the database,
+     * where live availability needs them.
+     * <p>
+     * Insertion-ordered so the response keeps the order the ingestion wrote, and a station whose
+     * connectors already were totals — Open Charge Map reports only those — passes through unchanged.
+     */
+    private static List<StationController.Connector> aggregate(List<ChargingConnector> connectors) {
+        record Plug(String connectorType, BigDecimal powerKw) {
+        }
+
+        var quantities = new java.util.LinkedHashMap<Plug, Integer>();
+        for (ChargingConnector connector : connectors)
+            quantities.merge(new Plug(connector.connectorType, connector.powerKw), connector.quantity, Integer::sum);
+
+        return quantities.entrySet().stream()
+                .map(entry -> new StationController.Connector(
+                        entry.getKey().connectorType(), entry.getKey().powerKw(), entry.getValue()))
+                .toList();
     }
 }

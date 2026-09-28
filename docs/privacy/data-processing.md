@@ -140,8 +140,27 @@ DSGVO-Thema.
   jedem Login eine Verbindung zu Apple aufbaut.
 - **Hosting des API-Service** — abhängig vom Deployment (aktuell
   `evmap.joinside.de`); AV-Vertrag erforderlich.
-- **Bundesnetzagentur / Open Charge Map** — Datenquellen, ausschließlich
-  eingehend und ohne Personenbezug.
+- **Bundesnetzagentur / Open Charge Map / Etalab (IRVE)** — Datenquellen der
+  Stammdaten-Ingestion, ausschließlich eingehend und ohne Personenbezug.
+- **MobiData BW (OCPDB)** — Live-Verfügbarkeit (ADR 0015). Anders als die
+  Stammdatenquellen wird dieser Dienst *anlassbezogen* abgefragt: beim Öffnen
+  einer Station und beim Verschieben der Karte. Übertragen wird ausschließlich
+  ein Koordinatenrechteck — keine Nutzerkennung, kein Token, kein Gerätebezug,
+  und der Aufruf erfolgt vom Server, nicht vom Client, sodass die IP-Adresse
+  des Geräts MobiData BW nicht erreicht. Das Rechteck lässt dennoch Rückschlüsse
+  darauf zu, welche Gegend gerade betrachtet wird; da die Anfrage serverseitig
+  gebündelt und ohne Kennung gestellt wird, ist sie keinem Nutzer zuordenbar.
+  Die serverseitige Zwischenspeicherung (60 s) reduziert die Zahl der Aufrufe
+  zusätzlich. **Restrisiko:** ein Deployment mit sehr wenigen aktiven Nutzern
+  macht einzelne Anfragen theoretisch zuordenbar — dieselbe Einschränkung, die
+  für jede serverseitige Weiterleitung gilt.
+- **transport.data.gouv.fr (IRVE dynamique)** — Live-Verfügbarkeit für
+  Frankreich (ADR 0015). Abgerufen wird immer die komplette landesweite Datei,
+  höchstens einmal pro Minute und nur, wenn jemand eine französische Station
+  oder einen Kartenausschnitt in Frankreich ansieht. Die Anfrage enthält
+  **keine Koordinaten**, keine Nutzerkennung und keinen Gerätebezug; sie
+  verrät lediglich, dass in dieser Minute irgendein Nutzer Frankreich
+  betrachtet hat.
 
 ## 7. Referenzen
 

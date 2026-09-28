@@ -12,6 +12,12 @@ spring:
     enabled: false
 
 evmap:
+  # The ingestion container has no business polling live feeds: it serves no requests, and a live
+  # status is worthless by the time the next batch run reads it. Off here means the providers and
+  # their cache are never registered at all, rather than registered and idle.
+  availability:
+    enabled: false
+
   sync:
     enabled: true
     fixed-delay: PT24H
@@ -28,6 +34,17 @@ evmap:
       index-url: https://www.bundesnetzagentur.de/DE/Fachthemen/ElektrizitaetundGas/E-Mobilitaet/Ladesaeulenkarte/start.html
       csv-url: ${BNETZA_CSV_URL:}
       timeout: PT5M
+
+    # Fichier consolidé des IRVE (Etalab / data.gouv.fr, Licence Ouverte 1.0, attribution
+    # "data.gouv.fr / Etalab"). The French national register: every operator and municipality publishes
+    # its own file and Etalab consolidates them daily into this one download. csv-url is a stable
+    # resource id that redirects to the current date-stamped edition, so unlike BNetzA there is nothing
+    # to scrape — override it only to pin an edition or to point at a local copy.
+    irve:
+      enabled: ${IRVE_ENABLED:true}
+      csv-url: ${IRVE_CSV_URL:https://www.data.gouv.fr/api/1/datasets/r/eb76d20a-8501-400e-b336-d85724de5435}
+      # 162 MB / 231.647 charge points on 2026-07-29, and growing.
+      timeout: PT10M
 
     # Open Charge Map. api-key is mandatory (the API answers 403 without one) and comes from
     # https://openchargemap.org → my profile → my apps → Register An Application. A blank key skips

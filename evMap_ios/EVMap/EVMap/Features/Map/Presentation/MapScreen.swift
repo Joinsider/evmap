@@ -6,6 +6,9 @@ struct MapScreen: View {
     @StateObject private var search = AddressSearchViewModel()
     let repository: any ChargingStationRepository
     @ObservedObject var authSession: AuthSession
+    /// Owned by the app, not by this screen: the settings outlive any one view, and the map has to
+    /// be able to read them before its first query.
+    @ObservedObject var settings: SettingsViewModel
     /// Launch view: Germany at overview scale, which loads the highpower backbone straight away and
     /// gives `onMapCameraChange` a defined starting region instead of whatever `.automatic` picks.
     private static let initialRegion = MKCoordinateRegion(
@@ -17,16 +20,17 @@ struct MapScreen: View {
     @State private var visibleSpan: MKCoordinateSpan?
     @State private var selectedAnnotation: StationAnnotation?
     @State private var selectedStation: Station?
-    @State private var showFilters = false
+    @State private var showSettings = false
     /// Focus, not presentation. Dismissing the search *presentation* after a hit would take the
     /// text with it — UIKit clears the field when the search controller goes away — leaving the map
     /// on a place the search bar no longer names. Dropping focus only closes the keyboard.
     @FocusState private var isSearchFieldFocused: Bool
 
-    init(repository: any ChargingStationRepository, authSession: AuthSession) {
+    init(repository: any ChargingStationRepository, authSession: AuthSession, settings: SettingsViewModel) {
         self.repository = repository
         self.authSession = authSession
-        _viewModel = StateObject(wrappedValue: MapViewModel(repository: repository))
+        self.settings = settings
+        _viewModel = StateObject(wrappedValue: MapViewModel(repository: repository, filter: settings.settings.stationFilter))
     }
 
     var body: some View {
@@ -81,7 +85,7 @@ struct MapScreen: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button { viewModel.requestLocation() } label: { Label("map.locate", systemImage: "location.fill") } }
-                ToolbarItem(placement: .topBarTrailing) { Button { showFilters = true } label: { Label("filter.title", systemImage: "line.3.horizontal.decrease.circle") } }
+                ToolbarItem(placement: .topBarTrailing) { Button { showSettings = true } label: { Label("settings.title", systemImage: "line.3.horizontal.decrease.circle") } }
                 // Where iOS 26 puts search: a full-width field in the bottom bar, within thumb
                 // reach, rather than a drawer under the title at the far end of the screen.
                 DefaultToolbarItem(kind: .search, placement: .bottomBar)
@@ -94,14 +98,20 @@ struct MapScreen: View {
             }
             .overlay(alignment: .bottomTrailing) { ChargingPowerLegend().padding(12) }
             .sheet(item: $selectedStation) { StationDetailScreen(station: $0, repository: repository, authSession: authSession) }
-            .sheet(isPresented: $showFilters) { StationFilterScreen(filter: $viewModel.filter) { viewModel.reload() } }
+            // Applied on dismiss, not on change: the settings persist themselves keystroke by
+            // keystroke, but dragging the power slider must not be one network request per step.
+            .sheet(isPresented: $showSettings, onDismiss: { viewModel.apply(settings.settings.stationFilter) }) {
+                SettingsScreen(model: settings, repository: repository)
+            }
             // One alert for both sources: SwiftUI presents a single alert per view, and a failed
             // station load and a failed address lookup are the same kind of interruption.
             .alert("error.title", isPresented: Binding(
                 get: { viewModel.errorMessage != nil || search.errorMessage != nil },
                 set: { if !$0 { viewModel.errorMessage = nil; search.errorMessage = nil } }
             )) {
-                Button("action.ok", role: .cancel) { }
+                Button("action.ok", role: .cancel) {
+                    // Dismissing is the whole action; the binding's setter clears both messages.
+                }
             } message: { Text(viewModel.errorMessage ?? search.errorMessage ?? "") }
             // Seeds the first query from the known starting region rather than waiting for MapKit to
             // report a camera; the coverage check keeps its subsequent report from refetching.
@@ -144,19 +154,44 @@ private struct StationAnnotationView: View {
                     .overlay(Capsule().strokeBorder(.white, lineWidth: 1.5))
             }
         }
+        .overlay(alignment: .topTrailing) { liveBadge }
         .shadow(radius: 2)
         .accessibilityLabel(accessibilityLabel)
     }
 
-    /// Colour alone must not carry the charging speed, so the pin says it out loud.
+    /// How many charge points behind this pin are free right now.
+    ///
+    /// Drawn only where a live source actually answered, which is a minority of stations — the pin
+    /// keeps its power colour and gains a badge, rather than changing colour, so that the absence of
+    /// live data is never mistaken for a status. A count of zero is still shown: "0 frei" is real
+    /// information, and hiding it would leave the pin looking uncovered.
+    @ViewBuilder
+    private var liveBadge: some View {
+        if let free = annotation.liveAvailableCount {
+            Text(free, format: .number)
+                .font(.system(size: 10, weight: .bold))
+                .monospacedDigit()
+                .foregroundStyle(.white)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 1)
+                .background(free > 0 ? Color.green : Color.orange, in: .capsule)
+                .overlay(Capsule().strokeBorder(.white, lineWidth: 1))
+                .offset(x: 6, y: -4)
+        }
+    }
+
+    /// Colour alone must not carry the charging speed or the live status, so the pin says both out loud.
     private var accessibilityLabel: String {
         let power = annotation.maxPowerKw.map(formattedPower(kW:))
+        let live = annotation.liveAvailableCount.map {
+            ", " + String(format: String(localized: "map.liveAvailable"), $0)
+        } ?? ""
         guard let station = annotation.station else {
             // The count is formatted into a string first: interpolating the `Int` would look up
             // `map.cluster %lld`, which no strings file declares.
-            return String(localized: "map.cluster \(annotation.count.formatted())") + (power.map { ", \($0)" } ?? "")
+            return String(localized: "map.cluster \(annotation.count.formatted())") + (power.map { ", \($0)" } ?? "") + live
         }
-        return station.displayName + (power.map { ", \($0)" } ?? "")
+        return station.displayName + (power.map { ", \($0)" } ?? "") + live
     }
 }
 

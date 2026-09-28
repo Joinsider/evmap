@@ -15,9 +15,22 @@ public class StationController {
         this.stations = stations;
     }
 
+    /**
+     * @param operator        exact operator name to restrict the result to. No current client sends
+     *                        it — the app expresses provider choice through {@code excludeOperator}
+     *                        (ADR 0014) — but installed older builds still do, so it stays.
+     * @param excludeOperator operator names to leave out, repeated once per name. This is how the
+     *                        app's "do not show this provider" setting reaches the query.
+     * @param includeOperator operator names to restrict the result to, repeated once per name — the
+     *                        allowlist the app sends once the user turns its global "show all other
+     *                        providers" switch off. Absent means no restriction; there is
+     *                        deliberately no way to spell "restrict to nothing", so a client that
+     *                        wants an empty map must not send the request at all (ADR 0014).
+     */
     @GetMapping
-    List<StationSummary> nearby(@RequestParam double latitude, @RequestParam double longitude, @RequestParam(defaultValue = "10") int radiusKm, @RequestParam(required = false) List<String> connectorType, @RequestParam(required = false) BigDecimal minPowerKw, @RequestParam(required = false) String operator, @RequestParam(defaultValue = "500") int limit) {
-        return stations.nearby(latitude, longitude, radiusKm, connectorType, minPowerKw, operator, limit);
+    List<StationSummary> nearby(@RequestParam double latitude, @RequestParam double longitude, @RequestParam(defaultValue = "10") int radiusKm, @RequestParam(required = false) List<String> connectorType, @RequestParam(required = false) BigDecimal minPowerKw, @RequestParam(required = false) String operator, @RequestParam(required = false) List<String> excludeOperator, @RequestParam(required = false) List<String> includeOperator, @RequestParam(defaultValue = "500") int limit) {
+        return stations.nearby(new NearbyQuery(latitude, longitude, radiusKm, connectorType, minPowerKw, operator,
+                excludeOperator, includeOperator, limit));
     }
 
     @GetMapping("/{id}")

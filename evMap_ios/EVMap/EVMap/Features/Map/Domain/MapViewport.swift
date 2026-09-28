@@ -42,6 +42,18 @@ struct MapViewport: Equatable {
     /// Whether this viewport is wide enough to trade completeness for the highpower network.
     var isOverview: Bool { latitudeSpan > Self.overviewLatitudeSpan }
 
+    /// The visible rectangle, for the endpoints that take a bounding box rather than a circle.
+    ///
+    /// Live availability is asked this way because the national access points are: MobiData BW
+    /// filters locations by box. Unlike `radiusKm` this does not overfetch the corners — a live
+    /// status just outside the screen is of no use, and the box is the cheaper question.
+    var bounds: (latMin: Double, lonMin: Double, latMax: Double, lonMax: Double) {
+        (latMin: center.latitude - latitudeSpan / 2,
+         lonMin: center.longitude - longitudeSpan / 2,
+         latMax: center.latitude + latitudeSpan / 2,
+         lonMax: center.longitude + longitudeSpan / 2)
+    }
+
     /// The filter as sent for this viewport: at overview scale the user's power floor is raised to
     /// the highpower threshold, never lowered below what they asked for.
     func effectiveFilter(_ filter: StationFilter) -> StationFilter {

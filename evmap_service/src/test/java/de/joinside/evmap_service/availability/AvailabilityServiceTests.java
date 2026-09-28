@@ -1,0 +1,94 @@
+package de.joinside.evmap_service.availability;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+class AvailabilityServiceTests {
+    private static final UUID STATION = UUID.randomUUID();
+    private static final Instant OBSERVED = Instant.parse("2026-09-28T11:50:00Z");
+
+    /** A provider shaped like the French one: it answers with far more than the area holds. */
+    private static final class WholeCountryProvider implements AvailabilityProvider {
+        @Override
+        public String source() {
+            return "WholeCountry";
+        }
+
+        @Override
+        public Attribution attribution() {
+            return new Attribution("Whole Country", "Licence Ouverte 2.0", "https://example.org");
+        }
+
+        @Override
+        public boolean covers(String countryCode) {
+            return "FR".equals(countryCode);
+        }
+
+        @Override
+        public List<ChargePointAvailability> fetch(GeoBounds bounds) {
+            return List.of(new ChargePointAvailability("FRAAA1", LiveAvailability.AVAILABLE, OBSERVED),
+                    new ChargePointAvailability("FRBBB2", LiveAvailability.OCCUPIED, OBSERVED),
+                    new ChargePointAvailability("FRELSEWHERE9", LiveAvailability.OUT_OF_ORDER, OBSERVED));
+        }
+    }
+
+    private static AvailabilityService service(ChargePointDirectory directory) {
+        AvailabilityProperties properties = new AvailabilityProperties(true, Duration.ofSeconds(60), 500, 300, 1.5, 5000);
+        return new AvailabilityService(List.of(new WholeCountryProvider()), directory, properties);
+    }
+
+    private static ChargePointDirectory.KnownChargePoint chargePoint(String evseId) {
+        return new ChargePointDirectory.KnownChargePoint(UUID.randomUUID(), STATION, evseId, evseId);
+    }
+
+    @Test
+    @DisplayName("resolves only the station's own charge points out of a country-wide answer")
+    void keepsOnlyRequestedIdentifiers() {
+        ChargePointDirectory directory = mock(ChargePointDirectory.class);
+        when(directory.location(STATION)).thenReturn(Optional.of(
+                new ChargePointDirectory.StationLocation(STATION, 48.85, 2.35, "FR")));
+        when(directory.forStation(STATION)).thenReturn(List.of(chargePoint("FRAAA1"), chargePoint("FRBBB2"),
+                new ChargePointDirectory.KnownChargePoint(UUID.randomUUID(), STATION, null, null)));
+
+        StationAvailability answer = service(directory).forStation(STATION).orElseThrow();
+
+        assertThat(answer.status()).isEqualTo(LiveAvailability.AVAILABLE);
+        assertThat(answer.available()).isEqualTo(1);
+        assertThat(answer.occupied()).isEqualTo(1);
+        // FRELSEWHERE9 belongs to some other station and must not be counted here.
+        assertThat(answer.outOfOrder()).isZero();
+        assertThat(answer.unknown()).isEqualTo(1);
+        assertThat(answer.observedAt()).isEqualTo(OBSERVED);
+        // Credited once per station and per resolved charge point; the unresolved one names nobody.
+        assertThat(answer.sources()).extracting(Attribution::name).containsExactly("Whole Country");
+        assertThat(answer.chargePoints()).extracting(StationAvailability.ChargePointStatus::source)
+                .containsExactly("Whole Country", "Whole Country", null);
+    }
+
+    @Test
+    @DisplayName("a viewport answers only for stations inside it, whatever the provider returned")
+    void viewportIgnoresForeignIdentifiers() {
+        ChargePointDirectory directory = mock(ChargePointDirectory.class);
+        GeoBounds bounds = new GeoBounds(48.85, 2.34, 48.86, 2.36);
+        when(directory.inBounds(any(), anyInt())).thenReturn(List.of(chargePoint("FRBBB2")));
+        when(directory.countriesInBounds(any())).thenReturn(List.of("FR"));
+
+        assertThat(service(directory).inBounds(bounds)).singleElement()
+                .satisfies(station -> {
+                    assertThat(station.status()).isEqualTo(LiveAvailability.OCCUPIED);
+                    assertThat(station.outOfOrder()).isZero();
+                });
+    }
+}

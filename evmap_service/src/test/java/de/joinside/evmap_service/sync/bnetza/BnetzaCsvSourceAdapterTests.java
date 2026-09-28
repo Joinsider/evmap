@@ -36,12 +36,15 @@ class BnetzaCsvSourceAdapterTests {
             </body></html>
             """.formatted(DATA_HOST);
 
-    private static final String CSV = ("﻿Ladesäulenregister Bundesnetzagentur;;\r\n"
-            + "Letzte Aktualisierung vom: 07.07.2026;;\r\n"
-            + "Ladeeinrichtungs-ID;Betreiber;Anzeigename (Karte);Status;Straße;Hausnummer;Postleitzahl;Ort;"
-            + "Breitengrad;Längengrad;Standortbezeichnung;Steckertypen1;Nennleistung Stecker1\r\n"
-            + "1010338;Albwerk GmbH;Albwerk Heroldstatt;In Betrieb;Am Berg;1;72535;Heroldstatt;"
-            + "48,442398;9,659075;;AC Typ 2 Steckdose;22\r\n");
+    // \r\n line endings and the BOM are the register's own; the parser must survive both.
+    private static final String CSV = """
+            \uFEFFLadesäulenregister Bundesnetzagentur;;\r
+            Letzte Aktualisierung vom: 07.07.2026;;\r
+            Ladeeinrichtungs-ID;Betreiber;Anzeigename (Karte);Status;Straße;Hausnummer;Postleitzahl;Ort;\
+            Breitengrad;Längengrad;Standortbezeichnung;Steckertypen1;Nennleistung Stecker1\r
+            1010338;Albwerk GmbH;Albwerk Heroldstatt;In Betrieb;Am Berg;1;72535;Heroldstatt;\
+            48,442398;9,659075;;AC Typ 2 Steckdose;22\r
+            """;
 
     private RestClient.Builder builder;
     private MockRestServiceServer server;
@@ -124,11 +127,20 @@ class BnetzaCsvSourceAdapterTests {
     }
 
     @Test
-    @DisplayName("does nothing when disabled, without touching the network")
+    @DisplayName("reports itself disabled, so the run never asks it to fetch")
     void canBeDisabled() {
         BnetzaProperties disabled = new BnetzaProperties(false, INDEX_URL, "", Duration.ofSeconds(5));
 
-        assertThat(drain(adapter(disabled).fetchStations())).isEmpty();
+        // The flag is checked by SyncJob rather than inside fetchStations(): one place decides which
+        // sources take part, and a disabled source is reported once instead of per adapter.
+        assertThat(adapter(disabled).enabled()).isFalse();
+        assertThat(adapter(properties("")).enabled()).isTrue();
         server.verify();
+    }
+
+    @Test
+    @DisplayName("names the source it writes, matching the records it emits")
+    void namesItsSource() {
+        assertThat(adapter(properties("")).source()).isEqualTo("BNetzA");
     }
 }

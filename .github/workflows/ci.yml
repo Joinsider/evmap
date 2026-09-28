@@ -1,0 +1,227 @@
+name: CI
+
+# Tests for both deployables on every PR and on master, plus SonarQube Cloud analysis (ADR 0016).
+#
+# - The backend always runs: it is cheap, and the analysis needs its compiled classes.
+# - iOS runs on a PR only when the app (or this file) changed. The repository is private, so macOS
+#   minutes are billed at 10x Linux. A job skipped this way reports as "skipped", which branch
+#   protection treats as passing. On master it always runs, so the main-branch analysis never loses
+#   the Swift coverage just because the last push touched only the backend.
+# - The whole repository is ONE SonarQube Cloud project (Joinsider_evmap, sonar-project.properties).
+#   One project can hold one analysis per commit, so the Java and Swift results cannot be sent from
+#   their own jobs; they are handed to a final `sonar` job as artifacts and analysed in one pass.
+# - master is analysed too: SonarQube Cloud measures a PR's "new code" against the last analysis of
+#   the main branch, so without it the quality gate has no baseline.
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+# Permissions are granted per job, never at workflow level: a job gets exactly what it uses.
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Only PRs are filtered, and for a PR paths-filter asks the API for the changed files, so this job
+  # needs no checkout and finishes in seconds — it is the only thing the iOS job waits for.
+  changes:
+    name: Detect changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # paths-filter lists a PR's changed files through the API rather than by diffing.
+      pull-requests: read
+    outputs:
+      ios: ${{ steps.filter.outputs.ios }}
+    steps:
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            ios:
+              - 'evMap_ios/**'
+              - '.github/workflows/ci.yml'
+
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: evmap_service
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      # verify = compile, test, and write the JaCoCo report the analysis reads.
+      - name: Build and test
+        run: ./mvnw -B -ntp verify
+
+      # The Java analyzer needs bytecode, not just sources; the classes travel with the coverage.
+      - name: Hand results to the analysis
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: backend-analysis
+          path: |
+            evmap_service/target/classes/
+            evmap_service/target/test-classes/
+            evmap_service/target/site/jacoco/jacoco.xml
+          retention-days: 1
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: surefire-reports
+          path: evmap_service/target/surefire-reports/
+          retention-days: 7
+
+  ios:
+    name: iOS tests
+    needs: changes
+    # !cancelled(): `changes` is skipped outside PRs, and a skipped dependency would skip this too.
+    if: >-
+      !cancelled()
+      && (github.event_name != 'pull_request' || needs.changes.outputs.ios == 'true')
+    runs-on: macos-26
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      # Pinned rather than the image default, so a runner image update cannot change the toolchain
+      # under a green build. Must be at least what the project was last upgraded with
+      # (LastUpgradeCheck 2660) and ship the IPHONEOS_DEPLOYMENT_TARGET SDK (26.5).
+      XCODE_VERSION: '26.6'
+      SIMULATOR_NAME: 'iPhone 17'
+      SIMULATOR_RUNTIME: 'com.apple.CoreSimulator.SimRuntime.iOS-26-5'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Select Xcode ${{ env.XCODE_VERSION }}
+        run: sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+
+      # Booting a simulator takes the better part of a minute on a runner. `simctl boot` returns once
+      # the boot has started, so it runs while the next step compiles instead of after it.
+      - name: Boot simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, os, sys
+          devices = json.load(sys.stdin)["devices"].get(os.environ["SIMULATOR_RUNTIME"], [])
+          print(next(d["udid"] for d in devices if d["name"] == os.environ["SIMULATOR_NAME"]))')
+          echo "SIMULATOR_UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"
+
+      # Unit tests only. The UI tests drive a real app against a backend CI does not have.
+      # The EVMap scheme is not committed; xcodebuild autocreates it from the targets.
+      # - No parallel testing: it clones and boots extra simulators after the build, which for a
+      #   few seconds of unit tests costs far more than it saves, and would ignore the booted one.
+      # - No index store: only the Xcode editor reads it.
+      - name: Build and test
+        working-directory: evMap_ios/EVMap
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project EVMap.xcodeproj \
+            -scheme EVMap \
+            -destination "id=$SIMULATOR_UDID" \
+            -only-testing:EVMapTests \
+            -parallel-testing-enabled NO \
+            -enableCodeCoverage YES \
+            -resultBundlePath build/Test.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO
+
+      # Reads build/Test.xcresult from the step above and writes paths relative to the repository
+      # root, the analysis' base directory on a different (Linux) runner.
+      - name: Convert coverage for SonarQube Cloud
+        run: python3 evMap_ios/scripts/xccov-to-sonar.py > sonar-coverage-ios.xml
+
+      - name: Hand coverage to the analysis
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ios-coverage
+          path: sonar-coverage-ios.xml
+          retention-days: 1
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ios-test-results
+          path: evMap_ios/EVMap/build/Test.xcresult
+          retention-days: 7
+
+  sonar:
+    name: SonarQube Cloud
+    needs: [backend, ios]
+    # Runs when the tests passed — or iOS was skipped for a PR that did not touch the app — and a
+    # token exists. A failed test job means nothing worth analysing.
+    if: >-
+      !cancelled()
+      && needs.backend.result == 'success'
+      && (needs.ios.result == 'success' || needs.ios.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        if: env.SONAR_TOKEN != ''
+        with:
+          # Full history: SonarQube Cloud uses blame to attribute issues to new code.
+          fetch-depth: 0
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        if: env.SONAR_TOKEN != ''
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Fetch backend classes and coverage
+        if: env.SONAR_TOKEN != ''
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: backend-analysis
+          path: evmap_service/target
+
+      - name: Fetch iOS coverage
+        if: env.SONAR_TOKEN != '' && needs.ios.result == 'success'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ios-coverage
+
+      # Resolved here rather than shipped from the backend job: the jars live in that runner's
+      # ~/.m2, and the Maven cache makes this a lookup rather than a download.
+      - name: Resolve Java libraries
+        if: env.SONAR_TOKEN != ''
+        working-directory: evmap_service
+        run: |
+          ./mvnw -B -ntp -q dependency:build-classpath -Dmdep.outputFile=target/classpath.txt
+          echo "JAVA_LIBRARIES=$(cat target/classpath.txt)" >> "$GITHUB_ENV"
+
+      - name: Analyse
+        if: env.SONAR_TOKEN != ''
+        uses: SonarSource/sonarqube-scan-action@ba9859eae8dd6bd29e412f25ddbbef3d032000f4 # v8.2.2
+        with:
+          # Swift coverage is passed only when the iOS job produced it; naming a missing report
+          # would fail the analysis on every PR that does not touch the app.
+          args: >
+            -Dsonar.java.libraries=${{ env.JAVA_LIBRARIES }}
+            ${{ needs.ios.result == 'success' && '-Dsonar.coverageReportPaths=sonar-coverage-ios.xml' || '' }}

@@ -1,6 +1,5 @@
 package de.joinside.evmap_service.sync.ocm;
 
-import de.joinside.evmap_service.logging.LogContext;
 import de.joinside.evmap_service.sync.AvailabilityStatus;
 import de.joinside.evmap_service.sync.ConnectorTypes;
 import de.joinside.evmap_service.sync.SourceAdapter;
@@ -113,11 +112,17 @@ class OpenChargeMapSourceAdapter implements SourceAdapter {
     }
 
     @Override
+    public String source() {
+        return SOURCE;
+    }
+
+    @Override
+    public boolean enabled() {
+        return properties.enabled();
+    }
+
+    @Override
     public Stream<SourceStation> fetchStations() {
-        if (!properties.enabled()) {
-            log.info("OCM adapter disabled by configuration");
-            return Stream.empty();
-        }
         if (properties.apiKey().isBlank()) {
             // Not a hard failure: a deployment may legitimately run BNetzA only, and killing the whole
             // sync run over a missing optional key would take German coverage down with it.
@@ -126,23 +131,21 @@ class OpenChargeMapSourceAdapter implements SourceAdapter {
             return Stream.empty();
         }
 
-        try (var scope = LogContext.scope(LogContext.SOURCE, SOURCE)) {
-            // Anything a previous run earned but never got to commit is stale; this run re-earns it.
-            pendingWatermarks.clear();
-            // Taken before the first request, so a record modified mid-crawl falls inside the next
-            // window rather than into the gap between "fetched" and "finished".
-            Instant runStartedAt = Instant.now();
+        // Anything a previous run earned but never got to commit is stale; this run re-earns it.
+        pendingWatermarks.clear();
+        // Taken before the first request, so a record modified mid-crawl falls inside the next
+        // window rather than into the gap between "fetched" and "finished".
+        Instant runStartedAt = Instant.now();
 
-            Lookups lookups = fetchLookups();
-            log.info("Fetching OCM sites for {} ({} connection types, {} operators known)",
-                    properties.countryCodes(), lookups.connectionTypes().size(), lookups.operators().size());
-            // Lazy on purpose: countries are crawled as the ingestion consumes them, so a failure late
-            // in the list does not first buy and then discard the whole crawl.
-            return properties.countryCodes().stream()
-                    .map(code -> code.trim().toUpperCase(Locale.ROOT))
-                    .filter(code -> !code.isEmpty())
-                    .flatMap(code -> stationsOf(code, lookups, runStartedAt));
-        }
+        Lookups lookups = fetchLookups();
+        log.info("Fetching OCM sites for {} ({} connection types, {} operators known)",
+                properties.countryCodes(), lookups.connectionTypes().size(), lookups.operators().size());
+        // Lazy on purpose: countries are crawled as the ingestion consumes them, so a failure late
+        // in the list does not first buy and then discard the whole crawl.
+        return properties.countryCodes().stream()
+                .map(code -> code.trim().toUpperCase(Locale.ROOT))
+                .filter(code -> !code.isEmpty())
+                .flatMap(code -> stationsOf(code, lookups, runStartedAt));
     }
 
     /**
@@ -156,13 +159,11 @@ class OpenChargeMapSourceAdapter implements SourceAdapter {
     @Override
     public void commitProgress() {
         if (pendingWatermarks.isEmpty()) return;
-        try (var scope = LogContext.scope(LogContext.SOURCE, SOURCE)) {
-            pendingWatermarks.forEach((countryCode, watermark) ->
-                    syncState.recordWatermark(SOURCE, countryCode, watermark));
-            log.info("Advanced the OCM watermark to {} for {}",
-                    pendingWatermarks.values().iterator().next(), pendingWatermarks.keySet());
-            pendingWatermarks.clear();
-        }
+        pendingWatermarks.forEach((countryCode, watermark) ->
+                syncState.recordWatermark(SOURCE, countryCode, watermark));
+        log.info("Advanced the OCM watermark to {} for {}",
+                pendingWatermarks.values().iterator().next(), pendingWatermarks.keySet());
+        pendingWatermarks.clear();
     }
 
     private Stream<SourceStation> stationsOf(String countryCode, Lookups lookups, Instant runStartedAt) {
@@ -356,11 +357,14 @@ class OpenChargeMapSourceAdapter implements SourceAdapter {
         if (poi.connections() == null) return List.of();
         List<SourceStation.SourceConnector> connectors = new ArrayList<>();
         for (OcmResponses.Connection connection : poi.connections()) {
-            if (connection.connectionTypeId() == null) continue;
-            String type = ConnectorTypes.normalize(lookups.connectionTypes().get(connection.connectionTypeId()));
-            if (type == null) continue;
-            int quantity = connection.quantity() == null || connection.quantity() < 1 ? 1 : connection.quantity();
-            connectors.add(new SourceStation.SourceConnector(type, connection.powerKw(), quantity));
+            // A connection without a type, or with one outside the closed vocabulary, is not a
+            // connector the app could filter on and is left out.
+            String type = connection.connectionTypeId() == null ? null
+                    : ConnectorTypes.normalize(lookups.connectionTypes().get(connection.connectionTypeId()));
+            if (type != null) {
+                int quantity = connection.quantity() == null || connection.quantity() < 1 ? 1 : connection.quantity();
+                connectors.add(new SourceStation.SourceConnector(type, connection.powerKw(), quantity));
+            }
         }
         return connectors;
     }
