@@ -367,6 +367,27 @@ final class IrveCsvParser {
         private static String keepFirst(String current, String candidate) {
             return current.isEmpty() ? candidate : current;
         }
+
+        /** Lower-cases and strips diacritics, so {@code "Accès réservé"} becomes {@code "acces reserve"}. */
+        private static String fold(String value) {
+            String decomposed = Normalizer.normalize(value, Normalizer.Form.NFD);
+            return decomposed.replaceAll("\\p{M}+", "").toLowerCase(Locale.ROOT);
+        }
+
+        /**
+         * Reduces a rating to one representation per value, so {@code 22}, {@code 22.0} and {@code 22.00}
+         * are one connector rather than three.
+         * <p>
+         * All three spellings occur in the file, and {@link BigDecimal#equals} compares the scale as well
+         * as the value — so as the map key that merges plugs into quantities, they were three distinct
+         * keys. One real station came out with {@code Type 2 @ 22 ×213}, {@code Type 2 @ 22.00 ×6} and
+         * {@code Type 2 @ 22.0 ×1} side by side.
+         */
+        private static BigDecimal normalizeScale(BigDecimal value) {
+            BigDecimal stripped = value.stripTrailingZeros();
+            // stripTrailingZeros turns 22000 into 2.2E+4; a negative scale is correct but stores oddly.
+            return stripped.scale() < 0 ? stripped.setScale(0, RoundingMode.UNNECESSARY) : stripped;
+        }
     }
 
     /** One {@code point de charge}; the plugs accumulate as the station's rows are read. */
@@ -442,27 +463,6 @@ final class IrveCsvParser {
         private static boolean isSeparator(char c) {
             return Character.isWhitespace(c) || c == ',' || c == ';' || c == '-';
         }
-    }
-
-    /** Lower-cases and strips diacritics, so {@code "Accès réservé"} becomes {@code "acces reserve"}. */
-    private static String fold(String value) {
-        String decomposed = Normalizer.normalize(value, Normalizer.Form.NFD);
-        return decomposed.replaceAll("\\p{M}+", "").toLowerCase(Locale.ROOT);
-    }
-
-    /**
-     * Reduces a rating to one representation per value, so {@code 22}, {@code 22.0} and {@code 22.00}
-     * are one connector rather than three.
-     * <p>
-     * All three spellings occur in the file, and {@link BigDecimal#equals} compares the scale as well
-     * as the value — so as the map key that merges plugs into quantities, they were three distinct
-     * keys. One real station came out with {@code Type 2 @ 22 ×213}, {@code Type 2 @ 22.00 ×6} and
-     * {@code Type 2 @ 22.0 ×1} side by side.
-     */
-    private static BigDecimal normalizeScale(BigDecimal value) {
-        BigDecimal stripped = value.stripTrailingZeros();
-        // stripTrailingZeros turns 22000 into 2.2E+4; a negative scale is correct but stores oddly.
-        return stripped.scale() < 0 ? stripped.setScale(0, RoundingMode.UNNECESSARY) : stripped;
     }
 
     private static Double coordinate(String value, double limit) {

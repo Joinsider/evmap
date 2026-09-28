@@ -3,6 +3,7 @@ package de.joinside.evmap_service.availability;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -32,10 +33,17 @@ class AvailabilityCache {
     private final Map<String, Entry> entries = new ConcurrentHashMap<>();
     private final Duration ttl;
     private final int maxEntries;
+    private final Clock clock;
 
     AvailabilityCache(Duration ttl, int maxEntries) {
+        this(ttl, maxEntries, Clock.systemUTC());
+    }
+
+    /** Test seam: expiry measured against a clock the test controls. */
+    AvailabilityCache(Duration ttl, int maxEntries, Clock clock) {
         this.ttl = ttl;
         this.maxEntries = Math.max(1, maxEntries);
+        this.clock = clock;
     }
 
     /**
@@ -48,7 +56,7 @@ class AvailabilityCache {
      */
     List<ChargePointAvailability> get(String key, Supplier<List<ChargePointAvailability>> loader) {
         Entry cached = entries.get(key);
-        Instant now = Instant.now();
+        Instant now = clock.instant();
         if (cached != null && cached.expiresAt().isAfter(now)) return cached.value();
 
         List<ChargePointAvailability> loaded = loader.get();
@@ -59,7 +67,7 @@ class AvailabilityCache {
 
     private void evictIfFull() {
         if (entries.size() < maxEntries) return;
-        Instant now = Instant.now();
+        Instant now = clock.instant();
         entries.values().removeIf(entry -> !entry.expiresAt().isAfter(now));
         if (entries.size() >= maxEntries) {
             log.debug("Availability cache full at {} live entries — clearing", entries.size());

@@ -216,21 +216,21 @@ public class AvailabilityService {
             }
         }
 
+        /**
+         * One free charge point makes the station available: the user's question is whether they can
+         * charge, not whether every stall is empty. Broken only wins when nothing else is known about the
+         * station, so a site with one dead post and three working ones does not read as broken.
+         */
+        private static String summaryOf(int available, int occupied, int outOfOrder) {
+            if (available > 0) return LiveAvailability.AVAILABLE;
+            if (occupied > 0) return LiveAvailability.OCCUPIED;
+            if (outOfOrder > 0) return LiveAvailability.OUT_OF_ORDER;
+            return LiveAvailability.UNKNOWN;
+        }
+
         StationAvailability toStation(UUID stationId) {
             return new StationAvailability(stationId, summaryOf(available, occupied, outOfOrder),
                     available, occupied, outOfOrder, unknown, newest, detail, List.copyOf(sources));
         }
-    }
-
-    /**
-     * One free charge point makes the station available: the user's question is whether they can
-     * charge, not whether every stall is empty. Broken only wins when nothing else is known about the
-     * station, so a site with one dead post and three working ones does not read as broken.
-     */
-    private static String summaryOf(int available, int occupied, int outOfOrder) {
-        if (available > 0) return LiveAvailability.AVAILABLE;
-        if (occupied > 0) return LiveAvailability.OCCUPIED;
-        if (outOfOrder > 0) return LiveAvailability.OUT_OF_ORDER;
-        return LiveAvailability.UNKNOWN;
     }
 }

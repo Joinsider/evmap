@@ -10,7 +10,6 @@ import java.io.Reader;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.charset.Charset;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -97,14 +96,15 @@ public final class BulkDownload {
      * <p>
      * The download lands in the shared temp directory, which every user on the host can list. The
      * JDK already creates temp files owner-only on POSIX systems; the permissions are stated here
-     * anyway so that the guarantee does not rest on an implementation detail (java:S5443). A
-     * filesystem without POSIX permissions (Windows) falls back to the JDK's default, which is
-     * private to the user there.
+     * anyway so that the guarantee does not rest on an implementation detail (java:S5443).
+     * <p>
+     * There is deliberately no fallback for filesystems without POSIX permissions: the sync runs in
+     * a Linux container and is developed on macOS, and a silent unprotected path for a platform
+     * nobody deploys to is exactly what this method exists to rule out. On such a filesystem
+     * {@code createTempFile} throws {@link UnsupportedOperationException} and the source fails loudly.
      */
     private Path createPrivateTempFile() throws IOException {
-        if (FileSystems.getDefault().supportedFileAttributeViews().contains("posix"))
-            return Files.createTempFile(filePrefix, fileSuffix, OWNER_ONLY);
-        return Files.createTempFile(filePrefix, fileSuffix);
+        return Files.createTempFile(filePrefix, fileSuffix, OWNER_ONLY);
     }
 
     private Path fetch(RestClient client, URI uri) {

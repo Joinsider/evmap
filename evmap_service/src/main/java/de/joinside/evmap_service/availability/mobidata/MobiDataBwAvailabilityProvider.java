@@ -113,25 +113,32 @@ public class MobiDataBwAvailabilityProvider implements AvailabilityProvider {
     public List<ChargePointAvailability> fetch(GeoBounds bounds) {
         List<ChargePointAvailability> availability = new ArrayList<>();
         int offset = 0;
-        boolean more = true;
-        for (int page = 0; more && page < properties.maxPages(); page++) {
-            OcpdbResponses.LocationPage response = requestPage(bounds, offset);
-            List<OcpdbResponses.Location> items = response == null ? null : response.items();
-            if (items == null || items.isEmpty()) {
-                more = false;
-            } else {
-                for (OcpdbResponses.Location location : items) collect(location, availability);
-                offset += items.size();
-                // Without a total the only end marker is an empty page, so paging goes on to the cap.
-                Integer total = response.totalCount();
-                more = total == null || offset < total;
-                if (more && total != null && page == properties.maxPages() - 1)
-                    log.debug("Stopped at the {}-page cap with {} of {} locations read for bounds {}",
-                            properties.maxPages(), offset, total, bounds);
-            }
+        for (int page = 0; offset >= 0 && page < properties.maxPages(); page++) {
+            offset = readPage(bounds, offset, availability);
+            if (offset >= 0 && page == properties.maxPages() - 1)
+                log.debug("Stopped at the {}-page cap after {} locations for bounds {}",
+                        properties.maxPages(), offset, bounds);
         }
         log.debug("MobiData BW reported {} live charge point(s) for bounds {}", availability.size(), bounds);
         return availability;
+    }
+
+    /**
+     * Reads one page into {@code into}.
+     *
+     * @return the offset of the next page, or {@code -1} when there is none — an empty or failed page,
+     * or the reported total reached. Without a total the only end marker is an empty page, so paging
+     * goes on to the cap.
+     */
+    private int readPage(GeoBounds bounds, int offset, List<ChargePointAvailability> into) {
+        OcpdbResponses.LocationPage response = requestPage(bounds, offset);
+        List<OcpdbResponses.Location> items = response == null ? null : response.items();
+        if (items == null || items.isEmpty()) return -1;
+
+        for (OcpdbResponses.Location location : items) collect(location, into);
+        int next = offset + items.size();
+        Integer total = response.totalCount();
+        return total != null && next >= total ? -1 : next;
     }
 
     /**
