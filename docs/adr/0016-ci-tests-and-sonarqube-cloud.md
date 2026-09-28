@@ -72,6 +72,33 @@ initializer argument, and the converter made argument-free. The two base URLs in
 (swift:S1075) were **accepted** in SonarQube Cloud: that type is the configuration point, and both are
 overridden at runtime by `API_BASE_URL`.
 
+## Meeting the coverage gate
+
+The first CI analysis put PR #6 at 57,2 % on new code. It was raised with tests, not exclusions:
+
+- **Backend SQL against a real PostGIS.** `support.PostgisDatabase` starts `kartoza/postgis:17-3.5`
+  — the image Compose deploys; `postgis/postgis` has no arm64 build — once per test JVM via
+  Testcontainers and migrates it with the real Liquibase changelog. The ingestion repository, the
+  spatial and operator queries and `ChargePointDirectory` are tested through it, because H2 has no
+  `geography` and a mocked `JdbcClient` would test the mock. Locally the tests skip without a
+  container runtime; on CI (`CI` set) a missing runtime fails them instead, so the coverage cannot
+  silently disappear. Writing them surfaced one latent edge: an IRVE station whose `date_maj` and
+  `last_modified` are both unreadable reaches ingestion with a null `last_updated_at`, which the
+  `NOT NULL` column rejects — it costs that one station, and is left as is.
+- **Backend orchestration as unit tests:** `SyncJob` run status, containment and watermark
+  decisions against a recording port; `StationService` validation and aggregation.
+- **iOS logic:** the REST repository and `APIClient` through a `URLProtocol` stub (URLs, headers,
+  bodies, 401/4xx/5xx/decoding failures), `StationDetailViewModel`, and the domain vocabularies.
+- **iOS views are rendered, not excluded.** `ViewRenderingTests` lays every screen out in a window in
+  the states that change it. SwiftUI only evaluates `body` during layout, so a trap in a rarely-seen
+  state otherwise fails on a user's device, not in CI. Appearance is not asserted. A map needs a
+  phone-sized window: MapKit renders into a Metal texture of the view's size, and a 3 000 pt one
+  exceeds the simulator's limit and aborts the test host.
+- **One exclusion:** `evMap_ios/scripts/**` is excluded from the coverage *measure* (still analysed).
+  It shells out to `xcrun` on the macOS runner, and its test is the coverage report existing.
+
+Result locally: backend 88,6 % lines (was 67,9 %), iOS app 79,5 % (was ~45 %).
+
 ## Consequences
 
 - Both suites gate a PR; an iOS test target that stops compiling now fails a check.
@@ -85,9 +112,9 @@ overridden at runtime by `API_BASE_URL`.
 
 ## Open points
 
-1. **Quality gate strictness.** SonarQube Cloud's default gate requires 80 % coverage on new code;
-   both sides are below that overall. Options: (a) keep the default and let it push coverage up on
-   new code only, (b) lower the new-code coverage condition to e.g. 60 % in a custom gate, (c) make
-   the gate informational (not a required check) until coverage has caught up.
+1. ~~Quality gate strictness~~ — decided 2026-09-28: **(a), keep SonarQube Cloud's default gate of
+   80 % coverage on new code** and meet it with tests rather than a lower threshold. See
+   [Meeting the coverage gate](#meeting-the-coverage-gate).
+
 2. **Snapshot build duplication** — whether `pr-snapshot-build.yml` should skip tests (`-DskipTests`)
    now that CI runs them, trading a faster snapshot for one that can exist for a red PR.

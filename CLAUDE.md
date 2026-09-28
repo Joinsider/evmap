@@ -22,6 +22,10 @@ cd evmap_service
 ./mvnw test -Dtest=AccessTokenServiceTests   # run a single test class
 ```
 
+The SQL tests (`*RepositoryTests`, `StationQueryTests`, `ChargePointDirectoryTests`) start
+`kartoza/postgis` through Testcontainers (`support.PostgisDatabase`) and need a container runtime;
+without one they are skipped locally and fail on CI. Podman works if its Docker socket is exposed.
+
 Full local stack (Postgres + API + sync container):
 
 ```sh
