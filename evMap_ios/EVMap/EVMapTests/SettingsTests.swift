@@ -12,7 +12,7 @@ private final class InMemoryAppSettingsStore: AppSettingsStoring {
 
     init(_ stored: AppSettings? = nil) { self.stored = stored }
 
-    func load() -> AppSettings { stored ?? .default }
+    func load() -> AppSettings { stored ?? .factoryDefaults }
 
     func save(_ settings: AppSettings) {
         stored = settings
@@ -43,7 +43,7 @@ struct AppSettingsTests {
 
     @Test("a fresh install has no criteria and knows it")
     func defaultIsEmpty() {
-        let settings = AppSettings.default
+        let settings = AppSettings.factoryDefaults
         #expect(settings.isDefault)
         #expect(settings.connectorTypes.isEmpty)
         #expect(settings.minimumPower == nil)
@@ -54,12 +54,12 @@ struct AppSettingsTests {
 
     @Test("a provider nobody has an opinion about is shown")
     func unknownProviderDefaultsToShown() {
-        #expect(AppSettings.default.preference(for: "IONITY") == .shown)
+        #expect(AppSettings.factoryDefaults.preference(for: "IONITY") == .shown)
     }
 
     @Test("setting a preference back to the default forgets it rather than storing it")
     func defaultPreferenceIsNotStored() {
-        var settings = AppSettings.default
+        var settings = AppSettings.factoryDefaults
         settings.setPreference(.hidden, for: "IONITY")
         #expect(settings.providerPreferences == ["IONITY": .hidden])
         #expect(!settings.isDefault)
@@ -73,7 +73,7 @@ struct AppSettingsTests {
 
     @Test("only hidden providers reach the query — an avoided one is a routing weight, not a filter")
     func onlyHiddenProvidersAreExcluded() {
-        var settings = AppSettings.default
+        var settings = AppSettings.factoryDefaults
         settings.setPreference(.hidden, for: "Allego")
         settings.setPreference(.avoided, for: "Aral pulse")
         settings.setPreference(.preferred, for: "EnBW")
@@ -85,7 +85,7 @@ struct AppSettingsTests {
 
     @Test("with the global switch off, the preference list becomes an allowlist")
     func hidingUnlistedProvidersInvertsTheList() {
-        var settings = AppSettings.default
+        var settings = AppSettings.factoryDefaults
         settings.unlistedProviders = .hidden
         settings.setPreference(.shown, for: "IONITY")
 
@@ -99,18 +99,18 @@ struct AppSettingsTests {
 
     @Test("hiding everything without an exception matches nothing — it does not fall back to no filter")
     func emptyAllowlistMatchesNothing() {
-        var settings = AppSettings.default
+        var settings = AppSettings.factoryDefaults
         settings.unlistedProviders = .hidden
 
         // The distinction the whole allowlist path rests on: `[]` is "no network", `nil` is "any".
         #expect(settings.stationFilter.includedProviders == [])
         #expect(settings.stationFilter.matchesNothing)
-        #expect(!AppSettings.default.stationFilter.matchesNothing)
+        #expect(!AppSettings.factoryDefaults.stationFilter.matchesNothing)
     }
 
     @Test("what counts as 'no opinion' follows the global switch")
     func storedPreferenceIsRelativeToTheGlobalSwitch() {
-        var settings = AppSettings.default
+        var settings = AppSettings.factoryDefaults
         settings.unlistedProviders = .hidden
         // Hiding one network while everything is hidden says nothing beyond the switch itself.
         settings.setPreference(.hidden, for: "Allego")
@@ -122,7 +122,7 @@ struct AppSettingsTests {
 
     @Test("flipping the switch keeps the individual opinions that were already stored")
     func flippingTheSwitchKeepsStoredPreferences() {
-        var settings = AppSettings.default
+        var settings = AppSettings.factoryDefaults
         settings.setPreference(.hidden, for: "Allego")
         settings.unlistedProviders = .hidden
 
@@ -134,7 +134,7 @@ struct AppSettingsTests {
 
     @Test("the filter carries every criterion the settings describe")
     func filterMirrorsSettings() {
-        var settings = AppSettings.default
+        var settings = AppSettings.factoryDefaults
         settings.connectorTypes = [.ccs, .type2]
         settings.minimumPower = 150
         settings.availabilityOnly = true
@@ -159,7 +159,7 @@ struct AppSettingsCodingTests {
 
     @Test("every field survives an encode/decode cycle")
     func roundTripsAllFields() throws {
-        var settings = AppSettings.default
+        var settings = AppSettings.factoryDefaults
         settings.connectorTypes = [.ccs, .chademo]
         settings.minimumPower = 50
         settings.availabilityOnly = true
@@ -171,7 +171,7 @@ struct AppSettingsCodingTests {
 
     @Test("an empty default round-trips as the default, not as something merely equal-looking")
     func roundTripsDefault() throws {
-        #expect(try roundTrip(.default).isDefault)
+        #expect(try roundTrip(.factoryDefaults).isDefault)
     }
 
     @Test("settings written before a field existed still load, with that field at its default")
@@ -197,7 +197,7 @@ struct AppSettingsCodingTests {
 
     @Test("the global switch survives a store round-trip")
     func roundTripsTheGlobalSwitch() throws {
-        var settings = AppSettings.default
+        var settings = AppSettings.factoryDefaults
         settings.unlistedProviders = .hidden
         settings.setPreference(.shown, for: "EnBW")
 
@@ -225,7 +225,7 @@ struct AppSettingsCodingTests {
     @Test("the reserved preferences round-trip, so a future version's value is not lost by this one")
     func roundTripsReservedPreferences() throws {
         for preference in ProviderPreference.allCases {
-            var settings = AppSettings.default
+            var settings = AppSettings.factoryDefaults
             settings.setPreference(preference, for: "EnBW")
             #expect(try roundTrip(settings).preference(for: "EnBW") == preference)
         }
@@ -244,7 +244,7 @@ struct AppSettingsStoreTests {
     @Test("settings survive a store being thrown away and rebuilt — i.e. an app restart")
     func persistsAcrossInstances() {
         let defaults = isolatedDefaults()
-        var settings = AppSettings.default
+        var settings = AppSettings.factoryDefaults
         settings.minimumPower = 100
         settings.setPreference(.hidden, for: "Tesla")
         UserDefaultsAppSettingsStore(defaults: defaults).save(settings)
@@ -272,7 +272,7 @@ struct AppSettingsStoreTests {
     func resetClearsStorage() {
         let defaults = isolatedDefaults()
         let store = UserDefaultsAppSettingsStore(defaults: defaults)
-        var settings = AppSettings.default
+        var settings = AppSettings.factoryDefaults
         settings.availabilityOnly = true
         store.save(settings)
 
@@ -290,7 +290,7 @@ struct SettingsViewModelTests {
 
     @Test("the view model starts from what was stored")
     func loadsStoredSettingsOnInit() {
-        var stored = AppSettings.default
+        var stored = AppSettings.factoryDefaults
         stored.setPreference(.hidden, for: "Allego")
         let model = SettingsViewModel(store: InMemoryAppSettingsStore(stored))
 

@@ -10,7 +10,7 @@ struct AppSettings: Codable, Equatable {
     var minimumPower: Double?
     var availabilityOnly = false
     /// Keyed by operator name exactly as the backend reports it — there is no operator id to key
-    /// on (see ADR 0014). Only entries that differ from `ProviderPreference.default` are kept, so
+    /// on (see ADR 0014). Only entries that differ from `ProviderPreference.fallback` are kept, so
     /// "no opinion" costs nothing and `isDefault` stays honest after a network is switched back on.
     var providerPreferences: [String: ProviderPreference] = [:]
     /// What happens to every network the user has *not* decided about individually — the "show
@@ -19,14 +19,17 @@ struct AppSettings: Codable, Equatable {
     ///
     /// It is a `ProviderPreference` rather than a `Bool` so that the two reserved cases can become
     /// a global default too without a stored field changing type. See ADR 0014.
-    var unlistedProviders: ProviderPreference = .default
+    var unlistedProviders: ProviderPreference = .fallback
 
     /// The state a fresh install is in, and what the reset button restores.
-    static let `default` = AppSettings()
+    static let factoryDefaults = AppSettings()
 
-    var isDefault: Bool { self == Self.default }
+    var isDefault: Bool { self == Self.factoryDefaults }
 
-    init() { }
+    /// Every stored property has a default, so a fresh value needs no arguments.
+    init() {
+        // Intentionally empty: see the property defaults above.
+    }
 
     func preference(for provider: String) -> ProviderPreference {
         providerPreferences[provider] ?? unlistedProviders
@@ -111,7 +114,7 @@ struct AppSettings: Codable, Equatable {
         providerPreferences = try container.decodeIfPresent([String: ProviderPreference].self, forKey: .providerPreferences) ?? [:]
         // Missing for every payload written before the global switch existed, which is the same
         // thing those installs meant: show everything not switched off individually.
-        unlistedProviders = try container.decodeIfPresent(ProviderPreference.self, forKey: .unlistedProviders) ?? .default
+        unlistedProviders = try container.decodeIfPresent(ProviderPreference.self, forKey: .unlistedProviders) ?? .fallback
     }
 
     func encode(to encoder: any Encoder) throws {

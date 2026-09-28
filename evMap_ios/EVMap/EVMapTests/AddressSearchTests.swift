@@ -15,12 +15,12 @@ private final class StubAddressSearchProvider: AddressSearchProviding {
     private(set) var lastQuery: String?
     private(set) var cancelCount = 0
 
-    func suggestions(matching query: String, near region: MKCoordinateRegion) async -> [AddressSuggestion] {
+    func suggestions(matching query: String, near _: MKCoordinateRegion) async -> [AddressSuggestion] {
         lastQuery = query
         return suggestionsToReturn
     }
 
-    func resolve(_ suggestion: AddressSuggestion, near region: MKCoordinateRegion) async throws -> SearchedPlace {
+    func resolve(_ suggestion: AddressSuggestion, near _: MKCoordinateRegion) async throws -> SearchedPlace {
         if let resolveError { throw resolveError }
         return placeToReturn ?? place(suggestion.title, subtitle: suggestion.subtitle)
     }

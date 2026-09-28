@@ -13,7 +13,7 @@ struct RESTChargingStationRepository: ChargingStationRepository {
             AppLogger.stations.info("Every provider is switched off — station query skipped")
             return []
         }
-        var components = URLComponents(url: client.url(path: "/api/v1/stations"), resolvingAgainstBaseURL: false)!
+        var components = URLComponents(url: client.endpoint("stations"), resolvingAgainstBaseURL: false)!
         var items = [
             URLQueryItem(name: "latitude", value: String(latitude)),
             URLQueryItem(name: "longitude", value: String(longitude)),
@@ -40,15 +40,15 @@ struct RESTChargingStationRepository: ChargingStationRepository {
     }
 
     func detail(id: UUID) async throws -> StationDetail {
-        try await client.send(client.url(path: "/api/v1/stations/\(id)"))
+        try await client.send(client.endpoint("stations", id.uuidString))
     }
 
     func liveAvailability(stationID: UUID) async throws -> StationLiveAvailability {
-        try await client.send(client.url(path: "/api/v1/stations/\(stationID)/availability"))
+        try await client.send(client.endpoint("stations", stationID.uuidString, "availability"))
     }
 
     func liveAvailability(latMin: Double, lonMin: Double, latMax: Double, lonMax: Double) async throws -> [StationLiveAvailability] {
-        var components = URLComponents(url: client.url(path: "/api/v1/stations/availability"), resolvingAgainstBaseURL: false)!
+        var components = URLComponents(url: client.endpoint("stations", "availability"), resolvingAgainstBaseURL: false)!
         components.queryItems = [
             URLQueryItem(name: "latMin", value: String(latMin)),
             URLQueryItem(name: "lonMin", value: String(lonMin)),
@@ -59,7 +59,7 @@ struct RESTChargingStationRepository: ChargingStationRepository {
     }
 
     func providers(matching query: String, limit: Int) async throws -> [ChargingProvider] {
-        var components = URLComponents(url: client.url(path: "/api/v1/operators"), resolvingAgainstBaseURL: false)!
+        var components = URLComponents(url: client.endpoint("operators"), resolvingAgainstBaseURL: false)!
         var items = [URLQueryItem(name: "limit", value: String(limit))]
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         // Omitted rather than sent empty: the endpoint reads a blank query as "no name filter",
@@ -70,17 +70,17 @@ struct RESTChargingStationRepository: ChargingStationRepository {
     }
     
     func comments(stationID: UUID, accessToken: String?) async throws -> [StationComment] {
-        try await client.send(client.url(path: "/api/v1/stations/\(stationID)/comments"), accessToken: accessToken)
+        try await client.send(client.endpoint("stations", stationID.uuidString, "comments"), accessToken: accessToken)
     }
     
     func createComment(stationID: UUID, payload: CommentPayload, accessToken: String) async throws -> StationComment {
-        try await client.send(client.url(path: "/api/v1/stations/\(stationID)/comments"), method: "POST", body: payload, accessToken: accessToken)
+        try await client.send(client.endpoint("stations", stationID.uuidString, "comments"), method: "POST", body: payload, accessToken: accessToken)
     }
-    func updateComment(id: UUID, payload: CommentPayload, accessToken: String) async throws -> StationComment { try await client.send(client.url(path: "/api/v1/comments/\(id)"), method: "PATCH", body: payload, accessToken: accessToken) }
-    func deleteComment(id: UUID, accessToken: String) async throws { let _: EmptyResponse = try await client.send(client.url(path: "/api/v1/comments/\(id)"), method: "DELETE", accessToken: accessToken) }
+    func updateComment(id: UUID, payload: CommentPayload, accessToken: String) async throws -> StationComment { try await client.send(client.endpoint("comments", id.uuidString), method: "PATCH", body: payload, accessToken: accessToken) }
+    func deleteComment(id: UUID, accessToken: String) async throws { let _: EmptyResponse = try await client.send(client.endpoint("comments", id.uuidString), method: "DELETE", accessToken: accessToken) }
 
     func signInWithApple(identityToken: String) async throws -> String {
-        let response: AccessTokenResponse = try await client.send(client.url(path: "/api/v1/auth/apple"), method: "POST", body: AppleLoginRequest(identityToken: identityToken))
+        let response: AccessTokenResponse = try await client.send(client.endpoint("auth", "apple"), method: "POST", body: AppleLoginRequest(identityToken: identityToken))
         return response.accessToken
     }
 }

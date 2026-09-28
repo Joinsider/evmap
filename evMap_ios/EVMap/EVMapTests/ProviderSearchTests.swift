@@ -31,7 +31,7 @@ private final class StubProviderRepository: ChargingStationRepository {
         isGated = false
     }
 
-    func providers(matching query: String, limit: Int) async throws -> [ChargingProvider] {
+    func providers(matching query: String, limit _: Int) async throws -> [ChargingProvider] {
         queries.append(query)
         if isGated {
             await withCheckedContinuation { gate = $0 }
@@ -42,19 +42,19 @@ private final class StubProviderRepository: ChargingStationRepository {
         return providersToReturn.isEmpty ? [ChargingProvider(name: query, stationCount: 1)] : providersToReturn
     }
 
-    func nearby(latitude: Double, longitude: Double, radiusKm: Double, limit: Int, filter: StationFilter) async throws -> [Station] {
+    func nearby(latitude _: Double, longitude _: Double, radiusKm _: Double, limit _: Int, filter _: StationFilter) async throws -> [Station] {
         Issue.record("The provider picker must not query stations")
         return []
     }
 
-    func detail(id: UUID) async throws -> StationDetail { fatalError("unused") }
-    func liveAvailability(stationID: UUID) async throws -> StationLiveAvailability { fatalError("unused") }
-    func liveAvailability(latMin: Double, lonMin: Double, latMax: Double, lonMax: Double) async throws -> [StationLiveAvailability] { fatalError("unused") }
-    func comments(stationID: UUID, accessToken: String?) async throws -> [StationComment] { fatalError("unused") }
-    func createComment(stationID: UUID, payload: CommentPayload, accessToken: String) async throws -> StationComment { fatalError("unused") }
-    func updateComment(id: UUID, payload: CommentPayload, accessToken: String) async throws -> StationComment { fatalError("unused") }
-    func deleteComment(id: UUID, accessToken: String) async throws { fatalError("unused") }
-    func signInWithApple(identityToken: String) async throws -> String { fatalError("unused") }
+    func detail(id _: UUID) async throws -> StationDetail { fatalError("unused") }
+    func liveAvailability(stationID _: UUID) async throws -> StationLiveAvailability { fatalError("unused") }
+    func liveAvailability(latMin _: Double, lonMin _: Double, latMax _: Double, lonMax _: Double) async throws -> [StationLiveAvailability] { fatalError("unused") }
+    func comments(stationID _: UUID, accessToken _: String?) async throws -> [StationComment] { fatalError("unused") }
+    func createComment(stationID _: UUID, payload _: CommentPayload, accessToken _: String) async throws -> StationComment { fatalError("unused") }
+    func updateComment(id _: UUID, payload _: CommentPayload, accessToken _: String) async throws -> StationComment { fatalError("unused") }
+    func deleteComment(id _: UUID, accessToken _: String) async throws { fatalError("unused") }
+    func signInWithApple(identityToken _: String) async throws -> String { fatalError("unused") }
 }
 
 private let sampleProviders = [

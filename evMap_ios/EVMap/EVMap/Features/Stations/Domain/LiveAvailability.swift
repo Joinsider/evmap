@@ -147,15 +147,22 @@ struct StationLiveAvailability: Decodable, Hashable, Identifiable {
         sources = try container.decodeIfPresent([LiveDataSource].self, forKey: .sources) ?? []
     }
 
-    init(stationID: UUID, status: LiveAvailability, available: Int, occupied: Int,
-         outOfOrder: Int, unknown: Int, observedAt: Date?, chargePoints: [ChargePointLiveStatus],
-         sources: [LiveDataSource] = []) {
+    /// The four per-status charge point counts, grouped so the initializer stays readable.
+    struct Counts {
+        var available: Int
+        var occupied: Int
+        var outOfOrder: Int
+        var unknown: Int
+    }
+
+    init(stationID: UUID, status: LiveAvailability, counts: Counts, observedAt: Date?,
+         chargePoints: [ChargePointLiveStatus], sources: [LiveDataSource] = []) {
         self.stationID = stationID
         self.status = status
-        self.available = available
-        self.occupied = occupied
-        self.outOfOrder = outOfOrder
-        self.unknown = unknown
+        self.available = counts.available
+        self.occupied = counts.occupied
+        self.outOfOrder = counts.outOfOrder
+        self.unknown = counts.unknown
         self.observedAt = observedAt
         self.chargePoints = chargePoints
         self.sources = sources

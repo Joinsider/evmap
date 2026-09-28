@@ -34,7 +34,9 @@ struct StationDetailScreen: View {
             .sheet(isPresented: $showCommentEditor) { CommentEditorScreen { await create($0) } }
             .sheet(item: $editingComment) { comment in CommentEditorScreen(comment: comment) { await update(comment, payload: $0) } }
             .alert("error.title", isPresented: Binding(get: { viewModel.errorMessage != nil }, set: { if !$0 { viewModel.errorMessage = nil } })) {
-                Button("action.ok", role: .cancel) { }
+                Button("action.ok", role: .cancel) {
+                    // Dismissing is the whole action; the binding's setter clears the message.
+                }
             } message: { Text(viewModel.errorMessage ?? "") }
             .task(id: authSession.accessToken) { await viewModel.load(accessToken: authSession.accessToken) }
         }

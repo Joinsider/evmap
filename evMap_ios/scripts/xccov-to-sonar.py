@@ -23,13 +23,28 @@ def xccov(*args):
                           capture_output=True, text=True, check=True).stdout
 
 
+def checked_path(value, what, must_be_dir):
+    """An existing absolute path, so nothing handed to xccov can be read as an option.
+
+    Paths are made absolute before they reach the command line: an absolute path starts with a
+    separator and can never start with "-", which is what argument injection needs.
+    """
+    path = os.path.realpath(value)
+    if not (os.path.isdir(path) if must_be_dir else os.path.isfile(path)):
+        sys.exit(f"xccov-to-sonar: {what} not found: {value}")
+    return path
+
+
 def main(result_bundle, source_root):
-    root = os.path.realpath(source_root) + os.sep
+    result_bundle = checked_path(result_bundle, "result bundle", must_be_dir=True)
+    root = checked_path(source_root, "source root", must_be_dir=True) + os.sep
     files = [line.strip() for line in xccov("--file-list", result_bundle).splitlines() if line.strip()]
     print('<coverage version="1">')
     reported = 0
     for path in sorted(files):
-        if not os.path.realpath(path).startswith(root):
+        # Only existing files under the source root: this both scopes the report and guarantees
+        # every path passed back to xccov is absolute.
+        if not os.path.realpath(path).startswith(root) or not os.path.isfile(path):
             continue
         lines = json.loads(xccov("--file", path, "--json", result_bundle)).get(path, [])
         executable = [entry for entry in lines if entry.get("isExecutable")]

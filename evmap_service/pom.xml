@@ -35,6 +35,8 @@
         <sonar.organization>joinsider</sonar.organization>
         <sonar.projectKey>Joinsider_evmap-service</sonar.projectKey>
         <sonar.projectName>EVMap Service</sonar.projectName>
+        <!-- PostgreSQL changelogs; SonarQube would check them with Oracle PL/SQL rules. -->
+        <sonar.exclusions>src/main/resources/db/changelog/**</sonar.exclusions>
     </properties>
     <dependencies>
         <dependency>

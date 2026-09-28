@@ -21,7 +21,7 @@ enum ProviderPreference: String, Codable, CaseIterable, Identifiable, Sendable {
     case avoided
 
     /// What a network the user never expressed an opinion about is treated as.
-    static let `default` = ProviderPreference.shown
+    static let fallback = ProviderPreference.shown
 
     /// The subset the settings UI offers. Values outside it still decode, persist and round-trip;
     /// they just cannot be picked, so the picker never shows a choice that does nothing.
@@ -57,8 +57,8 @@ enum ProviderPreference: String, Codable, CaseIterable, Identifiable, Sendable {
     init(from decoder: any Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         guard let preference = ProviderPreference(rawValue: raw) else {
-            AppLogger.settings.warning("Unknown provider preference '\(raw)' — treating it as \(Self.default.rawValue)")
-            self = .default
+            AppLogger.settings.warning("Unknown provider preference '\(raw)' — treating it as \(Self.fallback.rawValue)")
+            self = .fallback
             return
         }
         self = preference

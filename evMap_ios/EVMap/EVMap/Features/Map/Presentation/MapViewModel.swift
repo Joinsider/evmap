@@ -183,7 +183,7 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         manager.stopUpdatingLocation()
     }
 
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+    func locationManager(_: CLLocationManager, didFailWithError error: Error) {
         // Not fatal: the map keeps its current viewport, which already has stations loaded for it.
         AppLogger.location.warning("Location fix failed, keeping last known position — \(AppLogger.describe(error))")
     }

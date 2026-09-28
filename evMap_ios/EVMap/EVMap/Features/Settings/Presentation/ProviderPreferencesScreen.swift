@@ -84,7 +84,9 @@ struct ProviderPreferencesScreen: View {
             get: { search.errorMessage != nil },
             set: { if !$0 { search.errorMessage = nil } }
         )) {
-            Button("action.ok", role: .cancel) { }
+            Button("action.ok", role: .cancel) {
+                // Dismissing is the whole action; the binding's setter clears the message.
+            }
         } message: { Text(search.errorMessage ?? "") }
     }
 

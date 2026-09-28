@@ -66,7 +66,9 @@ struct SettingsScreen: View {
             }
             .confirmationDialog("settings.reset.confirm", isPresented: $isConfirmingReset, titleVisibility: .visible) {
                 Button("settings.reset", role: .destructive) { model.reset() }
-                Button("action.cancel", role: .cancel) { }
+                Button("action.cancel", role: .cancel) {
+                    // Cancelling is the whole action: the dialog closes and nothing is reset.
+                }
             } message: {
                 Text("settings.reset.message")
             }

@@ -30,7 +30,7 @@ final class UserDefaultsAppSettingsStore: AppSettingsStoring {
     }
 
     func load() -> AppSettings {
-        guard let data = defaults.data(forKey: key) else { return .default }
+        guard let data = defaults.data(forKey: key) else { return .factoryDefaults }
         do {
             let settings = try JSONDecoder().decode(AppSettings.self, from: data)
             AppLogger.settings.info("Loaded settings — \(settings.stationFilter.logDescription)")
@@ -41,7 +41,7 @@ final class UserDefaultsAppSettingsStore: AppSettingsStoring {
             // survivable; refusing to start the app over them is not.
             AppLogger.settings.warning("Discarding unreadable settings — \(AppLogger.describe(error))")
             defaults.removeObject(forKey: key)
-            return .default
+            return .factoryDefaults
         }
     }
 

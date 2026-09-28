@@ -38,7 +38,7 @@ final class SettingsViewModel: ObservableObject {
     func reset() {
         // Assigned rather than reloaded so the reset is one publish, and so a store that fails to
         // clear its storage cannot leave the screen showing the old values.
-        settings = .default
+        settings = .factoryDefaults
         // After the assignment, never before: `didSet` persists the new value, so clearing first
         // would leave the defaults written straight back into the key that was just removed.
         store.reset()
