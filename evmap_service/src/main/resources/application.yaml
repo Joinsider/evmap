@@ -110,3 +110,20 @@ evmap:
     audience: ${APPLE_CLIENT_ID:}
     jwks-uri: https://appleid.apple.com/auth/keys
     issuer: https://appleid.apple.com
+
+  # Web sign-in (ADR 0018). Blank credentials switch a provider off. Redirect URIs derive from
+  # web-base-url: <web>/auth/callback/{google,github} and <web>/api/v1/auth/apple/callback.
+  auth:
+    web-base-url: ${WEB_BASE_URL:http://localhost:4200}
+    timeout: PT10S
+    google:
+      client-id: ${GOOGLE_CLIENT_ID:}
+      client-secret: ${GOOGLE_CLIENT_SECRET:}
+    github:
+      client-id: ${GITHUB_CLIENT_ID:}
+      client-secret: ${GITHUB_CLIENT_SECRET:}
+    apple-web:
+      services-id: ${APPLE_SERVICES_ID:}
+      team-id: ${APPLE_TEAM_ID:}
+      key-id: ${APPLE_KEY_ID:}
+      private-key: ${APPLE_PRIVATE_KEY:}

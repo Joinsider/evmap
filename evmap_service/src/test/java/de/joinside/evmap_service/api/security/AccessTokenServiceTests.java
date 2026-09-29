@@ -11,8 +11,8 @@ class AccessTokenServiceTests {
     private final AccessTokenService tokens = new AccessTokenService("test-secret-with-sufficient-length", Duration.ofHours(1));
 
     @Test void roundTripsTheInternalIdentityOnly() {
-        UUID identityId = UUID.randomUUID();
-        assertThat(tokens.verify(tokens.issue(identityId)).identityId()).isEqualTo(identityId);
+        UUID accountId = UUID.randomUUID();
+        assertThat(tokens.verify(tokens.issue(accountId)).accountId()).isEqualTo(accountId);
     }
     @Test void rejectsTamperedToken() {
         String token = tokens.issue(UUID.randomUUID());

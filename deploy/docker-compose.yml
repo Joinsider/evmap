@@ -49,6 +49,18 @@ services:
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?Set a long random JWT_SECRET}
       APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
+      # Web sign-in (ADR 0018). Blank credentials switch a provider off. WEB_BASE_URL is the web
+      # client's origin; every provider's redirect URI derives from it (docs/operations/sign-in-providers.md).
+      WEB_BASE_URL: ${WEB_BASE_URL:-http://localhost:4200}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      APPLE_SERVICES_ID: ${APPLE_SERVICES_ID:-}
+      APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+      APPLE_KEY_ID: ${APPLE_KEY_ID:-}
+      # The .p8 key's PEM text; newlines may be written as \n.
+      APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
       LOG_FORMAT: ${LOG_FORMAT-ecs}
       LOG_LEVEL_APP: ${LOG_LEVEL_APP:-INFO}
       LOG_LEVEL_ROOT: ${LOG_LEVEL_ROOT:-INFO}

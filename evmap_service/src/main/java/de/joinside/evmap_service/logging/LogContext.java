@@ -12,7 +12,7 @@ import org.slf4j.MDC;
 public final class LogContext {
     /** Correlation id of the current HTTP request, echoed back via the {@code X-Request-Id} header. */
     public static final String REQUEST_ID = "requestId";
-    /** Internal user identity id of the authenticated caller, if any. */
+    /** Internal account id (user_data.account) of the authenticated caller, if any. */
     public static final String USER_ID = "userId";
     public static final String HTTP_METHOD = "httpMethod";
     public static final String HTTP_PATH = "httpPath";

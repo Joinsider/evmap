@@ -1,5 +1,7 @@
 package de.joinside.evmap_service.api;
 
+import de.joinside.evmap_service.api.auth.UnknownProviderException;
+import de.joinside.evmap_service.api.auth.SignInFailedException;
 import de.joinside.evmap_service.api.comment.CommentController.CommentNotFoundException;
 import de.joinside.evmap_service.api.station.StationController.StationNotFoundException;
 import org.slf4j.Logger;
@@ -37,7 +39,15 @@ class ApiExceptionHandler {
         return Map.of(ERROR, "Invalid identity token");
     }
 
-    @ExceptionHandler({StationNotFoundException.class, CommentNotFoundException.class})
+    /** A provider refused the authorization code or answered with something unusable. */
+    @ExceptionHandler(SignInFailedException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    Map<String, String> signInFailed(SignInFailedException ex) {
+        log.debug("Responding 401: {}", ex.getMessage());
+        return Map.of(ERROR, "Sign-in failed");
+    }
+
+    @ExceptionHandler({StationNotFoundException.class, CommentNotFoundException.class, UnknownProviderException.class})
     @ResponseStatus(HttpStatus.NOT_FOUND)
     Map<String, String> notFound(RuntimeException ex) {
         log.debug("Responding 404: {}", ex.getMessage());

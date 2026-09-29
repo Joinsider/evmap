@@ -12,8 +12,8 @@ class StationComment {
     UUID id;
     @Column(name = "station_id", nullable = false)
     UUID stationId;
-    @Column(name = "user_identity_id", nullable = false)
-    UUID userIdentityId;
+    @Column(name = "account_id", nullable = false)
+    UUID accountId;
     @Column(nullable = false)
     String body;
     @Column(name = "paid_price_cents")
@@ -27,10 +27,10 @@ class StationComment {
     protected StationComment() {
     }
 
-    StationComment(UUID stationId, UUID userIdentityId, CommentController.CommentRequest request) {
+    StationComment(UUID stationId, UUID accountId, CommentController.CommentRequest request) {
         id = UUID.randomUUID();
         this.stationId = stationId;
-        this.userIdentityId = userIdentityId;
+        this.accountId = accountId;
         createdAt = Instant.now();
         apply(request);
         updatedAt = createdAt;
