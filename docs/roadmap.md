@@ -12,6 +12,31 @@ XL ≈ 1–2 Monate Entwicklungsumfang. Weil Claude Code implementiert, bestimme
 mit 👤 markierten Schritte: Konten und Freigaben bei Apple, Google und GitHub, Server und Domain,
 Tests auf dem Gerät, Reviews.
 
+## Status
+
+Wird am Ende jeder Phase im selben PR aktualisiert (Skill `/roadmap-phase`).
+Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
+
+| Phase | Inhalt | Status | Branch / PR | ADR |
+|---|---|---|---|---|
+| 0 | Fundament: Backups, Monitoring | offen | | neu |
+| 1 | Login mit Google/GitHub, Web-Gerüst | offen | | 0018 |
+| 2 | Konto-Bereich und App-Store-Pflichten | offen | | neu |
+| 3 | Favoriten und Fehler melden | offen | | neu |
+| 4 | Routenplaner Stufe 1 | offen | | 0017 |
+| 5 | Preise an der Station | offen | | 0017 + neu |
+| 6 | Routenplaner Stufe 2 | offen | | 0017 |
+| 7 | Routenplaner Stufe 3 | offen | | 0017 |
+| 8 | Nutzer-Web-App | offen | | 0018 + neu |
+| 9 | CarPlay als Lade-App | offen | | neu |
+| L1 | Lückenfüller: Österreich | offen | | 0012 |
+| L2 | Lückenfüller: Schweiz | offen | | 0012 |
+| L3 | Lückenfüller: Italien | offen | | 0012 |
+| L4 | Lückenfüller: Spanien | offen | | 0012 |
+
+Separat angestoßen (Teil von Phase 0): `permitAll` für `/api/v1/stations/**` auf GET beschränken.
+Lief am 2026-09-29 als eigene Sitzung; ob der Fix auf `master` ist, vor Phase 0 prüfen.
+
 ## Überblick
 
 ```

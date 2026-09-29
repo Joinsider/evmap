@@ -165,7 +165,7 @@ for sync. See ADR 0003.
 
 `ChargingStationRepository` (protocol) is the only way UI/view models talk to the backend
 (`RESTChargingStationRepository` is the current REST implementation). This exists specifically so the
-networking layer can be swapped for GraphQL later (planned v2) without touching `Features/*/Presentation`
+networking layer can be swapped (GraphQL is an optional late roadmap item, no longer tied to v2) without touching `Features/*/Presentation`
 code — never call networking APIs directly from a ViewModel or View.
 
 Structure follows a feature-module layout under `Features/`, each split into `Domain` (models),
@@ -194,8 +194,11 @@ viewport path, so there is no second fetch trigger. See ADR 0011.
 
 ## Constraints worth knowing before changing scope
 
-- No Android client, no route planning, no payment handling, no external identity provider beyond
-  Apple — these are explicit v1 non-goals (Lastenheft §10), not gaps to fill incidentally.
+- No Android client, no payment handling or charge-session control, no own turn-by-turn navigation —
+  non-goals for v1 *and* v2 (Lastenheft §10, §11), not gaps to fill incidentally.
+- Route planning (ADR 0017) and Google/GitHub sign-in plus an Angular web client (ADR 0018) *were*
+  v1 non-goals and are now **planned v2 work** (Lastenheft §11). They are built phase by phase in the
+  order of `docs/roadmap.md`; do not start one incidentally or ahead of its phase.
 - Real-time availability *was* on that list and is no longer: ADR 0015 reversed it and the Lastenheft
   was amended in the same change. What remains a non-goal is *complete* coverage — live status is
   shown only where a national access point supplies it and the EVSE-ID matches exactly.
@@ -208,3 +211,22 @@ viewport path, so there is no second fetch trigger. See ADR 0011.
 
 If the user requests a new feature or new requirement then create a new ADR Document or edit an existing one within the docs/ folder inside the main project.
 This ADR should be short but tell the user and later AI agent sessions why a feature was implemented and how it was implemented. If any open points are still open then ask the user for feedback on how to solve it but always provide options for the user to choose from.
+
+## Roadmap
+
+`docs/roadmap.md` is the source of truth for **what comes next and in which order** (v2, agreed with
+the product owner). Its status table says which phase is done, in progress or open; the phase
+sections and their ADRs say what each phase contains.
+
+- To start or continue roadmap work, use the project skill **`/roadmap-phase`**
+  (`.claude/skills/roadmap-phase/SKILL.md`). It holds the step-by-step procedure and the definition
+  of done; do not improvise a different one.
+- One phase per branch and PR. Finish the phase, update the roadmap status, then **stop and hand
+  back** — never roll into the next phase unasked.
+- The order and scope change only by the product owner's decision. When they decide something, record
+  it in the roadmap (and the affected ADR) in the same change, instead of just acting on it.
+- Ask open questions **one at a time** (AskUserQuestion), each with options and a recommended one.
+  The product owner prefers this over a long list.
+- Steps marked 👤 in the roadmap (developer-portal setup, OAuth apps, domains, device tests, the
+  CarPlay entitlement request) only the product owner can do: name them early, don't block on them
+  when the work can be prepared behind a seam or with test values.
