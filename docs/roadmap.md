@@ -20,7 +20,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | Phase | Inhalt | Status | Branch / PR | ADR |
 |---|---|---|---|---|
 | 0 | Fundament: Backups, Monitoring | fertig ¹ | [#10](https://github.com/Joinsider/evmap/pull/10) | [0019](adr/0019-backups-and-monitoring.md) |
-| 1 | Login mit Google/GitHub, Web-Gerüst | offen | | 0018 |
+| 1 | Login mit Google/GitHub, Web-Gerüst | in Arbeit | `feature/phase-1-login-web` | [0018](adr/0018-additional-identity-providers-and-web-client.md) |
 | 2 | Konto-Bereich und App-Store-Pflichten | offen | | neu |
 | 3 | Favoriten und Fehler melden | offen | | neu |
 | 4 | Routenplaner Stufe 1 | offen | | 0017 |
@@ -207,6 +207,16 @@ Phase 0 (Details in ADR 0019):
 - Der Backup-Job läuft als Container im Deploy-Stack, mit wöchentlichem automatischem Restore-Test.
 - Uptime Kuma läuft auf einem anderen Host und wird vom Product Owner selbst betrieben; Alarme per ntfy.
 - `PARTIAL`-Sync-Runs alarmieren über eine eigene Health-Gruppe `/actuator/health/sync`.
+
+Phase 1 (Details in ADR 0018, Abschnitt „Phase 1 decisions“):
+
+- Die iOS-App fragt bei Sign in with Apple künftig die E-Mail-Adresse an, damit Apple-Konten
+  verknüpft werden können.
+- iOS bekommt den Google/GitHub-Login über einen HTTPS-Callback auf der Web-Domain zurück
+  (Associated Domain), nicht über ein eigenes URL-Schema.
+- Der Web-Container (nginx) liefert die Angular-App aus und leitet `/api/**` an die API weiter.
+- Der Admin-Bereich zeigt in Phase 1 eine Übersicht der Sync-Runs und Kennzahlen (nur lesend).
+- Web-i18n mit `@angular/localize` (ein Build je Sprache).
 
 Roadmap allgemein:
 

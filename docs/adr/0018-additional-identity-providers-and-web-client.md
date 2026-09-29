@@ -1,6 +1,6 @@
 # 18. Additional identity providers, account linking, and an Angular web client
 
-- Status: Accepted 2026-09-29 — nothing implemented yet; roadmap phase 1
+- Status: Accepted 2026-09-29 — in progress on `feature/phase-1-login-web` (roadmap phase 1)
 - Date: 2026-09-29
 - Deciders: Johannes Popp
 
@@ -95,6 +95,26 @@ UI.
   than read-and-moderate powers.
 - **Web map (for the later user web app):** MapKit JS, token signed by the backend; a switch to
   MapLibre is evaluated together with turn-by-turn in v3 (see roadmap).
+
+## Phase 1 decisions (2026-09-29)
+
+Agreed with the product owner when the phase started:
+
+- **Apple e-mail on iOS.** The app now requests the `email` scope. Without it Apple's identity token
+  carries no address and an Apple account could never be linked. Users can still choose "Hide My
+  Email"; the relay address then links nothing. Existing Apple users keep an account without an
+  address until Apple issues a token with one.
+- **iOS redirect via HTTPS.** `ASWebAuthenticationSession` uses an `.https` callback on the web
+  domain (iOS 17.4+; the app targets 26.5), backed by an associated domain whose
+  `apple-app-site-association` the web container serves. One redirect URI per provider serves app
+  and web alike. A custom URL scheme was rejected: GitHub allows one callback URL per OAuth app, so
+  it would have needed a second GitHub app and a separate Google iOS client.
+- **Routing.** The web container's nginx serves the Angular app and proxies `/api/**` to the API
+  container, so the reverse proxy needs one rule for the web domain and API and web share an origin.
+- **Admin content in phase 1.** A read-only overview of recent sync runs (`master.sync_run`) and a
+  few counts. Moderation queues arrive in phase 2.
+- **Web i18n.** `@angular/localize`: messages marked in templates, XLIFF files, one build per
+  locale, nginx picks by `Accept-Language`. A missing translation fails the build.
 
 ## References
 
