@@ -22,6 +22,14 @@ reports DOWN if the last sync run failed or the newest successful one is older t
 ([ADR 0004](docs/adr/0004-ingestion-run-history-and-health-reporting.md)). Every run is recorded in
 `master.sync_run`.
 
+A third URL, `/actuator/health/sync`, is DOWN in both of those cases and also when the last sync run
+was only `PARTIAL` — a separate, lower-priority alert ([ADR 0019](docs/adr/0019-backups-and-monitoring.md)).
+
+The deployment stack (`deploy/docker-compose.yml`) includes a `backup` container: a nightly encrypted
+`pg_dump` into a restic repository on S3-compatible storage on another host, 7/4/3 rotation, a weekly
+automatic restore test, and heartbeats for an external Uptime Kuma. Setup, monitors and the restore
+procedure are in [docs/operations/backup-and-restore.md](docs/operations/backup-and-restore.md).
+
 The API container owns the Liquibase migration and the sync container waits for it to report healthy;
 running sync against a database that has never seen the API fails on purpose ([ADR 0003](docs/adr/0003-single-owner-for-schema-migrations.md)).
 

@@ -1,0 +1,41 @@
+# End-to-end rehearsal of the backup image (ADR 0019): a PostGIS database shaped like production, a
+# SeaweedFS S3 endpoint as the second location, and the image under test. Driven by run.sh, locally
+# and in CI — never deployed.
+services:
+  database:
+    # postgis/postgis is what deploy/docker-compose.yml runs. It publishes no arm64 image, so on
+    # Apple Silicon run.sh is started with TEST_DB_IMAGE=kartoza/postgis:17-3.5 (which reads the
+    # second pair of variables below).
+    image: ${TEST_DB_IMAGE:-postgis/postgis:17-3.5}
+    environment:
+      POSTGRES_DB: evmap
+      POSTGRES_USER: evmap
+      POSTGRES_PASSWORD: evmap
+      POSTGRES_DBNAME: evmap
+      POSTGRES_PASS: evmap
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  s3:
+    # SeaweedFS as on the owner's backup host. Signed requests need an identity even here.
+    image: chrislusf/seaweedfs:3.97
+    command: server -s3 -s3.config=/etc/seaweedfs/s3.json -dir=/data -volume.max=10 -master.volumeSizeLimitMB=64
+    volumes:
+      - ./s3.json:/etc/seaweedfs/s3.json:ro
+
+  backup:
+    build: ..
+    environment:
+      PGHOST: database
+      PGPASSWORD: evmap
+      RESTIC_REPOSITORY: s3:http://s3:8333/evmap-backup
+      RESTIC_PASSWORD: rehearsal-only
+      AWS_ACCESS_KEY_ID: rehearsal
+      AWS_SECRET_ACCESS_KEY: rehearsal-secret
+      TZ: Europe/Berlin
+    volumes:
+      - pgdata:/pgdata:ro
+    depends_on: [database, s3]
+
+volumes:
+  pgdata:

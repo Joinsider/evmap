@@ -94,5 +94,43 @@ services:
       # Waits for the API's Liquibase migration: this container runs with liquibase disabled.
       api: { condition: service_healthy }
 
+  backup:
+    # Nightly pg_dump into a restic repository on an S3-compatible store on ANOTHER host, rotation,
+    # a weekly restore test, and heartbeats to the external Uptime Kuma (ADR 0019). Set up once with
+    # `docker compose -f deploy/docker-compose.yml run --rm backup init`; restore procedure in
+    # docs/operations/backup-and-restore.md.
+    image: ${EVMAP_BACKUP_IMAGE:-ghcr.io/joinsider/evmap-backup:latest}
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      PGHOST: database
+      PGUSER: evmap
+      PGDATABASE: evmap
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      # e.g. s3:https://s3.example.org/evmap-backup — must not live on this VPS.
+      RESTIC_REPOSITORY: ${RESTIC_REPOSITORY:?Set RESTIC_REPOSITORY}
+      # Encrypts the repository. Losing it makes every backup unreadable: keep a copy off this VPS.
+      RESTIC_PASSWORD: ${RESTIC_PASSWORD:?Set RESTIC_PASSWORD}
+      AWS_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY:?Set BACKUP_S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_KEY:?Set BACKUP_S3_SECRET_KEY}
+      TZ: ${TZ:-Europe/Berlin}
+      BACKUP_AT: ${BACKUP_AT:-03:30}
+      # 7 daily / 4 weekly / 3 monthly: nothing in any backup is older than ~3 months, which bounds
+      # how long a deleted account survives in backups (docs/privacy/data-processing.md).
+      BACKUP_KEEP_DAILY: ${BACKUP_KEEP_DAILY:-7}
+      BACKUP_KEEP_WEEKLY: ${BACKUP_KEEP_WEEKLY:-4}
+      BACKUP_KEEP_MONTHLY: ${BACKUP_KEEP_MONTHLY:-3}
+      # Uptime Kuma push monitors, URL without its query string. Empty disables the heartbeat.
+      BACKUP_PUSH_URL: ${BACKUP_PUSH_URL:-}
+      DISK_PUSH_URL: ${DISK_PUSH_URL:-}
+      DISK_ALERT_PERCENT: ${DISK_ALERT_PERCENT:-85}
+    volumes:
+      # Read-only and only for `df`: the disk the database actually writes to is what can run full.
+      - postgres-data:/pgdata:ro
+      - backup-cache:/home/backup/.cache
+    depends_on:
+      database: { condition: service_healthy }
+
 volumes:
+  backup-cache:
   postgres-data:

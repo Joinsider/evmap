@@ -1,6 +1,6 @@
 # Verarbeitung personenbezogener Daten in EVMap
 
-- Stand: 2026-07-28
+- Stand: 2026-09-29
 - Gilt für: iOS-Client (`evMap_ios/`) und API-Service (`evmap_service/`)
 
 Dieses Dokument ist eine **technische Bestandsaufnahme** für Entwicklung und
@@ -25,6 +25,7 @@ hinein.
 | Zeitstempel (`created_at`, `last_login_at`) | Sortierung, Betrieb | `user_data.*` | wie zugehöriger Datensatz | Art. 6 Abs. 1 lit. f |
 | Client-Logs | Fehlerdiagnose | ausschließlich Unified Log des Nutzergeräts | siehe §3 | keine Verarbeitung durch den Verantwortlichen (§3) |
 | Server-Logs | Betrieb, Fehlerdiagnose | stdout des Containers | abhängig vom Log-Collector | Art. 6 Abs. 1 lit. f |
+| Datenbank-Backups (alle obigen `user_data`-Inhalte) | Wiederherstellung nach Datenverlust | restic-Repository auf S3-kompatiblem Speicher (SeaweedFS) auf einem **zweiten, selbst betriebenen Host**, clientseitig verschlüsselt | 7 tägliche, 4 wöchentliche, 3 monatliche Stände — höchstens ~3 Monate (ADR 0019) | Art. 6 Abs. 1 lit. f, Art. 32 |
 
 Ladestationsdaten (`master.*`) stammen aus BNetzA und Open Charge Map und sind
 keine personenbezogenen Daten.
@@ -115,7 +116,25 @@ nicht kontrolliert, doch eine Standort-Historie pro IP-Adresse. Vor
 Produktivbetrieb ist entweder das Access-Log des Proxys auf den Pfad ohne Query
 zu beschränken oder eine Aufbewahrungsfrist zu setzen.
 
-## 5. Betroffenenrechte — Umsetzungsstand
+## 5. Backups
+
+Seit Phase 0 (ADR 0019) sichert der `backup`-Container die gesamte Datenbank
+nächtlich. Für den Datenschutz relevant:
+
+- **Verschlüsselung:** restic verschlüsselt vor dem Upload; der Speicher-Host
+  sieht nur Chiffrat. Das Passwort liegt außerhalb des VPS.
+- **Aufbewahrung:** Kein Stand ist älter als ca. 3 Monate. Daten, die im
+  Live-System gelöscht werden — einzelne Kommentare heute, ganze Konten ab
+  Phase 2 —, bleiben so lange in älteren Ständen erhalten. Das gehört in die
+  Datenschutzerklärung. Ob nach einer Wiederherstellung zwischenzeitliche
+  Löschungen erneut angewendet werden, ist in ADR 0019 als offener Punkt für
+  Phase 2 vermerkt.
+- **Logs:** Das Backup-Skript protokolliert nur Snapshot-IDs, Tabellennamen und
+  Zeilenanzahlen, keine Inhalte.
+- **Wiederherstellungstest:** läuft wöchentlich in eine temporäre Datenbank auf
+  demselben Server, die direkt danach gelöscht wird.
+
+## 6. Betroffenenrechte — Umsetzungsstand
 
 | Recht | Stand |
 | --- | --- |
@@ -133,13 +152,18 @@ für Apps mit Kontoerstellung eine In-App-Kontolöschung als
 Review-Voraussetzung; das ist somit auch ein Release-Blocker, nicht nur ein
 DSGVO-Thema.
 
-## 6. Auftragsverarbeiter / Dritte
+## 7. Auftragsverarbeiter / Dritte
 
 - **Apple** — Sign in with Apple. Das Identity-Token wird gegen Apples
   JWKS-Endpoint geprüft (`AppleIdentityTokenVerifier`), wodurch der Server bei
   jedem Login eine Verbindung zu Apple aufbaut.
 - **Hosting des API-Service** — abhängig vom Deployment (aktuell
   `evmap.joinside.de`); AV-Vertrag erforderlich.
+- **Backup-Speicher und Monitoring** — SeaweedFS und Uptime Kuma laufen auf einem
+  zweiten, selbst betriebenen Host. Wird dieser Host angemietet, braucht es
+  auch dafür einen AV-Vertrag. Uptime Kuma erhält nur Statuscodes und
+  Heartbeats, keine Nutzerdaten; die Push-Benachrichtigung über ntfy enthält
+  nur den Monitornamen und eine kurze Statusmeldung.
 - **Bundesnetzagentur / Open Charge Map / Etalab (IRVE)** — Datenquellen der
   Stammdaten-Ingestion, ausschließlich eingehend und ohne Personenbezug.
 - **MobiData BW (OCPDB)** — Live-Verfügbarkeit (ADR 0015). Anders als die
@@ -162,9 +186,10 @@ DSGVO-Thema.
   verrät lediglich, dass in dieser Minute irgendein Nutzer Frankreich
   betrachtet hat.
 
-## 7. Referenzen
+## 8. Referenzen
 
 - `evMap_ios/EVMap/EVMap/Core/Logging/AppLogger.swift` — Level-Policy und Redaction-Helper
 - `evMap_ios/EVMap/EVMap/Core/Networking/APIClient.swift` — Query-Redaction, Body-Preview
 - `evmap_service/src/main/resources/db/changelog/001-initial-schema.sql` — `user_data`-Schema
 - `docs/adr/0002-central-ios-logging-via-oslog.md` — Begründung des Logging-Designs
+- `docs/adr/0019-backups-and-monitoring.md` — Backups und Monitoring

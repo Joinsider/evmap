@@ -17,6 +17,7 @@ on:
     branches: [main, master]
     paths:
       - "evmap_service/**"
+      - "deploy/backup/**"
   workflow_dispatch:
 
 # Granted per job: only the release job pushes commits, tags and images.
@@ -153,6 +154,17 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.release_version.outputs.release }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
+      # The backup sidecar of deploy/docker-compose.yml (ADR 0019), versioned with the API image so
+      # one release number describes the whole stack.
+      - name: Build and push backup image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: deploy/backup
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backup:${{ steps.release_version.outputs.release }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backup:latest
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
@@ -165,6 +177,7 @@ jobs:
             Release ${{ steps.release_version.outputs.release }}
 
             Docker image: `ghcr.io/${{ env.IMAGE_NAME }}:${{ steps.release_version.outputs.release }}`
+            Backup image: `ghcr.io/${{ env.IMAGE_NAME }}-backup:${{ steps.release_version.outputs.release }}`
 
       - name: Determine next development version
         id: next_version
