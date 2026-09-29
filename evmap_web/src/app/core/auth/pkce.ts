@@ -17,5 +17,7 @@ export function base64Url(bytes: Uint8Array): string {
   for (const byte of bytes) binary += String.fromCodePoint(byte);
   // Padding is at most two characters, so strip it without a backtracking pattern.
   const base64 = btoa(binary).replaceAll('+', '-').replaceAll('/', '_');
-  return base64.endsWith('==') ? base64.slice(0, -2) : base64.endsWith('=') ? base64.slice(0, -1) : base64;
+  let end = base64.length;
+  while (end > 0 && base64[end - 1] === '=') end--;
+  return base64.slice(0, end);
 }
