@@ -19,7 +19,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 
 | Phase | Inhalt | Status | Branch / PR | ADR |
 |---|---|---|---|---|
-| 0 | Fundament: Backups, Monitoring | offen | | neu |
+| 0 | Fundament: Backups, Monitoring | in Arbeit | `feature/phase-0-fundament` | 0019 |
 | 1 | Login mit Google/GitHub, Web-Gerüst | offen | | 0018 |
 | 2 | Konto-Bereich und App-Store-Pflichten | offen | | neu |
 | 3 | Favoriten und Fehler melden | offen | | neu |
@@ -35,7 +35,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | L4 | Lückenfüller: Spanien | offen | | 0012 |
 
 Separat angestoßen (Teil von Phase 0): `permitAll` für `/api/v1/stations/**` auf GET beschränken.
-Lief am 2026-09-29 als eigene Sitzung; ob der Fix auf `master` ist, vor Phase 0 prüfen.
+Erledigt mit PR #8 (Commit `3d40492`), vor Beginn von Phase 0 auf `master` geprüft.
 
 ## Überblick
 
