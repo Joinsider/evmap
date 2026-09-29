@@ -1,5 +1,4 @@
 #!/bin/sh
-# shellcheck shell=busybox
 # EVMap database backup (ADR 0019). One script, several commands:
 #
 #   init           create the restic repository (once, when setting up a new backup target)
@@ -15,6 +14,7 @@ set -eu
 # set -e is suspended inside any function called from an `if` or `||` — which is how nightly() calls
 # everything — so each step below checks its own exit status instead of relying on it.
 # busybox ash supports pipefail; without it a failing pg_restore behind a pipe would look green.
+# shellcheck disable=SC3040 # POSIX lacks pipefail, but this only ever runs on busybox ash.
 set -o pipefail
 
 : "${PGHOST:=database}"
