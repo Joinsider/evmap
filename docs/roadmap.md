@@ -217,6 +217,8 @@ Phase 1 (Details in ADR 0018, Abschnitt „Phase 1 decisions“):
 - Der Web-Container (nginx) liefert die Angular-App aus und leitet `/api/**` an die API weiter.
 - Der Admin-Bereich zeigt in Phase 1 eine Übersicht der Sync-Runs und Kennzahlen (nur lesend).
 - Web-i18n mit `@angular/localize` (ein Build je Sprache).
+- Web-Domain ist `evmap.joinside.de`, dieselbe wie die API heute: der Reverse Proxy zeigt auf den
+  Web-Container, der `/api/**` weiterleitet. Die iOS-App behält ihre Basis-URL.
 
 Roadmap allgemein:
 

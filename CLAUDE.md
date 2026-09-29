@@ -4,8 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-EVMap is an EV charging station app for Europe: a native iOS/SwiftUI client (`evMap_ios/`) backed by a
-Spring Boot 4 service (`evmap_service/`). Data is merged from the Bundesnetzagentur Ladesäulenregister
+EVMap is an EV charging station app for Europe: a native iOS/SwiftUI client (`evMap_ios/`) and an
+Angular web client (`evmap_web/`, admin area today, user web app later) backed by a Spring Boot 4
+service (`evmap_service/`). Data is merged from the Bundesnetzagentur Ladesäulenregister
 (Germany, authoritative) and Open Charge Map (international/community), deduplicated by geo-distance +
 address fuzzy matching. See `Lastenheft_EV_Ladestationen_App.md` for the full German-language product
 requirements spec — check it before making architectural decisions, since several constraints (schema
@@ -37,13 +38,24 @@ Copy `.env.example` to `.env` first and set `JWT_SECRET` (long random secret); `
 for local dev. The sync container has no public port and runs on the `sync` Spring profile
 (`application-sync.yaml`), triggering ingestion on a fixed 24h delay.
 
+Web (`evmap_web/`, Node 24.15+):
+
+```sh
+cd evmap_web
+npm ci
+npm start              # dev server :4200, German build, /api proxied to 127.0.0.1:8080
+npm test               # Vitest, once
+npm run build          # production build, one bundle per locale (de, en)
+npm run extract-i18n   # after changing texts; then add the English target in src/locale/messages.en.xlf
+```
+
 iOS (`evMap_ios/EVMap/EVMap.xcodeproj`): open and build in Xcode. To point the app at a non-default
 backend, set the `API_BASE_URL` launch argument/user default (dev default is `http://127.0.0.1:8080`).
 Sign in with Apple requires the capability enabled for `de.joinside.EVMap` in the Apple Developer portal.
 
-CI (`.github/workflows/ci.yml`, ADR 0016) runs `./mvnw verify` and the iOS unit tests
+CI (`.github/workflows/ci.yml`, ADR 0016) runs `./mvnw verify`, the web tests and production build, and the iOS unit tests
 (`xcodebuild test -scheme EVMap -only-testing:EVMapTests`, Xcode 26.6 on `macos-26`; on PRs only when
-`evMap_ios/**` changed), then a `sonar` job analyses both into the single SonarQube Cloud project
+`evMap_ios/**` changed), then a `sonar` job analyses all three into the single SonarQube Cloud project
 `Joinsider_evmap` (root `sonar-project.properties`) from the other jobs' artifacts. When upgrading the
 Xcode project or raising the deployment target, move the `XCODE_VERSION` / `SIMULATOR` pin with it.
 
@@ -123,15 +135,27 @@ honestly `UNKNOWN`. `master.charge_point` holds the EVSE-IDs; `charging_connecto
 Sources that describe charge points individually now emit one connector row per charge point, and
 `StationService.aggregate` rebuilds the station totals on read, so the API payload is unchanged.
 
-Data separation: master/station data (sync-owned, read-only from the API) vs. user data (comments, user
-identities — API-owned). `UserIdentity`/`UserIdentityService` is deliberately a thin internal ID layer so
-additional auth providers can be added later without touching how the rest of the app references users.
+Data separation: master/station data (sync-owned, read-only from the API) vs. user data (comments,
+accounts — API-owned). Everything user-owned references **`user_data.account`** by its uuid; the
+provider sign-ins hang off it in `provider_identity` (provider, subject, e-mail, `email_verified`).
+Never reference a provider identity from other user data. See ADR 0018.
 
-Auth: Sign in with Apple only. The API verifies the client's Apple identity token against Apple's JWKS
-endpoint (`AppleIdentityTokenVerifier`), then issues its own bearer access token (`AccessTokenService`)
-validated per-request by `BearerTokenFilter`. `SecurityConfiguration` is stateless (no sessions, CSRF
-disabled since there's no cookie auth) and permits `/actuator/health`, `GET /api/v1/stations/**`,
-`GET /api/v1/operators`, and `/api/v1/auth/apple` without auth; everything else requires a bearer token.
+Auth (ADR 0018): Apple, Google and GitHub, integrated directly — no identity server. The iOS app signs
+in with Apple natively (`POST /api/v1/auth/apple`, identity token checked by
+`AppleIdentityTokenVerifier`); every other flow is an authorization-code exchange **in the backend**
+(`CodeSignIn`: `GoogleSignIn`, `GitHubSignIn`, `AppleWebSignIn`) — clients get client id and redirect
+URI from `GET /api/v1/auth/providers`, add `state` and PKCE, and post the code to
+`/api/v1/auth/{provider}/code`. Client secrets never leave the backend; a provider with blank
+credentials is simply off. `AccountService` links a new identity to an existing account **only on a
+matching verified e-mail, never an Apple relay address, and only at that identity's first sign-in**
+— do not loosen any of the three, it is the account-takeover boundary. The API then issues its own
+bearer token (`AccessTokenService`, `sub` = account id) validated per request by `BearerTokenFilter`.
+`SecurityConfiguration` is stateless (no sessions, CSRF disabled since there's no cookie auth) and
+permits `/actuator/health`, `GET /api/v1/stations/**`, `GET /api/v1/operators`, the sign-in endpoints
+under `/api/v1/auth/`; `/api/v1/admin/**` additionally requires the account's `is_admin` flag, read
+from the database per request (`AdminAccounts`) and set **only by a manual `UPDATE`** — there is no
+API that grants it. E-mail addresses are personal data: never log them (ADR 0002). Provider setup:
+`docs/operations/sign-in-providers.md`.
 
 `GET /api/v1/operators` is the searchable charging-network directory the client's provider settings are
 built from. There is no operator table and no operator id — `operator_name` is a string the adapters
@@ -173,6 +197,19 @@ and the sync container waits on the API's `/actuator/health` in Compose. Two Liq
 bootstrapping the same empty database race on `CREATE TABLE databasechangelog` — do not re-enable it
 for sync. See ADR 0003.
 
+## Web architecture
+
+`evmap_web/` is one Angular application (standalone components, zoneless, signals) with lazy feature
+areas under `src/app/features/` (`login`, `admin`, `home`); the user web app of roadmap phase 8 joins
+as more of them. `EvmapApi` (abstract class, `core/api/`) is the only way features reach the backend
+— the counterpart to `ChargingStationRepository`; never inject `HttpClient` into a feature. The access
+token lives **in memory only** (`AuthService`); only the PKCE verifier and `state` of a running sign-in
+go to `sessionStorage`. The admin route guard only hides UI; the backend check is the boundary.
+Every user-facing string is marked for `@angular/localize` (German source, `messages.en.xlf`), and a
+missing translation fails the production build. The container's nginx serves `/de/` and `/en/`,
+redirects everything else by `Accept-Language`, and proxies `/api/**` to the API on the same origin —
+so there is no CORS configuration, and there must not be one.
+
 ## iOS architecture
 
 `ChargingStationRepository` (protocol) is the only way UI/view models talk to the backend
@@ -209,7 +246,8 @@ viewport path, so there is no second fetch trigger. See ADR 0011.
 - No Android client, no payment handling or charge-session control, no own turn-by-turn navigation —
   non-goals for v1 *and* v2 (Lastenheft §10, §11), not gaps to fill incidentally.
 - Route planning (ADR 0017) and Google/GitHub sign-in plus an Angular web client (ADR 0018) *were*
-  v1 non-goals and are now **planned v2 work** (Lastenheft §11). They are built phase by phase in the
+  v1 non-goals and are now **v2 work** (Lastenheft §11); sign-in and the web skeleton landed in
+  phase 1. They are built phase by phase in the
   order of `docs/roadmap.md`; do not start one incidentally or ahead of its phase.
 - Real-time availability *was* on that list and is no longer: ADR 0015 reversed it and the Lastenheft
   was amended in the same change. What remains a non-goal is *complete* coverage — live status is
