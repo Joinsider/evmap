@@ -33,9 +33,11 @@ final class AuthSession: ObservableObject {
             AppLogger.auth.error("Apple sign-in did not yield a usable identity token")
             throw APIError.server(String(localized: "error.appleSignIn"))
         }
+        // Lets the backend keep a refresh token, which Apple requires it to revoke on account deletion.
+        let authorizationCode = credential.authorizationCode.flatMap { String(data: $0, encoding: .utf8) }
         AppLogger.auth.debug("Exchanging Apple identity token \(AppLogger.redact(token: identityToken)) for an access token")
         accessToken = try await AppLogger.auth.measure("Apple sign-in") {
-            try await repository.signInWithApple(identityToken: identityToken)
+            try await repository.signInWithApple(identityToken: identityToken, authorizationCode: authorizationCode)
         }
         AppLogger.auth.notice("Signed in")
         AppLogger.auth.debug("Access token \(AppLogger.redact(token: accessToken))")
@@ -77,6 +79,17 @@ final class AuthSession: ObservableObject {
         }
         AppLogger.auth.notice("Signed in")
         AppLogger.auth.debug("Access token \(AppLogger.redact(token: accessToken))")
+    }
+
+    /// Deletes the account on the backend, and only then forgets the token: a failed deletion leaves the
+    /// person signed in and able to try again (ADR 0020).
+    func deleteAccount() async throws {
+        guard let accessToken else { throw APIError.unauthenticated }
+        try await AppLogger.auth.measure("Account deletion") {
+            try await repository.deleteAccount(accessToken: accessToken)
+        }
+        AppLogger.auth.notice("Account deleted")
+        self.accessToken = nil
     }
 
     func signOut() {

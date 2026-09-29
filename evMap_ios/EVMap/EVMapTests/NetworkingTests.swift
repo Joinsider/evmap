@@ -198,10 +198,56 @@ struct NetworkingTests {
     func signIn() async throws {
         StubURLProtocol.reset { _ in self.json(#"{"accessToken":"api-token"}"#) }
 
-        let token = try await repository().signInWithApple(identityToken: "apple-token")
+        let token = try await repository().signInWithApple(identityToken: "apple-token", authorizationCode: "auth-code")
 
         #expect(token == "api-token")
         #expect(lastRequest.url?.path() == "/api/v1/auth/apple")
+        let body = try JSONSerialization.jsonObject(with: lastRequest.httpBody ?? Data()) as? [String: String]
+        #expect(body == ["identityToken": "apple-token", "authorizationCode": "auth-code"])
+    }
+
+    @Test("the account area talks to /me and the comment endpoints, with the token")
+    func accountEndpoints() async throws {
+        let comment = UUID(), block = UUID()
+        StubURLProtocol.reset { request in
+            switch request.url!.path() {
+            case "/api/v1/me/blocks": self.json(#"[{"id":"\#(block.uuidString)","createdAt":"2026-09-28T10:00:00Z"}]"#)
+            case "/api/v1/me/contributions": self.json(#"{"comments":[],"reports":[{"id":"\#(block.uuidString)","reason":"spam","status":"open","createdAt":"2026-09-28T10:00:00Z"}]}"#)
+            case "/api/v1/me/export": self.json(#"{"account":{}}"#)
+            case "/api/v1/legal": self.json(#"{"privacyPolicyUrl":"https://evmap.example/privacy"}"#)
+            default: .init(status: 204, body: Data())
+            }
+        }
+        let repository = repository()
+
+        try await repository.reportComment(id: comment, reason: .offensive, accessToken: "t")
+        #expect(lastRequest.url?.path() == "/api/v1/comments/\(comment.uuidString)/report")
+        #expect(lastRequest.httpMethod == "POST")
+        #expect(String(data: lastRequest.httpBody ?? Data(), encoding: .utf8) == #"{"reason":"offensive"}"#)
+
+        try await repository.blockAuthor(ofComment: comment, accessToken: "t")
+        #expect(lastRequest.url?.path() == "/api/v1/comments/\(comment.uuidString)/block-author")
+
+        let blocks = try await repository.blockedAuthors(accessToken: "t")
+        #expect(blocks.map(\.id) == [block])
+        #expect(lastRequest.value(forHTTPHeaderField: "Authorization") == "Bearer t")
+
+        try await repository.unblock(id: block, accessToken: "t")
+        #expect(lastRequest.httpMethod == "DELETE")
+        #expect(lastRequest.url?.path() == "/api/v1/me/blocks/\(block.uuidString)")
+
+        let contributions = try await repository.contributions(accessToken: "t")
+        #expect(contributions.reports.first?.isOpen == true)
+
+        let export = try await repository.exportData(accessToken: "t")
+        #expect(String(data: export, encoding: .utf8) == #"{"account":{}}"#)
+
+        #expect(try await repository.legal().privacyPolicyUrl?.absoluteString == "https://evmap.example/privacy")
+        #expect(lastRequest.value(forHTTPHeaderField: "Authorization") == nil)
+
+        try await repository.deleteAccount(accessToken: "t")
+        #expect(lastRequest.httpMethod == "DELETE")
+        #expect(lastRequest.url?.path() == "/api/v1/me")
     }
 
     @Test("a rejected token, a server error and a malformed body surface as distinct errors")

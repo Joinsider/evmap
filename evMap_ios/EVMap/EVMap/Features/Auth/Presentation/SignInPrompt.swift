@@ -7,6 +7,8 @@ import SwiftUI
 /// Apple button shows — the prompt never blocks on them.
 struct SignInPrompt: View {
     @ObservedObject var authSession: AuthSession
+    /// What the prompt says above the buttons; by default it is about leaving a comment.
+    var message: LocalizedStringKey = "comments.loginRequired"
     @Environment(\.webAuthenticationSession) private var webAuthenticationSession
     @State private var providers: [SignInProvider] = []
     @State private var errorMessage: String?
@@ -14,7 +16,7 @@ struct SignInPrompt: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            Text("comments.loginRequired").font(.footnote)
+            Text(message).font(.footnote)
             SignInWithAppleButton(.signIn) { request in
                 // The address is what lets an Apple account be linked to a Google or GitHub one. The user
                 // can still hide it; Apple then hands out a relay address, which links nothing.

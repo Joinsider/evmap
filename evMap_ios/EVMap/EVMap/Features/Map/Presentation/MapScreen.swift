@@ -101,7 +101,7 @@ struct MapScreen: View {
             // Applied on dismiss, not on change: the settings persist themselves keystroke by
             // keystroke, but dragging the power slider must not be one network request per step.
             .sheet(isPresented: $showSettings, onDismiss: { viewModel.apply(settings.settings.stationFilter) }) {
-                SettingsScreen(model: settings, repository: repository)
+                SettingsScreen(model: settings, repository: repository, authSession: authSession)
             }
             // One alert for both sources: SwiftUI presents a single alert per view, and a failed
             // station load and a failed address lookup are the same kind of interruption.

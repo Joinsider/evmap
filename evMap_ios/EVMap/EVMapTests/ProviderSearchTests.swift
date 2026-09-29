@@ -54,9 +54,17 @@ private final class StubProviderRepository: ChargingStationRepository {
     func createComment(stationID _: UUID, payload _: CommentPayload, accessToken _: String) async throws -> StationComment { fatalError("unused") }
     func updateComment(id _: UUID, payload _: CommentPayload, accessToken _: String) async throws -> StationComment { fatalError("unused") }
     func deleteComment(id _: UUID, accessToken _: String) async throws { fatalError("unused") }
-    func signInWithApple(identityToken _: String) async throws -> String { fatalError("unused") }
+    func signInWithApple(identityToken _: String, authorizationCode _: String?) async throws -> String { fatalError("unused") }
     func signInProviders() async throws -> [SignInProvider] { fatalError("unused") }
     func signIn(provider _: String, code _: String, codeVerifier _: String?) async throws -> String { fatalError("unused") }
+    func reportComment(id _: UUID, reason _: ReportReason, accessToken _: String) async throws { fatalError("unused") }
+    func blockAuthor(ofComment _: UUID, accessToken _: String) async throws { fatalError("unused") }
+    func blockedAuthors(accessToken _: String) async throws -> [BlockedAuthor] { fatalError("unused") }
+    func unblock(id _: UUID, accessToken _: String) async throws { fatalError("unused") }
+    func contributions(accessToken _: String) async throws -> Contributions { fatalError("unused") }
+    func exportData(accessToken _: String) async throws -> Data { fatalError("unused") }
+    func deleteAccount(accessToken _: String) async throws { fatalError("unused") }
+    func legal() async throws -> LegalInfo { fatalError("unused") }
 }
 
 private let sampleProviders = [
