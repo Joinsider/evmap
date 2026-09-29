@@ -49,7 +49,11 @@ public final class ConnectorTypes {
             new Rule(TYPE_2, "typ 2", "type 2"),
             new Rule(TYPE_1, "typ 1", "type 1", "j1772"));
 
-    private record Rule(String type, String... needles) {
+    private record Rule(String type, List<String> needles) {
+        Rule(String type, String... needles) {
+            this(type, List.of(needles));
+        }
+
         boolean matches(String haystack) {
             for (String needle : needles) {
                 if (haystack.contains(needle)) return true;
