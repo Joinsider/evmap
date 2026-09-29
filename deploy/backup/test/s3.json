@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "evmap-backup",
+      "credentials": [{ "accessKey": "rehearsal", "secretKey": "rehearsal-secret" }],
+      "actions": ["Read", "Write", "List", "Tagging", "Admin"]
+    }
+  ]
+}

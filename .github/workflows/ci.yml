@@ -40,6 +40,7 @@ jobs:
       pull-requests: read
     outputs:
       ios: ${{ steps.filter.outputs.ios }}
+      backup: ${{ steps.filter.outputs.backup }}
     steps:
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
@@ -47,6 +48,9 @@ jobs:
           filters: |
             ios:
               - 'evMap_ios/**'
+              - '.github/workflows/ci.yml'
+            backup:
+              - 'deploy/backup/**'
               - '.github/workflows/ci.yml'
 
   backend:
@@ -89,6 +93,28 @@ jobs:
           name: surefire-reports
           path: evmap_service/target/surefire-reports/
           retention-days: 7
+
+  # Rehearses backup, restore test and a real restore of the backup image against throwaway PostGIS
+  # and SeaweedFS containers (ADR 0019). Runs on the production database image, which has no arm64
+  # build and so is only exercised here. Filtered like iOS: it changes rarely.
+  backup:
+    name: Backup rehearsal
+    needs: changes
+    if: >-
+      !cancelled()
+      && (github.event_name != 'pull_request' || needs.changes.outputs.backup == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Lint the scripts
+        run: shellcheck deploy/backup/evmap-backup.sh deploy/backup/test/run.sh
+
+      - name: Backup and restore rehearsal
+        run: deploy/backup/test/run.sh
 
   ios:
     name: iOS tests
