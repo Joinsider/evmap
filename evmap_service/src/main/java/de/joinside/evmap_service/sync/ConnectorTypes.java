@@ -1,5 +1,6 @@
 package de.joinside.evmap_service.sync;
 
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -32,6 +33,31 @@ public final class ConnectorTypes {
     /** Width of {@code master.charging_connector.connector_type}; unmapped labels are kept but clipped. */
     private static final int MAX_LENGTH = 64;
 
+    /**
+     * First match wins, so the order is the specificity ranking:
+     * CCS and Tesla labels routinely also say "Type 2" and must be tried before it; "Schuko" before
+     * CEE, because "CEE 7/4 - Schuko - Type F" and "Europlug 2-Pin (CEE 7/16)" carry a CEE
+     * designation but are domestic 230 V sockets, not the industrial CEE connector.
+     */
+    private static final List<Rule> RULES = List.of(
+            new Rule(CHADEMO, "chademo"),
+            new Rule(MCS, "megawatt", "mcs"),
+            new Rule(TESLA, "tesla", "nacs"),
+            new Rule(CCS, "ccs", "combo"),
+            new Rule(SCHUKO, "schuko", "type f", "europlug"),
+            new Rule(CEE, "cee", "commando", "60309"),
+            new Rule(TYPE_2, "typ 2", "type 2"),
+            new Rule(TYPE_1, "typ 1", "type 1", "j1772"));
+
+    private record Rule(String type, String... needles) {
+        boolean matches(String haystack) {
+            for (String needle : needles) {
+                if (haystack.contains(needle)) return true;
+            }
+            return false;
+        }
+    }
+
     private ConnectorTypes() {
     }
 
@@ -54,19 +80,9 @@ public final class ConnectorTypes {
         String haystack = trimmed.toLowerCase(Locale.ROOT);
         if (haystack.equals("unknown")) return null;
 
-        if (haystack.contains("chademo")) return CHADEMO;
-        if (haystack.contains("megawatt") || haystack.contains("mcs")) return MCS;
-        // Before CCS and Type 2: Tesla connectors are described in terms of both.
-        if (haystack.contains("tesla") || haystack.contains("nacs")) return TESLA;
-        if (haystack.contains("ccs") || haystack.contains("combo")) return CCS;
-        // Before CEE: "CEE 7/4 - Schuko - Type F" and "Europlug 2-Pin (CEE 7/16)" both carry a CEE
-        // designation but are domestic 230 V sockets, not the industrial CEE connector a driver
-        // filtering for CEE is looking for.
-        if (haystack.contains("schuko") || haystack.contains("type f") || haystack.contains("europlug"))
-            return SCHUKO;
-        if (haystack.contains("cee") || haystack.contains("commando") || haystack.contains("60309")) return CEE;
-        if (haystack.contains("typ 2") || haystack.contains("type 2")) return TYPE_2;
-        if (haystack.contains("typ 1") || haystack.contains("type 1") || haystack.contains("j1772")) return TYPE_1;
+        for (Rule rule : RULES) {
+            if (rule.matches(haystack)) return rule.type();
+        }
 
         return trimmed.length() <= MAX_LENGTH ? trimmed : trimmed.substring(0, MAX_LENGTH);
     }

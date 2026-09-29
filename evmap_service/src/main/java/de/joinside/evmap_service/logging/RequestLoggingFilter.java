@@ -27,6 +27,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
     public static final String REQUEST_ID_HEADER = "X-Request-Id";
 
     private static final Logger log = LoggerFactory.getLogger("de.joinside.evmap_service.access");
+    private static final String COMPLETED = "<-- {} {} {} ({} ms)";
     private static final String HEALTH_PATH = "/actuator/health";
 
     @Override
@@ -66,11 +67,11 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         if (exception != null) {
             log.error("<-- {} {} failed after {} ms", request.getMethod(), request.getRequestURI(), durationMs, exception);
         } else if (status >= 500) {
-            log.error("<-- {} {} {} ({} ms)", request.getMethod(), request.getRequestURI(), status, durationMs);
+            log.error(COMPLETED, request.getMethod(), request.getRequestURI(), status, durationMs);
         } else if (status >= 400) {
-            log.warn("<-- {} {} {} ({} ms)", request.getMethod(), request.getRequestURI(), status, durationMs);
+            log.warn(COMPLETED, request.getMethod(), request.getRequestURI(), status, durationMs);
         } else {
-            log.info("<-- {} {} {} ({} ms)", request.getMethod(), request.getRequestURI(), status, durationMs);
+            log.info(COMPLETED, request.getMethod(), request.getRequestURI(), status, durationMs);
         }
     }
 

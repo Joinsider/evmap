@@ -8,6 +8,7 @@ class EvmapServiceApplicationTests {
 
     @Test
     void contextLoads() {
+        // Passes when the application context starts without throwing.
     }
 
 }

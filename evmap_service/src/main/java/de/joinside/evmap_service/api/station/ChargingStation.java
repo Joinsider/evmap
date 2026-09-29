@@ -12,12 +12,14 @@ import java.util.UUID;
 class ChargingStation {
     @Id UUID id;
     @Column(name = "display_name") String displayName;
-    String street; String city;
+    String street;
+    String city;
     @Column(name = "postal_code") String postalCode;
     @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "country_code", columnDefinition = "char(2)", length = 2) String countryCode;
     @Column(name = "operator_name") String operatorName;
-    double latitude; double longitude;
+    double latitude;
+    double longitude;
     @Column(name = "availability_status") String availabilityStatus;
     protected ChargingStation() { }
 }

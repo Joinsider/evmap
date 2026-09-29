@@ -15,13 +15,14 @@ import java.util.Map;
 @RestControllerAdvice
 class ApiExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
+    private static final String ERROR = "error";
 
     @ExceptionHandler({IllegalArgumentException.class})
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     Map<String, String> badRequest(RuntimeException ex) {
         // The offending call site already logged the details; this is the "answered with 400" marker.
         log.debug("Responding 400: {}", ex.getMessage());
-        return Map.of("error", ex.getMessage());
+        return Map.of(ERROR, ex.getMessage());
     }
 
     /**
@@ -33,13 +34,13 @@ class ApiExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     Map<String, String> invalidIdentityToken(BadJwtException ex) {
         log.debug("Responding 401: {}", ex.getMessage());
-        return Map.of("error", "Invalid identity token");
+        return Map.of(ERROR, "Invalid identity token");
     }
 
     @ExceptionHandler({StationNotFoundException.class, CommentNotFoundException.class})
     @ResponseStatus(HttpStatus.NOT_FOUND)
     Map<String, String> notFound(RuntimeException ex) {
         log.debug("Responding 404: {}", ex.getMessage());
-        return Map.of("error", "Not found");
+        return Map.of(ERROR, "Not found");
     }
 }
