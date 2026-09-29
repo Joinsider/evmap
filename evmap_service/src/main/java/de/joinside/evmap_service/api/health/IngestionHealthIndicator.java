@@ -26,6 +26,8 @@ import java.util.Optional;
 class IngestionHealthIndicator implements HealthIndicator {
     private static final Logger log = LoggerFactory.getLogger(IngestionHealthIndicator.class);
 
+    private static final String LAST_SUCCESS_AT = "lastSuccessAt";
+
     private final JdbcClient jdbc;
     private final Duration maxAge;
 
@@ -41,7 +43,7 @@ class IngestionHealthIndicator implements HealthIndicator {
         if (last.isEmpty()) return Health.up().withDetail("lastRun", "none").build();
 
         SyncRun run = last.get();
-        Health.Builder health = "FAILED".equals(run.status()) ? Health.down() : staleness(run);
+        Health.Builder health = "FAILED".equals(run.status()) ? Health.down() : staleness();
         return health
                 .withDetail("lastRunStatus", run.status())
                 .withDetail("lastRunAt", run.finishedAt())
@@ -57,19 +59,19 @@ class IngestionHealthIndicator implements HealthIndicator {
      * Staleness only counts once a run has actually ingested something. A brand-new deployment has
      * only SKIPPED runs, and reporting DOWN for a system behaving exactly as designed is noise.
      */
-    private Health.Builder staleness(SyncRun run) {
+    private Health.Builder staleness() {
         // PARTIAL counts as a success for staleness: such a run did commit its data, it just could
         // not ingest every record. Excluding it would report the whole ingestion stale over a handful
         // of bad rows that the next run retries anyway.
         Instant lastSuccess = jdbc.sql("SELECT max(finished_at) FROM master.sync_run WHERE status IN ('SUCCEEDED','PARTIAL')")
                 .query(Instant.class).optional().orElse(null);
-        if (lastSuccess == null) return Health.up().withDetail("lastSuccessAt", "none");
+        if (lastSuccess == null) return Health.up().withDetail(LAST_SUCCESS_AT, "none");
 
         Duration age = Duration.between(lastSuccess, Instant.now());
-        if (age.compareTo(maxAge) <= 0) return Health.up().withDetail("lastSuccessAt", lastSuccess);
+        if (age.compareTo(maxAge) <= 0) return Health.up().withDetail(LAST_SUCCESS_AT, lastSuccess);
 
         log.warn("Last successful ingestion was {} ago, over the {} threshold", age, maxAge);
-        return Health.down().withDetail("lastSuccessAt", lastSuccess).withDetail("age", age.toString());
+        return Health.down().withDetail(LAST_SUCCESS_AT, lastSuccess).withDetail("age", age.toString());
     }
 
     private Optional<SyncRun> lastCompletedRun() {

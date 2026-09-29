@@ -42,7 +42,7 @@ class RequestLoggingFilterTests {
 
         try {
             filter.doFilter(new MockHttpServletRequest("GET", "/api/v1/stations"), new MockHttpServletResponse(), failing);
-        } catch (Exception expected) {
+        } catch (Exception _) {
             // Rethrown on purpose so the container's error handling still applies.
         }
 
