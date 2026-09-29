@@ -29,7 +29,7 @@ class AdminControllerTests {
     @Test
     @DisplayName("passes the overview through")
     void overview() {
-        AdminController.Overview overview = new AdminController.Overview(1, 2, 3, 4);
+        AdminController.Overview overview = new AdminController.Overview(1, 2, 3, 4, 5);
         when(repository.overview()).thenReturn(overview);
 
         assertThat(controller.overview()).isEqualTo(overview);

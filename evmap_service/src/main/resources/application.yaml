@@ -117,6 +117,10 @@ evmap:
     jwks-uri: https://appleid.apple.com/auth/keys
     issuer: https://appleid.apple.com
 
+  # Where the privacy policy is published (ADR 0020). Blank: the clients show no link.
+  legal:
+    privacy-policy-url: ${PRIVACY_POLICY_URL:}
+
   # Web sign-in (ADR 0018). Blank credentials switch a provider off. Redirect URIs derive from
   # web-base-url: <web>/auth/callback/{google,github} and <web>/api/v1/auth/apple/callback.
   auth:
