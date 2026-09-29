@@ -145,6 +145,18 @@ Health: `/actuator/health/container` (group `container`, `include: db`) is what 
 asks and must stay free of ingestion state — `IngestionHealthIndicator` contributes to the root
 endpoint only, because the sync container waits on the API's health and a cold start would otherwise
 deadlock. Every sync run is recorded in `master.sync_run` via `StationIngestionPort`. See ADR 0004.
+A third URL, the `sync` group, adds `ingestionCompleteness`: a `PARTIAL` run reports the custom status
+`INCOMPLETE`, which `application.yaml` ranks *below* UP for the root endpoint and maps to 503 only in
+that group. Keep the root status order listing every status — one missing from it outranks all others.
+See ADR 0019.
+
+Backups and monitoring (ADR 0019): the `backup` service in `deploy/docker-compose.yml` runs
+`deploy/backup/evmap-backup.sh` (image `ghcr.io/joinsider/evmap-backup`, released with the API image):
+nightly `pg_dump` into restic on S3-compatible storage on another host, 7/4/3 rotation, a weekly
+restore test into a scratch database, and push heartbeats to an Uptime Kuma that runs *outside* the
+VPS. `deploy/backup/test/run.sh` rehearses the full cycle (CI job `backup`; on Apple Silicon run it
+with `TEST_DB_IMAGE=kartoza/postgis:17-3.5`). The runbook is `docs/operations/backup-and-restore.md`.
+When bumping the database's Postgres major version, bump the backup image's base with it.
 
 Logging: SLF4J per class (`private static final Logger log = LoggerFactory.getLogger(X.class)`) — never a
 shared/global logger instance, since the logger name drives level config and collector filtering. MDC keys
