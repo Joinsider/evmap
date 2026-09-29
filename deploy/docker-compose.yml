@@ -81,6 +81,25 @@ services:
     depends_on:
       database: { condition: service_healthy }
 
+  web:
+    # Angular web client + nginx (ADR 0018). Point the reverse proxy for WEB_BASE_URL's domain at this
+    # container only: it serves the app and proxies /api/** to the API on the same origin.
+    image: ${EVMAP_WEB_IMAGE:-ghcr.io/joinsider/evmap-web:latest}
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      API_UPSTREAM: http://api:8080
+      # Associated domain for the iOS app's HTTPS sign-in callback; empty serves no
+      # apple-app-site-association (the iOS app then cannot use Google/GitHub sign-in).
+      APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+    ports:
+      - "${WEB_PORT:-8081}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+
   sync:
     image: ${EVMAP_IMAGE:-ghcr.io/joinsider/evmap:latest}
     pull_policy: always
