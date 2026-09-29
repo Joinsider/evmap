@@ -20,7 +20,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | Phase | Inhalt | Status | Branch / PR | ADR |
 |---|---|---|---|---|
 | 0 | Fundament: Backups, Monitoring | fertig ¹ | [#10](https://github.com/Joinsider/evmap/pull/10) | [0019](adr/0019-backups-and-monitoring.md) |
-| 1 | Login mit Google/GitHub, Web-Gerüst | in Arbeit | `feature/phase-1-login-web` | [0018](adr/0018-additional-identity-providers-and-web-client.md) |
+| 1 | Login mit Google/GitHub, Web-Gerüst | fertig ² | [#11](https://github.com/Joinsider/evmap/pull/11) | [0018](adr/0018-additional-identity-providers-and-web-client.md) |
 | 2 | Konto-Bereich und App-Store-Pflichten | offen | | neu |
 | 3 | Favoriten und Fehler melden | offen | | neu |
 | 4 | Routenplaner Stufe 1 | offen | | 0017 |
@@ -36,6 +36,9 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 
 ¹ Im Repository fertig; offen sind die 👤-Schritte auf dem VPS (Backup-Ziel, Monitore, erste
 Restore-Probe, `docs/operations/backup-and-restore.md` §5).
+² Im Repository fertig; offen sind die 👤-Schritte in `docs/operations/sign-in-providers.md`
+(Reverse Proxy auf den Web-Container, OAuth-Apps bei Google und GitHub, Services ID und Schlüssel
+bei Apple, Associated Domains, Gerätetest, Admin-Flag setzen).
 
 Separat angestoßen (Teil von Phase 0): `permitAll` für `/api/v1/stations/**` auf GET beschränken.
 Erledigt mit PR #8 (Commit `3d40492`), vor Beginn von Phase 0 auf `master` geprüft.
