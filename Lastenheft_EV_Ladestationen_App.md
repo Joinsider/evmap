@@ -42,9 +42,9 @@ Die App soll reisenden und privaten E-Auto-Fahrern in Europa eine kartenbasierte
 
 ## 4. Produktfunktionen (später - vorzubereitende Erweiterungen)
 
-- Routenplanung mit Ladehalt-Vorschlägen (Reichweitenmanagement)
+- Routenplanung mit Ladehalt-Vorschlägen (Reichweitenmanagement) — für v2 spezifiziert in §11
 - Kombination weiterer Kartenanbieter-Datenquellen (Merge über mehrere Kartenanbieter hinweg)
-- Migration der App-Netzwerkschicht von REST auf GraphQL (v2)
+- Migration der App-Netzwerkschicht von REST auf GraphQL — seit 2026-09-29 optional und nicht mehr an v2 gekoppelt (§11)
 
 ## 5. Datenquellen & Merge-Logik
 
@@ -107,6 +107,8 @@ Um den späteren Übergang zu einer vollständig getrennten Ingestion-/API-Servi
 
 ## 10. Abgrenzungskriterien (Out of Scope für v1)
 
+Diese Abgrenzung gilt für v1. Was davon in v2 aufgehoben wird, steht in §11.
+
 - Kein eigenes Meldeverfahren für Ladepunktbetreiber (nur Konsument bestehender Register)
 - Keine Zahlungsabwicklung oder Ladevorgangs-Steuerung
 - Kein Android-Client
@@ -116,3 +118,57 @@ Um den späteren Übergang zu einer vollständig getrennten Ingestion-/API-Servi
   Treffer bleibt der Status bewusst unbekannt. Kein Anspruch auf vollständige Abdeckung.
 - Kein externer Identity Provider
 - Keine GraphQL-Schnittstelle (nur Vorbereitung der Abstraktion)
+
+## 11. v2 — Erweiterungen (Stand 2026-09-29)
+
+Beschlossen mit ADR 0017 und ADR 0018; Reihenfolge und Umfang je Phase in `docs/roadmap.md`.
+Für v2 werden folgende Abgrenzungen aus §10 aufgehoben: Routenplanung und externe Login-Anbieter.
+
+### Routenplanung (ADR 0017)
+- Start, Ziel und optionale Wegpunkte (Adressen, Orte, Ladestationen, gespeicherte Orte), feste
+  Reihenfolge mit Umsortieren, Aufenthaltsdauer je Wegpunkt
+- Ladestationen entlang der Route nach Umweg-Minuten, gefiltert nach den Einstellungen und
+  bevorzugten bzw. gemiedenen Anbietern
+- Übergabe an Apple Maps (Start → Ziel oder etappenweise) und Google Maps (ganze Route), Teilen per
+  Link; die geplante Route wird für Funklöcher lokal zwischengespeichert (abweichend von §2, das
+  keine Offline-Fähigkeit verlangt)
+- Stufenweise: manuelle Planung → automatische Ladestopps mit Fahrzeugprofilen und
+  Fahrzeugdatenbank → günstigste Route auf Basis von Ladekarten und Tarifen
+- Keine eigene Turn-by-Turn-Navigation in v2 (Kandidat für v3)
+
+### Ladekarten und Preise
+- Ladekarten mit Tarifen (gepflegte Liste, möglichst automatisch aktualisiert, plus eigene
+  Tarife); Preisanzeige je Ladestation
+
+### Authentifizierung (ADR 0018)
+- Zusätzlich zu Sign in with Apple: Google und GitHub, direkt im Backend angebunden, in App und Web;
+  weiterhin kein eigenständiger Identity-Server (z. B. Zitadel)
+- Automatische Kontoverknüpfung nur über bestätigte E-Mail-Adressen; Verknüpfungen lassen sich
+  nicht lösen
+- Kontolöschung in der App über alle Anbieter, inklusive Widerruf des Apple-Tokens
+
+### Community und Konto
+- Melden von Kommentaren und Blockieren von Nutzern, Moderation durch Admins
+- Fehlermeldungen zu Stationsdaten (als Nutzerdaten, keine direkte Änderung der Stammdaten)
+- „Meine Beiträge“, Datenexport (DSGVO Art. 15/20), Favoriten (auf dem Gerät, bei Anmeldung
+  mit dem Konto synchronisiert)
+
+### Web-Client
+- Angular-Web-Client, zuerst mit Admin-Bereich (Admin-Rolle nur per manuellem Datenbank-Flag),
+  später Nutzer-Web-App mit Karte (MapKit JS), Stationen, Kommentaren und Routenplanung
+- i18n wie in der App (Deutsch als Basis, Englisch)
+
+### CarPlay
+- CarPlay als Lade-App (Stationen, Favoriten, geplante Stopps); Navigation über Apple Maps
+
+### Weitere Datenquellen
+- Nationale Register für Österreich, Schweiz, Italien und Spanien, soweit offen verfügbar
+
+### Schnittstelle
+- REST bleibt die Schnittstelle für v2; GraphQL (§7) ist optional und wird frühestens nach der
+  Web-App neu bewertet, wenn zwei Clients existieren
+
+### Weiterhin Out of Scope für v2
+- Android-Client, Zahlungsabwicklung oder Ladevorgangs-Steuerung, eigenes Meldeverfahren für
+  Betreiber
+- Eigene Turn-by-Turn-Navigation, Live-Fahrzeugdaten (v3-Kandidaten)
