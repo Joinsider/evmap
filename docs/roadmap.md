@@ -21,7 +21,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 |---|---|---|---|---|
 | 0 | Fundament: Backups, Monitoring | fertig ¹ | [#10](https://github.com/Joinsider/evmap/pull/10) | [0019](adr/0019-backups-and-monitoring.md) |
 | 1 | Login mit Google/GitHub, Web-Gerüst | fertig ² | [#11](https://github.com/Joinsider/evmap/pull/11) | [0018](adr/0018-additional-identity-providers-and-web-client.md) |
-| 2 | Konto-Bereich und App-Store-Pflichten | in Arbeit | `feature/phase-2-account-area` | [0020](adr/0020-account-area-and-app-store-obligations.md) |
+| 2 | Konto-Bereich und App-Store-Pflichten | fertig ³ | [#13](https://github.com/Joinsider/evmap/pull/13) | [0020](adr/0020-account-area-and-app-store-obligations.md) |
 | 3 | Favoriten und Fehler melden | offen | | neu |
 | 4 | Routenplaner Stufe 1 | offen | | 0017 |
 | 5 | Preise an der Station | offen | | 0017 + neu |
@@ -39,6 +39,11 @@ Restore-Probe, `docs/operations/backup-and-restore.md` §5).
 ² Im Repository fertig; offen sind die 👤-Schritte in `docs/operations/sign-in-providers.md`
 (Reverse Proxy auf den Web-Container, OAuth-Apps bei Google und GitHub, Services ID und Schlüssel
 bei Apple, Associated Domains, Gerätetest, Admin-Flag setzen).
+
+³ Im Repository fertig; offen sind die 👤-Schritte in `docs/operations/sign-in-providers.md` §5
+(`TOKEN_ENCRYPTION_KEY`, `APPLE_CLIENT_ID`, Apple-Schlüssel für Bundle-ID und Services ID,
+Datenschutzerklärung veröffentlichen und `PRIVACY_POLICY_URL` setzen, Löschung auf dem Gerät testen).
+Die Web-Oberfläche zum Melden und Blockieren von Kommentaren folgt mit der Nutzer-Web-App (Phase 8).
 
 Separat angestoßen (Teil von Phase 0): `permitAll` für `/api/v1/stations/**` auf GET beschränken.
 Erledigt mit PR #8 (Commit `3d40492`), vor Beginn von Phase 0 auf `master` geprüft.
