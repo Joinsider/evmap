@@ -19,7 +19,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 
 | Phase | Inhalt | Status | Branch / PR | ADR |
 |---|---|---|---|---|
-| 0 | Fundament: Backups, Monitoring | in Arbeit | `feature/phase-0-fundament` | 0019 |
+| 0 | Fundament: Backups, Monitoring | fertig ¹ | [#10](https://github.com/Joinsider/evmap/pull/10) | [0019](adr/0019-backups-and-monitoring.md) |
 | 1 | Login mit Google/GitHub, Web-Gerüst | offen | | 0018 |
 | 2 | Konto-Bereich und App-Store-Pflichten | offen | | neu |
 | 3 | Favoriten und Fehler melden | offen | | neu |
@@ -33,6 +33,9 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | L2 | Lückenfüller: Schweiz | offen | | 0012 |
 | L3 | Lückenfüller: Italien | offen | | 0012 |
 | L4 | Lückenfüller: Spanien | offen | | 0012 |
+
+¹ Im Repository fertig; offen sind die 👤-Schritte auf dem VPS (Backup-Ziel, Monitore, erste
+Restore-Probe, `docs/operations/backup-and-restore.md` §5).
 
 Separat angestoßen (Teil von Phase 0): `permitAll` für `/api/v1/stations/**` auf GET beschränken.
 Erledigt mit PR #8 (Commit `3d40492`), vor Beginn von Phase 0 auf `master` geprüft.
@@ -59,7 +62,7 @@ v3:                                Live-Fahrzeugdaten, Turn-by-Turn
 
 ## Phasen
 
-### Phase 0 — Fundament · S
+### Phase 0 — Fundament · S · [ADR 0019](adr/0019-backups-and-monitoring.md)
 
 Bevor mehr Nutzerdaten dazukommen, müssen sie gesichert sein und Ausfälle auffallen.
 
@@ -196,6 +199,16 @@ steht; dann gibt es zwei Clients, und das Lastenheft §7 wird entsprechend angep
 - Nicht gewählt, aber vermerkt: Fotos zu Stationen, Sternebewertungen, Widgets und Live Activity
 
 ## Entschieden am 2026-09-29
+
+Phase 0 (Details in ADR 0019):
+
+- Backup-Ziel: S3-kompatibler Speicher (SeaweedFS) auf einem zweiten Host; Sicherung mit restic.
+- Gesichert wird die ganze Datenbank; Rotation 7 täglich / 4 wöchentlich / 3 monatlich.
+- Der Backup-Job läuft als Container im Deploy-Stack, mit wöchentlichem automatischem Restore-Test.
+- Uptime Kuma läuft auf einem anderen Host und wird vom Product Owner selbst betrieben; Alarme per ntfy.
+- `PARTIAL`-Sync-Runs alarmieren über eine eigene Health-Gruppe `/actuator/health/sync`.
+
+Roadmap allgemein:
 
 - Favoriten: auf dem Gerät, bei Anmeldung mit dem Konto synchronisiert (Phase 3).
 - Web-Karte: MapKit JS; ein kompletter Umstieg auf MapLibre wird in v3 mit Turn-by-Turn geprüft.
