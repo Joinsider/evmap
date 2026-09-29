@@ -3,16 +3,17 @@ import { inject } from '@angular/core';
 import { catchError, throwError } from 'rxjs';
 import { AuthService } from './auth.service';
 
-/** Adds the bearer token to API calls and drops it when the API says it is no longer valid. */
+/**
+ * Forgets the local sign-in when the API says the session cookie is gone or no longer valid. The
+ * cookie itself needs no handling here: the browser sends it, and Angular's built-in XSRF support
+ * echoes the CSRF cookie as a header on writes.
+ */
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const auth = inject(AuthService);
-  const token = auth.accessToken();
-  if (!token || !request.url.startsWith('/api/')) return next(request);
-
-  return next(request.clone({ setHeaders: { Authorization: `Bearer ${token}` } })).pipe(
+  return next(request).pipe(
     catchError((error: unknown) => {
       // Expired after 12 h or signed with a rotated secret: the user has to sign in again.
-      if (error instanceof HttpErrorResponse && error.status === 401) auth.signOut();
+      if (error instanceof HttpErrorResponse && error.status === 401 && request.url.startsWith('/api/')) auth.forget();
       return throwError(() => error);
     }),
   );

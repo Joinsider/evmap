@@ -19,21 +19,19 @@ const PENDING_KEY = 'evmap.pendingSignIn';
 /**
  * Sign-in state of the web client (ADR 0018).
  *
- * The access token lives in memory only — never in `localStorage` or a cookie — so no other script
- * run on this origin later can pick it up from storage, and the stateless API needs no CSRF defence.
- * The price is that a full page load (reload, language switch) signs the user out; signing in again
- * is one click while the provider's own session lasts.
+ * The session is an `HttpOnly` cookie set by the backend, so this class never holds a credential
+ * and page scripts cannot read one. "Signed in" therefore means "the backend answered `/me` with an
+ * account": {@link restore} asks once at startup, which is what keeps a reload or a language switch
+ * signed in. The price of the cookie is CSRF, handled by the backend's double-submit token.
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly api = inject(EvmapApi);
 
-  private readonly token = signal<string | null>(null);
   private readonly currentAccount = signal<Account | null>(null);
 
-  readonly accessToken = this.token.asReadonly();
   readonly account = this.currentAccount.asReadonly();
-  readonly signedIn = computed(() => this.token() !== null);
+  readonly signedIn = computed(() => this.currentAccount() !== null);
   readonly isAdmin = computed(() => this.currentAccount()?.admin === true);
 
   /** Leaves for the provider. Resolves never in practice: the page navigates away. */
@@ -68,25 +66,39 @@ export class AuthService {
     if (pending?.provider !== provider || !code || query.get('state') !== pending.state) return { error: 'state' };
 
     try {
-      const token = await firstValueFrom(this.api.exchangeCode(pending.provider, code, pending.codeVerifier));
-      this.token.set(token);
-      await this.refreshAccount();
+      await firstValueFrom(this.api.exchangeCode(pending.provider, code, pending.codeVerifier), { defaultValue: undefined });
+      if (!(await this.refreshAccount())) throw new Error('no session');
       return { returnUrl: pending.returnUrl };
     } catch {
-      this.signOut();
+      this.forget();
       return { error: 'exchange' };
     }
   }
 
+  /** Asks the backend who the session cookie belongs to; `null` when there is none. */
   async refreshAccount(): Promise<Account | null> {
-    if (!this.token()) return null;
-    const account = await firstValueFrom(this.api.me());
-    this.currentAccount.set(account);
-    return account;
+    try {
+      const account = await firstValueFrom(this.api.me());
+      this.currentAccount.set(account);
+      return account;
+    } catch {
+      this.currentAccount.set(null);
+      return null;
+    }
   }
 
-  signOut() {
-    this.token.set(null);
+  /** Picks the sign-in up after a full page load. */
+  restore(): Promise<Account | null> {
+    return this.refreshAccount();
+  }
+
+  async signOut() {
+    this.forget();
+    await firstValueFrom(this.api.signOut(), { defaultValue: undefined }).catch(() => undefined);
+  }
+
+  /** Drops the local state only; used when the backend already said the session is gone. */
+  forget() {
     this.currentAccount.set(null);
   }
 }

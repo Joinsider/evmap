@@ -53,9 +53,34 @@ describe('AuthService', () => {
     expect(result).toEqual({ returnUrl: '/admin' });
     expect(api.exchanges[0].code).toBe('the-code');
     expect(api.exchanges[0].codeVerifier).toMatch(/^[A-Za-z0-9_-]{64}$/);
-    expect(auth.accessToken()).toBe('access-token');
+    expect(auth.signedIn()).toBe(true);
     expect(auth.isAdmin()).toBe(true);
+    expect(sessionStorage.getItem('evmap.pendingSignIn')).toBeNull();
     expect(sessionStorage.length).toBe(0);
+  });
+
+  it('keeps no credential in page storage and picks the session up again after a page load', async () => {
+    api.hasSession = true;
+
+    expect(auth.signedIn()).toBe(false);
+    expect((await auth.restore())?.id).toBe('acc-1');
+    expect(auth.signedIn()).toBe(true);
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it('stays signed out on a page load without a session', async () => {
+    expect(await auth.restore()).toBeNull();
+    expect(auth.signedIn()).toBe(false);
+  });
+
+  it('signs out through the backend, which removes the cookie', async () => {
+    api.hasSession = true;
+    await auth.restore();
+
+    await auth.signOut();
+
+    expect(auth.signedIn()).toBe(false);
+    expect(api.hasSession).toBe(false);
   });
 
   it('refuses an answer whose state does not match, without exchanging it', async () => {

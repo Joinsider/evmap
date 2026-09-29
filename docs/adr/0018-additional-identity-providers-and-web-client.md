@@ -69,8 +69,8 @@ UI.
   modules, without restructuring.
 - The web API client sits behind an interface, like `ChargingStationRepository` on iOS, so the
   GraphQL option (roadmap) stays open for both clients.
-- The access token is kept in memory; there is no cookie auth, so CSRF protection can stay disabled
-  in the stateless API. Served as its own container behind the same reverse proxy as the API, on
+- The web session is an `HttpOnly` cookie (see *Web session cookie and CSRF* below), so page
+  scripts never hold a credential. Served as its own container behind the same reverse proxy as the API, on
   the same origin, so no CORS configuration is needed.
 - App strings go through i18n resources, like on iOS (Lastenheft §3).
 
@@ -147,8 +147,8 @@ tokens issued before the migration stay valid because the ids did not change.
   revoking it works at once.
 
 **Web** (`evmap_web/`): Angular 22, standalone components, lazy feature areas (`login`, `admin`,
-`home`). `EvmapApi` is the seam, `RestEvmapApi` the implementation. `AuthService` keeps the token in
-memory; PKCE verifier and `state` survive the provider round trip in `sessionStorage` and are
+`home`). `EvmapApi` is the seam, `RestEvmapApi` the implementation. `AuthService` holds no credential
+at all, only the account `/me` answered with; PKCE verifier and `state` survive the provider round trip in `sessionStorage` and are
 removed when read. The container (`nginxinc/nginx-unprivileged`) proxies `/api/**`, resolves the API
 per request (so it starts before the API does), redirects locale-less paths by `Accept-Language`,
 sends a strict CSP (critical-CSS inlining is off because it needs an inline script) and writes
@@ -179,6 +179,29 @@ redeems the code through `ChargingStationRepository`. Entitlement:
 - **Rate limiting of the sign-in endpoints** is not built. Every code exchange costs a provider
   round trip; if abuse shows up in the logs, options are (a) a per-IP limit in the web container's
   nginx (`limit_req`, recommended — no code), or (b) a bucket in the API.
+
+## Web session cookie and CSRF
+
+Amendment. The web client first held the token in memory only, which signed users out on every
+reload or language switch (both are full page loads). Decision of the product owner: a server-set
+session cookie instead of script-readable storage.
+
+- `POST /api/v1/auth/{provider}/code` answers `204` and sets `evmap_session` (`HttpOnly`, `Secure`,
+  `SameSite=Lax`, `Path=/api`, `Max-Age` = `jwt-ttl`); the token is never in a body the page can read.
+  `POST /api/v1/auth/logout` expires it. The value is the same signed token iOS sends as a bearer
+  header; `BearerTokenFilter` reads the cookie only when there is no `Authorization` header.
+- The web client restores its state on start (`provideAppInitializer` -> `GET /me`); 401 means signed out.
+- **CSRF is enabled** (chosen option: `SameSite=Lax` + Spring CSRF token). `CookieCsrfTokenRepository`
+  writes a script-readable `XSRF-TOKEN` cookie on every response; Angular's built-in XSRF support echoes
+  it as `X-XSRF-TOKEN` on writes. A write is checked only when it carries the session cookie and no
+  `Authorization` header, so iOS and anonymous callers are unaffected. The sign-in exchanges
+  (`/apple`, `/apple/callback`, `/{provider}/code`) are exempt: Apple's `form_post` is cross-site by
+  design and each exchange is bound to its flow by `state`/PKCE. The plain (non-XOR) request handler
+  is required for the Angular echo. Same-origin via nginx still means no CORS.
+- Development: the cookie is `Secure` by default (`SESSION_COOKIE_SECURE`); Chrome accepts that on
+  `http://localhost`, set it to `false` for Safari or other plain-http origins.
+- Trade-off: the browser now attaches the credential itself (hence CSRF); in exchange an XSS can no
+  longer read or exfiltrate it, only act while the page is open.
 
 ## References
 

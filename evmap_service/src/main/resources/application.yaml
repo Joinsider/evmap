@@ -106,6 +106,9 @@ evmap:
   security:
     jwt-secret: ${JWT_SECRET:change-this-development-secret-to-a-long-random-value}
     jwt-ttl: PT12H
+    # The web client's session cookie is Secure by default. Chrome accepts that on http://localhost;
+    # set SESSION_COOKIE_SECURE=false for Safari or any other plain-http development origin.
+    session-cookie-secure: ${SESSION_COOKIE_SECURE:true}
   apple:
     audience: ${APPLE_CLIENT_ID:}
     jwks-uri: https://appleid.apple.com/auth/keys

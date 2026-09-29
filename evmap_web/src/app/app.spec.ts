@@ -23,6 +23,8 @@ describe('App', () => {
 
     (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('button.link')!.click();
 
+    await fixture.whenStable();
+
     expect(auth.signedIn()).toBe(false);
     expect(navigate).toHaveBeenCalledWith('/');
   });

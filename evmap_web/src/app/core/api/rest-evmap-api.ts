@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable } from 'rxjs';
 import { EvmapApi } from './evmap-api';
 import { Account, AdminOverview, ProviderToken, SignInProvider, SyncRun } from './models';
 
@@ -16,10 +16,12 @@ export class RestEvmapApi extends EvmapApi {
     return this.http.get<SignInProvider[]>('/api/v1/auth/providers');
   }
 
-  exchangeCode(provider: ProviderToken, code: string, codeVerifier?: string): Observable<string> {
-    return this.http
-      .post<{ accessToken: string }>(`/api/v1/auth/${encodeURIComponent(provider)}/code`, { code, codeVerifier })
-      .pipe(map((response) => response.accessToken));
+  exchangeCode(provider: ProviderToken, code: string, codeVerifier?: string): Observable<void> {
+    return this.http.post<void>(`/api/v1/auth/${encodeURIComponent(provider)}/code`, { code, codeVerifier });
+  }
+
+  signOut(): Observable<void> {
+    return this.http.post<void>('/api/v1/auth/logout', null);
   }
 
   me(): Observable<Account> {
