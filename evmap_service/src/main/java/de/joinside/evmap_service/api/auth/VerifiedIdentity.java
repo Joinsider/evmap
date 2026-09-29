@@ -7,13 +7,21 @@ package de.joinside.evmap_service.api.auth;
  * {@code emailVerified} is the only thing account linking trusts (ADR 0018). Never derive it from
  * anything but the provider's own claim.
  */
-record VerifiedIdentity(Provider provider, String subject, String email, boolean emailVerified) {
+record VerifiedIdentity(Provider provider, String subject, String email, boolean emailVerified, ProviderRefreshToken refreshToken) {
     private static final String APPLE_RELAY_DOMAIN = "@privaterelay.appleid.com";
 
     VerifiedIdentity {
         if (subject == null || subject.isBlank()) throw new IllegalArgumentException("Provider returned no subject");
         email = email == null || email.isBlank() ? null : email.trim();
         emailVerified = emailVerified && email != null;
+    }
+
+    VerifiedIdentity(Provider provider, String subject, String email, boolean emailVerified) {
+        this(provider, subject, email, emailVerified, null);
+    }
+
+    VerifiedIdentity withRefreshToken(ProviderRefreshToken token) {
+        return new VerifiedIdentity(provider, subject, email, emailVerified, token);
     }
 
     /**

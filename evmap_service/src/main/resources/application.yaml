@@ -109,6 +109,9 @@ evmap:
     # The web client's session cookie is Secure by default. Chrome accepts that on http://localhost;
     # set SESSION_COOKIE_SECURE=false for Safari or any other plain-http development origin.
     session-cookie-secure: ${SESSION_COOKIE_SECURE:true}
+    # Encrypts the Apple refresh tokens kept for revocation on account deletion (ADR 0020): base64 of
+    # 32 random bytes (`openssl rand -base64 32`). Blank = none are stored, which is fine locally.
+    token-encryption-key: ${TOKEN_ENCRYPTION_KEY:}
   apple:
     audience: ${APPLE_CLIENT_ID:}
     jwks-uri: https://appleid.apple.com/auth/keys

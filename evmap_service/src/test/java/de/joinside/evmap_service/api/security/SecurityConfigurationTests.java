@@ -38,6 +38,7 @@ class SecurityConfigurationTests {
     private static final String COMMENTS = "/api/v1/stations/{stationId}/comments";
     private static final String BODY = "{\"body\":\"Works fine\"}";
     private static final UUID ADMIN = UUID.randomUUID();
+    private static final UUID GONE = UUID.randomUUID();
 
     @Autowired
     private MockMvc mockMvc;
@@ -111,6 +112,13 @@ class SecurityConfigurationTests {
     }
 
     @Test
+    @DisplayName("a valid token for a deleted account is treated as signed out")
+    void deletedAccountTokenIsRejected() throws Exception {
+        mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer " + tokens.issue(GONE))).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/me").cookie(new Cookie(SessionCookie.NAME, tokens.issue(GONE)))).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     @DisplayName("the admin area answers 401 without a token, 403 without the flag and 200 with it")
     void adminNeedsTheFlag() throws Exception {
         mockMvc.perform(get("/api/v1/admin/overview")).andExpect(status().isUnauthorized());
@@ -167,7 +175,12 @@ class SecurityConfigurationTests {
     }
 
     /** Only {@link #ADMIN} carries the flag. */
-    static class Admins implements AdminAccounts {
+    static class Admins implements AdminAccounts, KnownAccounts {
+        @Override
+        public boolean exists(UUID accountId) {
+            return !GONE.equals(accountId);
+        }
+
         @Override
         public boolean isAdmin(UUID accountId) {
             return ADMIN.equals(accountId);

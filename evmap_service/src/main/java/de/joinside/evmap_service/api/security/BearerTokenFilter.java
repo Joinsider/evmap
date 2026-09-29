@@ -20,10 +20,12 @@ class BearerTokenFilter extends OncePerRequestFilter {
 
     private final AccessTokenService tokens;
     private final SessionCookie sessionCookie;
+    private final KnownAccounts accounts;
 
-    BearerTokenFilter(AccessTokenService tokens, SessionCookie sessionCookie) {
+    BearerTokenFilter(AccessTokenService tokens, SessionCookie sessionCookie, KnownAccounts accounts) {
         this.tokens = tokens;
         this.sessionCookie = sessionCookie;
+        this.accounts = accounts;
     }
 
     @Override
@@ -34,10 +36,15 @@ class BearerTokenFilter extends OncePerRequestFilter {
         if (token != null) {
             try {
                 CurrentUser user = tokens.verify(token);
-                SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(user, null, java.util.List.of()));
-                // Makes every subsequent log line of this request attributable to the caller.
-                LogContext.put(LogContext.USER_ID, user.accountId());
-                log.debug("Authenticated request for account {}", user.accountId());
+                if (accounts.exists(user.accountId())) {
+                    SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(user, null, java.util.List.of()));
+                    // Makes every subsequent log line of this request attributable to the caller.
+                    LogContext.put(LogContext.USER_ID, user.accountId());
+                    log.debug("Authenticated request for account {}", user.accountId());
+                } else {
+                    // A valid signature for an account that was deleted: treated as signed out.
+                    log.debug("Ignored a token for a deleted account on {} {}", request.getMethod(), request.getRequestURI());
+                }
             } catch (IllegalArgumentException rejected) {
                 // Never log the token itself — an expired or forged token is a normal, expected event.
                 log.warn("Rejected access token on {} {}: {}", request.getMethod(), request.getRequestURI(), rejected.getMessage());

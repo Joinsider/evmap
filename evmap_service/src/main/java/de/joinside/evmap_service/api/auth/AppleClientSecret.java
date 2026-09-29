@@ -29,9 +29,17 @@ final class AppleClientSecret {
     }
 
     static String create(AuthProperties.AppleWeb apple, Instant now) {
+        return create(apple, apple.servicesId(), now);
+    }
+
+    /**
+     * The secret for {@code clientId}: the Services ID for the web flow, the bundle id for the native
+     * one. One key signs for both when they share a primary App ID (docs/operations/sign-in-providers.md).
+     */
+    static String create(AuthProperties.AppleWeb apple, String clientId, Instant now) {
         try {
             JWTClaimsSet claims = new JWTClaimsSet.Builder()
-                    .issuer(apple.teamId()).subject(apple.servicesId()).audience(AUDIENCE)
+                    .issuer(apple.teamId()).subject(clientId).audience(AUDIENCE)
                     .issueTime(Date.from(now)).expirationTime(Date.from(now.plus(LIFETIME)))
                     .build();
             SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.ES256).keyID(apple.keyId()).build(), claims);

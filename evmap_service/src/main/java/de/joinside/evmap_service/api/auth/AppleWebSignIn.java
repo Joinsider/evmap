@@ -88,13 +88,17 @@ class AppleWebSignIn implements CodeSignIn {
         }
         if (response == null || response.id_token() == null) throw new SignInFailedException("Apple returned no ID token");
         try {
-            return identityTokens.verify(response.id_token());
+            VerifiedIdentity identity = identityTokens.verify(response.id_token());
+            // Kept for revocation when the account is deleted (ADR 0020); AccountService drops it if
+            // no encryption key is configured.
+            return response.refresh_token() == null ? identity
+                    : identity.withRefreshToken(new ProviderRefreshToken(response.refresh_token(), properties.appleWeb().servicesId()));
         } catch (JwtException exception) {
             throw new SignInFailedException("Apple ID token rejected", exception);
         }
     }
 
     @SuppressWarnings("java:S116") // Field names are Apple's wire format.
-    record TokenResponse(String id_token) {
+    record TokenResponse(String id_token, String refresh_token) {
     }
 }

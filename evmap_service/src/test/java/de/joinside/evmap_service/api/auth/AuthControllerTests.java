@@ -29,11 +29,12 @@ class AuthControllerTests {
     private final CodeSignIn github = provider(Provider.GITHUB, false, true);
     private final CodeSignIn apple = provider(Provider.APPLE, true, false);
     private final AccountService accounts = mock(AccountService.class);
+    private final AppleTokens appleTokens = mock(AppleTokens.class);
     private final AuthProperties properties = new AuthProperties("https://evmap.example", Duration.ofSeconds(5),
             new AuthProperties.Client("", ""), new AuthProperties.Client("", ""), new AuthProperties.AppleWeb("", "", "", ""));
 
     private final MockMvc mockMvc = MockMvcBuilders
-            .standaloneSetup(new AuthController(mock(AppleIdentityTokenVerifier.class), List.of(github, apple, google), accounts,
+            .standaloneSetup(new AuthController(mock(AppleIdentityTokenVerifier.class), appleTokens, List.of(github, apple, google), accounts,
                     new AccessTokenService("test-secret-with-sufficient-length", Duration.ofHours(1)), properties,
                     new de.joinside.evmap_service.api.security.SessionCookieAccess().cookie()))
             .setControllerAdvice(new de.joinside.evmap_service.api.ApiExceptionHandlerAccess().handler())
@@ -70,6 +71,44 @@ class AuthControllerTests {
                         org.hamcrest.Matchers.startsWith("evmap_session="), org.hamcrest.Matchers.containsString("HttpOnly"),
                         org.hamcrest.Matchers.containsString("SameSite=Lax"), org.hamcrest.Matchers.containsString("Path=/api"))))
                 .andExpect(content().string(""));
+    }
+
+    @Test
+    @DisplayName("native Apple sign-in hands the authorization code's refresh token on to the account")
+    void nativeAppleKeepsRefreshToken() throws Exception {
+        AppleIdentityTokenVerifier verifier = mock(AppleIdentityTokenVerifier.class);
+        VerifiedIdentity identity = new VerifiedIdentity(Provider.APPLE, "a-1", "ada@example.org", true);
+        ProviderRefreshToken refresh = new ProviderRefreshToken("r-1", "de.joinside.EVMap");
+        when(verifier.verify("id-token")).thenReturn(identity);
+        when(appleTokens.redeemNativeCode("auth-code", identity)).thenReturn(java.util.Optional.of(refresh));
+        when(accounts.signIn(any())).thenReturn(java.util.UUID.randomUUID());
+        MockMvc native_ = MockMvcBuilders.standaloneSetup(new AuthController(verifier, appleTokens, List.of(), accounts,
+                new AccessTokenService("test-secret-with-sufficient-length", Duration.ofHours(1)), properties,
+                new de.joinside.evmap_service.api.security.SessionCookieAccess().cookie())).build();
+
+        native_.perform(post("/api/v1/auth/apple").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"identityToken\":\"id-token\",\"authorizationCode\":\"auth-code\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.accessToken").isNotEmpty());
+
+        verify(accounts).signIn(identity.withRefreshToken(refresh));
+    }
+
+    @Test
+    @DisplayName("native Apple sign-in still works when no refresh token can be had")
+    void nativeAppleWithoutRefreshToken() throws Exception {
+        AppleIdentityTokenVerifier verifier = mock(AppleIdentityTokenVerifier.class);
+        VerifiedIdentity identity = new VerifiedIdentity(Provider.APPLE, "a-1", null, false);
+        when(verifier.verify("id-token")).thenReturn(identity);
+        when(appleTokens.redeemNativeCode(any(), any())).thenReturn(java.util.Optional.empty());
+        when(accounts.signIn(any())).thenReturn(java.util.UUID.randomUUID());
+        MockMvc native_ = MockMvcBuilders.standaloneSetup(new AuthController(verifier, appleTokens, List.of(), accounts,
+                new AccessTokenService("test-secret-with-sufficient-length", Duration.ofHours(1)), properties,
+                new de.joinside.evmap_service.api.security.SessionCookieAccess().cookie())).build();
+
+        native_.perform(post("/api/v1/auth/apple").contentType(MediaType.APPLICATION_JSON).content("{\"identityToken\":\"id-token\"}"))
+                .andExpect(status().isOk());
+
+        verify(accounts).signIn(identity);
     }
 
     @Test
