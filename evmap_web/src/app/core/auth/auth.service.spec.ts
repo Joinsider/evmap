@@ -55,7 +55,21 @@ describe('AuthService', () => {
     expect(api.exchanges[0].codeVerifier).toMatch(/^[A-Za-z0-9_-]{64}$/);
     expect(auth.accessToken()).toBe('access-token');
     expect(auth.isAdmin()).toBe(true);
-    expect(sessionStorage.length).toBe(0);
+    expect(sessionStorage.getItem('evmap.pendingSignIn')).toBeNull();
+    expect(sessionStorage.getItem('evmap.accessToken')).toBe('access-token');
+  });
+
+  it('restores the token after a page load and forgets it on sign-out', () => {
+    sessionStorage.setItem('evmap.accessToken', 'kept');
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({ providers: [{ provide: EvmapApi, useValue: api }] });
+    const reloaded = TestBed.inject(AuthService);
+
+    expect(reloaded.signedIn()).toBe(true);
+    expect(reloaded.accessToken()).toBe('kept');
+
+    reloaded.signOut();
+    expect(sessionStorage.getItem('evmap.accessToken')).toBeNull();
   });
 
   it('refuses an answer whose state does not match, without exchanging it', async () => {

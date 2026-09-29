@@ -203,8 +203,8 @@ for sync. See ADR 0003.
 areas under `src/app/features/` (`login`, `admin`, `home`); the user web app of roadmap phase 8 joins
 as more of them. `EvmapApi` (abstract class, `core/api/`) is the only way features reach the backend
 — the counterpart to `ChargingStationRepository`; never inject `HttpClient` into a feature. The access
-token lives **in memory only** (`AuthService`); only the PKCE verifier and `state` of a running sign-in
-go to `sessionStorage`. The admin route guard only hides UI; the backend check is the boundary.
+token lives in memory (`AuthService`) and is mirrored to `sessionStorage` so reloads and language
+switches keep the sign-in (never `localStorage`); the PKCE verifier and `state` of a running sign-in go there too. The admin route guard only hides UI; the backend check is the boundary.
 Every user-facing string is marked for `@angular/localize` (German source, `messages.en.xlf`), and a
 missing translation fails the production build. The container's nginx serves `/de/` and `/en/`,
 redirects everything else by `Accept-Language`, and proxies `/api/**` to the API on the same origin —

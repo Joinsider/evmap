@@ -15,20 +15,38 @@ interface PendingSignIn {
 export type SignInError = 'state' | 'provider' | 'exchange';
 
 const PENDING_KEY = 'evmap.pendingSignIn';
+const TOKEN_KEY = 'evmap.accessToken';
+
+function readToken(): string | null {
+  try {
+    return sessionStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeToken(token: string | null) {
+  try {
+    if (token) sessionStorage.setItem(TOKEN_KEY, token);
+    else sessionStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // Storage blocked: the session then lasts until the next page load, as before.
+  }
+}
 
 /**
  * Sign-in state of the web client (ADR 0018).
  *
- * The access token lives in memory only — never in `localStorage` or a cookie — so no other script
- * run on this origin later can pick it up from storage, and the stateless API needs no CSRF defence.
- * The price is that a full page load (reload, language switch) signs the user out; signing in again
- * is one click while the provider's own session lasts.
+ * The access token is kept in memory and mirrored to `sessionStorage`, so a reload or a language
+ * switch (a full page load) keeps the user signed in. It is scoped to the tab and gone when the tab
+ * closes; it is never in `localStorage` or a cookie, so the stateless API needs no CSRF defence. The
+ * account is not stored: `refreshAccount()` re-reads it, and a 401 there drops a stale token.
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly api = inject(EvmapApi);
 
-  private readonly token = signal<string | null>(null);
+  private readonly token = signal<string | null>(readToken());
   private readonly currentAccount = signal<Account | null>(null);
 
   readonly accessToken = this.token.asReadonly();
@@ -70,6 +88,7 @@ export class AuthService {
     try {
       const token = await firstValueFrom(this.api.exchangeCode(pending.provider, code, pending.codeVerifier));
       this.token.set(token);
+      writeToken(token);
       await this.refreshAccount();
       return { returnUrl: pending.returnUrl };
     } catch {
@@ -87,6 +106,7 @@ export class AuthService {
 
   signOut() {
     this.token.set(null);
+    writeToken(null);
     this.currentAccount.set(null);
   }
 }

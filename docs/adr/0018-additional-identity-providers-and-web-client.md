@@ -69,7 +69,7 @@ UI.
   modules, without restructuring.
 - The web API client sits behind an interface, like `ChargingStationRepository` on iOS, so the
   GraphQL option (roadmap) stays open for both clients.
-- The access token is kept in memory; there is no cookie auth, so CSRF protection can stay disabled
+- The access token is kept in memory and mirrored to `sessionStorage` (tab-scoped, survives reloads and language switches; originally memory-only, which logged users out on every reload); there is no cookie auth, so CSRF protection can stay disabled
   in the stateless API. Served as its own container behind the same reverse proxy as the API, on
   the same origin, so no CORS configuration is needed.
 - App strings go through i18n resources, like on iOS (Lastenheft §3).
