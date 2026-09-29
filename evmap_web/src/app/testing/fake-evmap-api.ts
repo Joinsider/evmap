@@ -10,18 +10,27 @@ export class FakeEvmapApi extends EvmapApi {
   runs: SyncRun[] = [];
   exchanges: { provider: ProviderToken; code: string; codeVerifier?: string }[] = [];
   rejectExchange = false;
+  /** Stands in for the browser holding the session cookie. */
+  hasSession = false;
 
   signInProviders(): Observable<SignInProvider[]> {
     return of(this.providers);
   }
 
-  exchangeCode(provider: ProviderToken, code: string, codeVerifier?: string): Observable<string> {
+  exchangeCode(provider: ProviderToken, code: string, codeVerifier?: string): Observable<void> {
     this.exchanges.push({ provider, code, codeVerifier });
-    return this.rejectExchange ? throwError(() => new Error('401')) : of('access-token');
+    if (this.rejectExchange) return throwError(() => new Error('401'));
+    this.hasSession = true;
+    return of(undefined);
+  }
+
+  signOut(): Observable<void> {
+    this.hasSession = false;
+    return of(undefined);
   }
 
   me(): Observable<Account> {
-    return of(this.account);
+    return this.hasSession ? of(this.account) : throwError(() => new Error('401'));
   }
 
   adminOverview(): Observable<AdminOverview> {

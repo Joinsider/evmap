@@ -19,24 +19,30 @@ class BearerTokenFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(BearerTokenFilter.class);
 
     private final AccessTokenService tokens;
+    private final SessionCookie sessionCookie;
 
-    BearerTokenFilter(AccessTokenService tokens) {
+    BearerTokenFilter(AccessTokenService tokens, SessionCookie sessionCookie) {
         this.tokens = tokens;
+        this.sessionCookie = sessionCookie;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
+        // An Authorization header wins outright: a request that carries one is never treated as
+        // cookie-authenticated, which is also what exempts it from CSRF protection.
         String authorization = request.getHeader("Authorization");
-        if (authorization != null && authorization.startsWith("Bearer ")) {
+        String token = authorization != null ? (authorization.startsWith("Bearer ") ? authorization.substring(7) : null)
+                : sessionCookie.read(request).orElse(null);
+        if (token != null) {
             try {
-                CurrentUser user = tokens.verify(authorization.substring(7));
+                CurrentUser user = tokens.verify(token);
                 SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(user, null, java.util.List.of()));
                 // Makes every subsequent log line of this request attributable to the caller.
                 LogContext.put(LogContext.USER_ID, user.accountId());
                 log.debug("Authenticated request for account {}", user.accountId());
             } catch (IllegalArgumentException rejected) {
                 // Never log the token itself — an expired or forged token is a normal, expected event.
-                log.warn("Rejected bearer token on {} {}: {}", request.getMethod(), request.getRequestURI(), rejected.getMessage());
+                log.warn("Rejected access token on {} {}: {}", request.getMethod(), request.getRequestURI(), rejected.getMessage());
             }
         }
         chain.doFilter(request, response);

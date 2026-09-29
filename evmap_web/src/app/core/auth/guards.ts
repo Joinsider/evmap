@@ -10,7 +10,7 @@ export const adminGuard: CanMatchFn = async (_route, segments) => {
   const auth = inject(AuthService);
   const router = inject(Router);
   const target = '/' + segments.map((segment) => segment.path).join('/');
-  if (!auth.signedIn()) return router.createUrlTree(['/login'], { queryParams: { returnUrl: target } });
-  const account = auth.account() ?? (await auth.refreshAccount().catch(() => null));
-  return account?.admin ? true : router.createUrlTree(['/forbidden']);
+  const account = auth.account() ?? (await auth.refreshAccount());
+  if (!account) return router.createUrlTree(['/login'], { queryParams: { returnUrl: target } });
+  return account.admin ? true : router.createUrlTree(['/forbidden']);
 };

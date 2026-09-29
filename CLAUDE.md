@@ -149,8 +149,12 @@ URI from `GET /api/v1/auth/providers`, add `state` and PKCE, and post the code t
 credentials is simply off. `AccountService` links a new identity to an existing account **only on a
 matching verified e-mail, never an Apple relay address, and only at that identity's first sign-in**
 — do not loosen any of the three, it is the account-takeover boundary. The API then issues its own
-bearer token (`AccessTokenService`, `sub` = account id) validated per request by `BearerTokenFilter`.
-`SecurityConfiguration` is stateless (no sessions, CSRF disabled since there's no cookie auth) and
+token (`AccessTokenService`, `sub` = account id), sent by iOS as a bearer header and by the web
+client as the `HttpOnly` `evmap_session` cookie (`SessionCookie`), validated per request by
+`BearerTokenFilter`. `SecurityConfiguration` is stateless (no sessions). CSRF is **on** for writes that
+carry the session cookie and no `Authorization` header (`XSRF-TOKEN` cookie <-> `X-XSRF-TOKEN`, plain
+handler for Angular); bearer, anonymous and the sign-in exchanges are exempt - do not widen the
+exemption. See ADR 0018 (*Web session cookie and CSRF*). It
 permits `/actuator/health`, `GET /api/v1/stations/**`, `GET /api/v1/operators`, the sign-in endpoints
 under `/api/v1/auth/`; `/api/v1/admin/**` additionally requires the account's `is_admin` flag, read
 from the database per request (`AdminAccounts`) and set **only by a manual `UPDATE`** — there is no
@@ -202,9 +206,10 @@ for sync. See ADR 0003.
 `evmap_web/` is one Angular application (standalone components, zoneless, signals) with lazy feature
 areas under `src/app/features/` (`login`, `admin`, `home`); the user web app of roadmap phase 8 joins
 as more of them. `EvmapApi` (abstract class, `core/api/`) is the only way features reach the backend
-— the counterpart to `ChargingStationRepository`; never inject `HttpClient` into a feature. The access
-token lives in memory (`AuthService`) and is mirrored to `sessionStorage` so reloads and language
-switches keep the sign-in (never `localStorage`); the PKCE verifier and `state` of a running sign-in go there too. The admin route guard only hides UI; the backend check is the boundary.
+— the counterpart to `ChargingStationRepository`; never inject `HttpClient` into a feature. The
+session is an HttpOnly cookie the page cannot read: `AuthService` holds only the account and
+restores it via `/me` on start, so reloads and language switches stay signed in. Only the PKCE
+verifier and `state` of a running sign-in go to `sessionStorage`. The admin route guard only hides UI; the backend check is the boundary.
 Every user-facing string is marked for `@angular/localize` (German source, `messages.en.xlf`), and a
 missing translation fails the production build. The container's nginx serves `/de/` and `/en/`,
 redirects everything else by `Accept-Language`, and proxies `/api/**` to the API on the same origin —

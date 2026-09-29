@@ -36,8 +36,8 @@ export class App {
   protected readonly auth = inject(AuthService);
   private readonly router = inject(Router);
 
-  protected signOut() {
-    this.auth.signOut();
+  protected async signOut() {
+    await this.auth.signOut();
     void this.router.navigateByUrl('/');
   }
 }

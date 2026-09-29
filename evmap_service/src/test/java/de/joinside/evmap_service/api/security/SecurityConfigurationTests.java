@@ -1,5 +1,6 @@
 package de.joinside.evmap_service.api.security;
 
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +21,7 @@ import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -30,7 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * the thing under test, not the controllers.
  */
 @WebMvcTest(controllers = SecurityConfigurationTests.Routes.class)
-@Import({SecurityConfiguration.class, AccessTokenService.class, SecurityConfigurationTests.Routes.class, SecurityConfigurationTests.Admins.class})
+@Import({SecurityConfiguration.class, AccessTokenService.class, SessionCookie.class, SecurityConfigurationTests.Routes.class, SecurityConfigurationTests.Admins.class})
 class SecurityConfigurationTests {
 
     private static final String COMMENTS = "/api/v1/stations/{stationId}/comments";
@@ -118,6 +120,52 @@ class SecurityConfigurationTests {
                 .andExpect(status().isOk());
     }
 
+    @Test
+    @DisplayName("the session cookie authenticates reads, and an Authorization header overrides it")
+    void sessionCookieAuthenticates() throws Exception {
+        Cookie session = new Cookie(SessionCookie.NAME, tokens.issue(UUID.randomUUID()));
+        mockMvc.perform(get("/api/v1/me").cookie(session)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/me").cookie(session).header("Authorization", "Bearer not-a-token"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/me").cookie(new Cookie(SessionCookie.NAME, "forged"))).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("a cookie-authenticated write needs the CSRF token, echoed as X-XSRF-TOKEN")
+    void cookieWriteNeedsCsrfToken() throws Exception {
+        Cookie session = new Cookie(SessionCookie.NAME, tokens.issue(UUID.randomUUID()));
+        mockMvc.perform(post(COMMENTS, UUID.randomUUID()).cookie(session).contentType(MediaType.APPLICATION_JSON).content(BODY))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post(COMMENTS, UUID.randomUUID()).cookie(session, new Cookie("XSRF-TOKEN", "t")).header("X-XSRF-TOKEN", "t")
+                        .contentType(MediaType.APPLICATION_JSON).content(BODY))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post(COMMENTS, UUID.randomUUID()).cookie(session, new Cookie("XSRF-TOKEN", "t")).header("X-XSRF-TOKEN", "other")
+                        .contentType(MediaType.APPLICATION_JSON).content(BODY))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("sign-in exchanges are exempt from CSRF even when a stale session cookie is present")
+    void signInIsExempt() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/google/code").cookie(new Cookie(SessionCookie.NAME, "stale"))
+                .contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("responses carry the CSRF cookie so the client has a token before its first write")
+    void csrfCookieIsIssued() throws Exception {
+        mockMvc.perform(get("/api/v1/operators")).andExpect(cookie().exists("XSRF-TOKEN"));
+    }
+
+    @Test
+    @DisplayName("logging out is a cookie write and needs the CSRF token too")
+    void logoutNeedsCsrfToken() throws Exception {
+        Cookie session = new Cookie(SessionCookie.NAME, tokens.issue(UUID.randomUUID()));
+        mockMvc.perform(post("/api/v1/auth/logout").cookie(session)).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/auth/logout").cookie(session, new Cookie("XSRF-TOKEN", "t")).header("X-XSRF-TOKEN", "t"))
+                .andExpect(status().isOk());
+    }
+
     /** Only {@link #ADMIN} carries the flag. */
     static class Admins implements AdminAccounts {
         @Override
@@ -140,6 +188,11 @@ class SecurityConfigurationTests {
 
         @PostMapping("/api/v1/auth/apple/callback")
         String appleCallback() {
+            return "";
+        }
+
+        @PostMapping("/api/v1/auth/logout")
+        String logout() {
             return "";
         }
 

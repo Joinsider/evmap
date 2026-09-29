@@ -18,6 +18,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -33,7 +34,8 @@ class AuthControllerTests {
 
     private final MockMvc mockMvc = MockMvcBuilders
             .standaloneSetup(new AuthController(mock(AppleIdentityTokenVerifier.class), List.of(github, apple, google), accounts,
-                    new AccessTokenService("test-secret-with-sufficient-length", Duration.ofHours(1)), properties))
+                    new AccessTokenService("test-secret-with-sufficient-length", Duration.ofHours(1)), properties,
+                    new de.joinside.evmap_service.api.security.SessionCookieAccess().cookie()))
             .setControllerAdvice(new de.joinside.evmap_service.api.ApiExceptionHandlerAccess().handler())
             .build();
 
@@ -56,15 +58,26 @@ class AuthControllerTests {
     }
 
     @Test
-    @DisplayName("exchanges a code and answers with an access token")
+    @DisplayName("exchanges a code and answers with the token only as an HttpOnly session cookie")
     void exchangesCode() throws Exception {
         when(google.exchange("c", "v")).thenReturn(new VerifiedIdentity(Provider.GOOGLE, "g-1", null, false));
         when(accounts.signIn(any())).thenReturn(java.util.UUID.randomUUID());
 
         mockMvc.perform(post("/api/v1/auth/google/code").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"code\":\"c\",\"codeVerifier\":\"v\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.accessToken").isString());
+                .andExpect(status().isNoContent())
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.allOf(
+                        org.hamcrest.Matchers.startsWith("evmap_session="), org.hamcrest.Matchers.containsString("HttpOnly"),
+                        org.hamcrest.Matchers.containsString("SameSite=Lax"), org.hamcrest.Matchers.containsString("Path=/api"))))
+                .andExpect(content().string(""));
+    }
+
+    @Test
+    @DisplayName("logging out expires the session cookie")
+    void logoutClearsCookie() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout"))
+                .andExpect(status().isNoContent())
+                .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("Max-Age=0")));
     }
 
     @Test

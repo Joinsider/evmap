@@ -10,8 +10,11 @@ import { Account, AdminOverview, ProviderToken, SignInProvider, SyncRun } from '
 export abstract class EvmapApi {
   abstract signInProviders(): Observable<SignInProvider[]>;
 
-  /** Redeems an authorization code; answers with the backend's own access token. */
-  abstract exchangeCode(provider: ProviderToken, code: string, codeVerifier?: string): Observable<string>;
+  /** Redeems an authorization code. The session lives in an HttpOnly cookie the backend sets; nothing comes back to read. */
+  abstract exchangeCode(provider: ProviderToken, code: string, codeVerifier?: string): Observable<void>;
+
+  /** Ends the session: only the backend can remove an HttpOnly cookie. */
+  abstract signOut(): Observable<void>;
 
   abstract me(): Observable<Account>;
 

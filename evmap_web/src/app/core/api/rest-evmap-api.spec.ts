@@ -16,13 +16,19 @@ describe('RestEvmapApi', () => {
 
   afterEach(() => backend.verify());
 
-  it('posts the code and verifier and returns only the access token', async () => {
-    const token = firstValueFrom(api.exchangeCode('github', 'the-code', 'the-verifier'));
+  it('posts the code and verifier; the session comes back as a cookie, not in the body', async () => {
+    const done = firstValueFrom(api.exchangeCode('github', 'the-code', 'the-verifier'), { defaultValue: undefined });
     const request = backend.expectOne('/api/v1/auth/github/code');
     expect(request.request.method).toBe('POST');
     expect(request.request.body).toEqual({ code: 'the-code', codeVerifier: 'the-verifier' });
-    request.flush({ accessToken: 'issued' });
-    expect(await token).toBe('issued');
+    request.flush(null, { status: 204, statusText: 'No Content' });
+    await done;
+  });
+
+  it('signs out through the backend', () => {
+    api.signOut().subscribe();
+
+    expect(backend.expectOne('/api/v1/auth/logout').request.method).toBe('POST');
   });
 
   it('reads providers, account and the admin endpoints from same-origin paths', () => {

@@ -1,6 +1,7 @@
 package de.joinside.evmap_service.api.auth;
 
 import de.joinside.evmap_service.api.security.AccessTokenService;
+import de.joinside.evmap_service.api.security.SessionCookie;
 import jakarta.validation.constraints.NotBlank;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,14 +31,16 @@ class AuthController {
     private final AccountService accounts;
     private final AccessTokenService tokens;
     private final AuthProperties properties;
+    private final SessionCookie sessionCookie;
 
     AuthController(AppleIdentityTokenVerifier apple, List<CodeSignIn> codeSignIns, AccountService accounts,
-                   AccessTokenService tokens, AuthProperties properties) {
+                   AccessTokenService tokens, AuthProperties properties, SessionCookie sessionCookie) {
         this.apple = apple;
         this.codeSignIns = codeSignIns;
         this.accounts = accounts;
         this.tokens = tokens;
         this.properties = properties;
+        this.sessionCookie = sessionCookie;
     }
 
     /** Native Sign in with Apple from the iOS app: the identity token is already the proof. */
@@ -55,8 +58,12 @@ class AuthController {
                 .map(CodeSignIn::authorization).toList();
     }
 
+    /**
+     * The web sign-in. The token goes out only as the {@code HttpOnly} session cookie, never in the
+     * body, so the page's scripts never see it.
+     */
     @PostMapping("/{provider}/code")
-    AccessTokenResponse code(@PathVariable String provider, @RequestBody CodeRequest request) {
+    ResponseEntity<Void> code(@PathVariable String provider, @RequestBody CodeRequest request) {
         CodeSignIn signIn = codeSignIns.stream().filter(CodeSignIn::enabled)
                 .filter(candidate -> candidate.provider().token().equals(provider)).findFirst()
                 .orElseThrow(UnknownProviderException::new);
@@ -64,7 +71,14 @@ class AuthController {
         if (signIn.authorization().pkce() && (request.codeVerifier() == null || request.codeVerifier().isBlank()))
             throw new IllegalArgumentException("Missing PKCE code verifier");
         log.debug("{} code sign-in requested", provider);
-        return issue(signIn.exchange(request.code(), request.codeVerifier()));
+        String token = issue(signIn.exchange(request.code(), request.codeVerifier())).accessToken();
+        return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, sessionCookie.issue(token).toString()).build();
+    }
+
+    /** Ends the web session: the cookie is HttpOnly, so only the server can remove it. */
+    @PostMapping("/logout")
+    ResponseEntity<Void> logout() {
+        return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, sessionCookie.clear().toString()).build();
     }
 
     /**
