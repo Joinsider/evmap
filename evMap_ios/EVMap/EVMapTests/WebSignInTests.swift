@@ -69,6 +69,23 @@ struct WebSignInTests {
         #expect(auth.accessToken == nil)
     }
 
+    @Test("a provider without redirect URI, or an answer without code, is refused")
+    func rejectsIncompleteAnswers() async {
+        let repository = StubStationRepository()
+        let auth = session(repository)
+        let broken = SignInProvider(provider: "github", authorizationEndpoint: google.authorizationEndpoint, parameters: [:], pkce: false)
+
+        await #expect(throws: APIError.self) {
+            try await auth.signIn(with: broken) { _, _ in Issue.record("must not open a session"); return URL(string: "https://x")! }
+        }
+        await #expect(throws: APIError.self) {
+            try await auth.signIn(with: google) { url, _ in
+                URL(string: "https://evmap.joinside.de/auth/callback/google?error=access_denied&state=\(items(url)["state"]!)")!
+            }
+        }
+        #expect(repository.codeSignIns.isEmpty)
+    }
+
     @Test("only the web providers are offered next to the native Apple button")
     func filtersApple() async throws {
         let repository = StubStationRepository()

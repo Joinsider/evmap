@@ -65,7 +65,7 @@ export class AuthService {
     const code = query.get('code');
 
     if (query.get('error')) return { error: 'provider' };
-    if (!pending || pending.provider !== provider || !code || query.get('state') !== pending.state) return { error: 'state' };
+    if (pending?.provider !== provider || !code || query.get('state') !== pending.state) return { error: 'state' };
 
     try {
       const token = await firstValueFrom(this.api.exchangeCode(pending.provider, code, pending.codeVerifier));

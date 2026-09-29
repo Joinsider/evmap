@@ -3,11 +3,11 @@
 FROM node:24-alpine AS build
 WORKDIR /build
 COPY package.json package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts
 COPY angular.json tsconfig*.json ./
 COPY public public
 COPY src src
-RUN npx ng build
+RUN npm run build
 
 # Unprivileged variant: runs as uid 101 and listens on 8080, like the API. Alpine per ADR 0005.
 FROM nginxinc/nginx-unprivileged:1.29-alpine

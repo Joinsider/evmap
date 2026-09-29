@@ -96,6 +96,14 @@ class CodeSignInTests {
         }
 
         @Test
+        @DisplayName("an answer without ID token is a failed sign-in")
+        void missingIdToken() {
+            server.expect(requestTo(GoogleSignIn.TOKEN_ENDPOINT)).andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+            assertThatThrownBy(() -> signIn.exchange("the-code", "the-verifier")).isInstanceOf(SignInFailedException.class);
+        }
+
+        @Test
         @DisplayName("offers the code flow with PKCE and the web callback")
         void authorization() {
             assertThat(signIn.authorization().pkce()).isTrue();
@@ -137,6 +145,42 @@ class CodeSignInTests {
                     + "{\"email\":\"octo@example.org\",\"primary\":true,\"verified\":false}]");
 
             assertThat(signIn.exchange("the-code", "the-verifier").emailVerified()).isFalse();
+        }
+
+        @Test
+        @DisplayName("without a primary address the identity carries none")
+        void noPrimaryAddress() {
+            answer("[]");
+
+            assertThat(signIn.exchange("the-code", "the-verifier"))
+                    .isEqualTo(new VerifiedIdentity(Provider.GITHUB, "583231", null, false));
+        }
+
+        @Test
+        @DisplayName("a failing user lookup is a failed sign-in")
+        void userLookupFails() {
+            server.expect(requestTo(GitHubSignIn.TOKEN_ENDPOINT))
+                    .andRespond(withSuccess("{\"access_token\":\"gho_x\"}", MediaType.APPLICATION_JSON));
+            server.expect(requestTo(GitHubSignIn.USER_ENDPOINT)).andRespond(withStatus(HttpStatus.UNAUTHORIZED));
+
+            assertThatThrownBy(() -> signIn.exchange("the-code", "the-verifier")).isInstanceOf(SignInFailedException.class);
+        }
+
+        @Test
+        @DisplayName("a refused token request is a failed sign-in")
+        void tokenRequestFails() {
+            server.expect(requestTo(GitHubSignIn.TOKEN_ENDPOINT)).andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
+
+            assertThatThrownBy(() -> signIn.exchange("the-code", "the-verifier")).isInstanceOf(SignInFailedException.class);
+        }
+
+        @Test
+        @DisplayName("offers the code flow with PKCE and the user:email scope")
+        void authorization() {
+            assertThat(signIn.enabled()).isTrue();
+            assertThat(signIn.authorization().pkce()).isTrue();
+            assertThat(signIn.authorization().parameters()).containsEntry("scope", "user:email")
+                    .containsEntry("redirect_uri", WEB + "/auth/callback/github");
         }
 
         @Test
@@ -190,6 +234,51 @@ class CodeSignInTests {
             assertThat(signIn.authorization().pkce()).isFalse();
             assertThat(signIn.authorization().parameters()).containsEntry("response_mode", "form_post");
         }
+    }
+
+    @Test
+    @DisplayName("Apple web: a refused code or an answer without ID token is a failed sign-in")
+    void appleWebFailures() throws Exception {
+        ECKey key = new ECKeyGenerator(Curve.P_256).generate();
+        String pem = "-----BEGIN PRIVATE KEY-----\\n" + Base64.getEncoder().encodeToString(key.toECPrivateKey().getEncoded())
+                + "\\n-----END PRIVATE KEY-----";
+        AuthProperties properties = properties(new AuthProperties.AppleWeb("svc", "TEAM", "KEY", pem));
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        AppleWebSignIn signIn = new AppleWebSignIn(properties, builder.build(),
+                new AppleIdentityTokenVerifier(new TestKeys().decoder(), "https://appleid.apple.com", Set.of("svc")), Clock.systemUTC());
+        assertThat(signIn.enabled()).isTrue();
+
+        server.expect(requestTo(AppleWebSignIn.TOKEN_ENDPOINT)).andRespond(withStatus(HttpStatus.BAD_REQUEST));
+        assertThatThrownBy(() -> signIn.exchange("c", null)).isInstanceOf(SignInFailedException.class);
+
+        server.reset();
+        server.expect(requestTo(AppleWebSignIn.TOKEN_ENDPOINT)).andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+        assertThatThrownBy(() -> signIn.exchange("c", null)).isInstanceOf(SignInFailedException.class);
+
+        server.reset();
+        server.expect(requestTo(AppleWebSignIn.TOKEN_ENDPOINT)).andRespond(withSuccess("{\"id_token\":\"not-a-jwt\"}", MediaType.APPLICATION_JSON));
+        assertThatThrownBy(() -> signIn.exchange("c", null)).isInstanceOf(SignInFailedException.class);
+    }
+
+    @Test
+    @DisplayName("a malformed Apple key fails with a message that does not contain it")
+    void badAppleKey() {
+        AuthProperties.AppleWeb apple = new AuthProperties.AppleWeb("svc", "TEAM", "KEY", "not-a-key");
+        assertThatThrownBy(() -> AppleClientSecret.create(apple, java.time.Instant.now()))
+                .isInstanceOf(IllegalStateException.class).hasMessageNotContaining("not-a-key");
+    }
+
+    @Test
+    @DisplayName("redirect URIs ignore a trailing slash on the web base URL")
+    void redirectUris() {
+        AuthProperties slash = new AuthProperties(WEB + "/", Duration.ofSeconds(5), new AuthProperties.Client("", ""),
+                new AuthProperties.Client("", ""), new AuthProperties.AppleWeb("", "", "", ""));
+        assertThat(slash.redirectUri(Provider.GOOGLE)).isEqualTo(WEB + "/auth/callback/google");
+        assertThat(slash.redirectUri(Provider.APPLE)).isEqualTo(WEB + "/api/v1/auth/apple/callback");
+        assertThat(slash.clientRedirectUri(Provider.APPLE)).isEqualTo(WEB + "/auth/callback/apple");
+        assertThat(Provider.fromToken("github")).contains(Provider.GITHUB);
+        assertThat(Provider.fromToken("facebook")).isEmpty();
     }
 
     @Test

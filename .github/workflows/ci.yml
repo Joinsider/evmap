@@ -114,10 +114,12 @@ jobs:
           cache: npm
           cache-dependency-path: evmap_web/package-lock.json
 
-      - run: npm ci
+      # No lifecycle scripts: nothing in the tree needs one (esbuild ships its binary as an optional
+      # dependency), and a compromised transitive package could otherwise run code on the runner.
+      - run: npm ci --ignore-scripts
 
       - name: Test
-        run: npx ng test --watch=false --coverage
+        run: npm test -- --coverage
 
       - name: Build both locales
         run: npm run build

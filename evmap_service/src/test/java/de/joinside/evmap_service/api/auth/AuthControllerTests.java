@@ -94,6 +94,22 @@ class AuthControllerTests {
     }
 
     @Test
+    @DisplayName("a missing code is a bad request")
+    void requiresCode() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/google/code").contentType(MediaType.APPLICATION_JSON).content("{\"codeVerifier\":\"v\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("relays an Apple error to the web route")
+    void relaysAppleError() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/apple/callback").contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("error", "user_cancelled_authorize").param("state", "s"))
+                .andExpect(status().isSeeOther())
+                .andExpect(header().string("Location", "https://evmap.example/auth/callback/apple?state=s&error=user_cancelled_authorize"));
+    }
+
+    @Test
     @DisplayName("relays Apple's form_post to the web callback route")
     void relaysAppleFormPost() throws Exception {
         mockMvc.perform(post("/api/v1/auth/apple/callback").contentType(MediaType.APPLICATION_FORM_URLENCODED)
