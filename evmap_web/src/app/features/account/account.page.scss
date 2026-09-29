@@ -1,0 +1,39 @@
+:host {
+  display: block;
+}
+
+.card {
+  margin-bottom: 1rem;
+}
+
+.plain {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.entry p {
+  margin: 0.25rem 0 0.75rem;
+  white-space: pre-wrap;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.25rem 0;
+}
+
+.danger-zone {
+  border-color: var(--danger);
+}
+
+button.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}

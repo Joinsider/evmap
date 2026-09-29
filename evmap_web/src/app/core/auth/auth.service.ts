@@ -97,6 +97,15 @@ export class AuthService {
     await firstValueFrom(this.api.signOut(), { defaultValue: undefined }).catch(() => undefined);
   }
 
+  /**
+   * Deletes the account for good. Only after the backend confirmed is the local state dropped, so a
+   * failed deletion leaves the person signed in and able to try again.
+   */
+  async deleteAccount() {
+    await firstValueFrom(this.api.deleteAccount(), { defaultValue: undefined });
+    this.forget();
+  }
+
   /** Drops the local state only; used when the backend already said the session is gone. */
   forget() {
     this.currentAccount.set(null);

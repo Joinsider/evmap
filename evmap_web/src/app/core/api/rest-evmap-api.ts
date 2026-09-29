@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { EvmapApi } from './evmap-api';
-import { Account, AdminOverview, ProviderToken, SignInProvider, SyncRun } from './models';
+import { Account, AdminOverview, BlockedAuthor, Contributions, Legal, ProviderToken, ReportedComment, SignInProvider, SyncRun } from './models';
 
 /**
  * REST implementation of {@link EvmapApi}. Paths are relative: the web container's nginx serves the
@@ -34,5 +34,41 @@ export class RestEvmapApi extends EvmapApi {
 
   adminSyncRuns(limit: number): Observable<SyncRun[]> {
     return this.http.get<SyncRun[]>('/api/v1/admin/sync-runs', { params: new HttpParams().set('limit', limit) });
+  }
+
+  deleteAccount(): Observable<void> {
+    return this.http.delete<void>('/api/v1/me');
+  }
+
+  exportData(): Observable<Blob> {
+    return this.http.get('/api/v1/me/export', { responseType: 'blob' });
+  }
+
+  contributions(): Observable<Contributions> {
+    return this.http.get<Contributions>('/api/v1/me/contributions');
+  }
+
+  blocks(): Observable<BlockedAuthor[]> {
+    return this.http.get<BlockedAuthor[]>('/api/v1/me/blocks');
+  }
+
+  unblock(id: string): Observable<void> {
+    return this.http.delete<void>(`/api/v1/me/blocks/${encodeURIComponent(id)}`);
+  }
+
+  legal(): Observable<Legal> {
+    return this.http.get<Legal>('/api/v1/legal');
+  }
+
+  adminReports(): Observable<ReportedComment[]> {
+    return this.http.get<ReportedComment[]>('/api/v1/admin/reports');
+  }
+
+  adminDismissReports(commentId: string): Observable<void> {
+    return this.http.post<void>(`/api/v1/admin/reports/${encodeURIComponent(commentId)}/dismiss`, null);
+  }
+
+  adminRemoveComment(commentId: string): Observable<void> {
+    return this.http.delete<void>(`/api/v1/admin/comments/${encodeURIComponent(commentId)}`);
   }
 }

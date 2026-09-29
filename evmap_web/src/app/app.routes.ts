@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { adminGuard } from './core/auth/guards';
+import { adminGuard, signedInGuard } from './core/auth/guards';
 
 /**
  * Feature areas load lazily, so the later user web app (map, stations, comments) joins as further
@@ -10,6 +10,7 @@ export const routes: Routes = [
   { path: 'login', loadComponent: () => import('./features/login/login.page').then((m) => m.LoginPage) },
   // The redirect URI registered with every provider; kept stable, it is also the iOS app's callback.
   { path: 'auth/callback/:provider', loadComponent: () => import('./features/login/callback.page').then((m) => m.CallbackPage) },
+  { path: 'account', canMatch: [signedInGuard], loadComponent: () => import('./features/account/account.page').then((m) => m.AccountPage) },
   { path: 'forbidden', loadComponent: () => import('./features/home/forbidden.page').then((m) => m.ForbiddenPage) },
   { path: 'admin', canMatch: [adminGuard], loadChildren: () => import('./features/admin/admin.routes').then((m) => m.adminRoutes) },
   { path: '**', redirectTo: '' },

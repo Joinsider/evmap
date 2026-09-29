@@ -1,0 +1,39 @@
+<h1 i18n="@@admin.reports.title">Gemeldete Kommentare</h1>
+
+@if (failed()) {
+  <p class="error" role="alert" i18n="@@admin.reports.actionFailed">Die Aktion ist fehlgeschlagen. Bitte versuche es erneut.</p>
+}
+
+@let items = queue();
+@if (items.state === 'ready') {
+  @for (item of pending(items.value); track item.commentId) {
+    <article class="card report">
+      <header>
+        <strong>{{ item.stationName }}</strong>
+        <span class="muted">{{ item.commentCreatedAt | date: 'medium' }}</span>
+      </header>
+      <blockquote>{{ item.body }}</blockquote>
+      <p class="reasons">
+        @for (entry of reasonsOf(item); track entry.reason) {
+          <span class="chip">{{ reasonLabel(entry.reason) }} × {{ entry.count }}</span>
+        }
+      </p>
+      <div class="actions">
+        @if (confirming() === item.commentId) {
+          <strong i18n="@@admin.reports.sure">Kommentar endgültig löschen?</strong>
+          <button type="button" class="danger" (click)="remove(item)" i18n="@@admin.reports.removeConfirm">Endgültig löschen</button>
+          <button type="button" (click)="confirming.set(null)" i18n="@@admin.reports.cancel">Abbrechen</button>
+        } @else {
+          <button type="button" class="danger" (click)="askToRemove(item)" i18n="@@admin.reports.remove">Kommentar löschen</button>
+          <button type="button" (click)="dismiss(item)" i18n="@@admin.reports.dismiss">Meldungen abweisen</button>
+        }
+      </div>
+    </article>
+  } @empty {
+    <p i18n="@@admin.reports.empty">Keine offenen Meldungen.</p>
+  }
+} @else if (items.state === 'failed') {
+  <p class="error" i18n="@@admin.loadFailed">Konnte nicht geladen werden.</p>
+} @else {
+  <p i18n="@@common.loading">Wird geladen …</p>
+}

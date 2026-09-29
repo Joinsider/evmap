@@ -14,3 +14,12 @@ export const adminGuard: CanMatchFn = async (_route, segments) => {
   if (!account) return router.createUrlTree(['/login'], { queryParams: { returnUrl: target } });
   return account.admin ? true : router.createUrlTree(['/forbidden']);
 };
+
+/** Sends people who are not signed in to the login page and back afterwards. Presentation only, like {@link adminGuard}. */
+export const signedInGuard: CanMatchFn = async (_route, segments) => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  const target = '/' + segments.map((segment) => segment.path).join('/');
+  const account = auth.account() ?? (await auth.refreshAccount());
+  return account ? true : router.createUrlTree(['/login'], { queryParams: { returnUrl: target } });
+};

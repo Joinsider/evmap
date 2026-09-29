@@ -42,4 +42,32 @@ describe('RestEvmapApi', () => {
     backend.expectOne('/api/v1/admin/overview').flush({});
     backend.expectOne((request) => request.url === '/api/v1/admin/sync-runs' && request.params.get('limit') === '20').flush([]);
   });
+
+  it('deletes the account, reads the data export as a blob and lifts blocks by their own id', () => {
+    api.deleteAccount().subscribe();
+    api.exportData().subscribe();
+    api.contributions().subscribe();
+    api.blocks().subscribe();
+    api.unblock('b/1').subscribe();
+
+    expect(backend.expectOne((request) => request.method === 'DELETE' && request.url === '/api/v1/me').request.method).toBe('DELETE');
+    const download = backend.expectOne('/api/v1/me/export');
+    expect(download.request.responseType).toBe('blob');
+    download.flush(new Blob(['{}']));
+    backend.expectOne('/api/v1/me/contributions').flush({ comments: [], reports: [] });
+    backend.expectOne('/api/v1/me/blocks').flush([]);
+    expect(backend.expectOne('/api/v1/me/blocks/b%2F1').request.method).toBe('DELETE');
+  });
+
+  it('reads the privacy link and drives the moderation queue', () => {
+    api.legal().subscribe();
+    api.adminReports().subscribe();
+    api.adminDismissReports('c-1').subscribe();
+    api.adminRemoveComment('c-2').subscribe();
+
+    backend.expectOne('/api/v1/legal').flush({});
+    backend.expectOne('/api/v1/admin/reports').flush([]);
+    expect(backend.expectOne('/api/v1/admin/reports/c-1/dismiss').request.method).toBe('POST');
+    expect(backend.expectOne('/api/v1/admin/comments/c-2').request.method).toBe('DELETE');
+  });
 });

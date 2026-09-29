@@ -3,7 +3,7 @@ import { Router, UrlSegment, UrlTree } from '@angular/router';
 import { FakeEvmapApi } from '../../testing/fake-evmap-api';
 import { EvmapApi } from '../api/evmap-api';
 import { AuthService } from './auth.service';
-import { adminGuard } from './guards';
+import { adminGuard, signedInGuard } from './guards';
 
 describe('adminGuard', () => {
   let api: FakeEvmapApi;
@@ -37,6 +37,21 @@ describe('adminGuard', () => {
 
   it('lets admins through', async () => {
     await signIn(true);
+    expect(await run()).toBe(true);
+  });
+});
+
+describe('signedInGuard', () => {
+  it('sends anonymous visitors to the login and lets signed-in accounts through', async () => {
+    sessionStorage.clear();
+    const api = new FakeEvmapApi();
+    TestBed.configureTestingModule({ providers: [{ provide: EvmapApi, useValue: api }] });
+    const run = () => TestBed.runInInjectionContext(() => signedInGuard({}, [new UrlSegment('account', {})], {} as never));
+
+    const denied = await run();
+    expect(TestBed.inject(Router).serializeUrl(denied as UrlTree)).toBe('/login?returnUrl=%2Faccount');
+
+    api.hasSession = true;
     expect(await run()).toBe(true);
   });
 });

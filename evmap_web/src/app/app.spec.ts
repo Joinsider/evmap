@@ -28,4 +28,19 @@ describe('App', () => {
     expect(auth.signedIn()).toBe(false);
     expect(navigate).toHaveBeenCalledWith('/');
   });
+
+  it('links to the account area when signed in, and to the privacy policy when one is configured', async () => {
+    const api = new FakeEvmapApi();
+    api.legalData = { privacyPolicyUrl: 'https://evmap.example/privacy' };
+    api.hasSession = true;
+    TestBed.configureTestingModule({ providers: [{ provide: EvmapApi, useValue: api }, provideRouter([])] });
+    await TestBed.inject(AuthService).restore();
+
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(root.textContent).toContain('Mein Konto');
+    expect(root.querySelector('footer a[href="https://evmap.example/privacy"]')).not.toBeNull();
+  });
 });
