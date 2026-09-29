@@ -148,7 +148,10 @@ Für v2 werden folgende Abgrenzungen aus §10 aufgehoben: Routenplanung und exte
 - Kontolöschung in der App über alle Anbieter, inklusive Widerruf des Apple-Tokens
 
 ### Community und Konto
-- Melden von Kommentaren und Blockieren von Nutzern, Moderation durch Admins
+- Melden von Kommentaren und Blockieren von Nutzern, Moderation durch Admins (ADR 0020): gemeldete
+  Kommentare bleiben für andere sichtbar und sind nur für den Melder ausgeblendet; Admins löschen den
+  Kommentar oder weisen die Meldung ab, einen Nutzer-Bann gibt es nicht; Blockierungen wirken nur für
+  den Blockierenden. Die Kontolöschung ist sofort und vollständig, ohne Bedenkzeit.
 - Fehlermeldungen zu Stationsdaten (als Nutzerdaten, keine direkte Änderung der Stammdaten)
 - „Meine Beiträge“, Datenexport (DSGVO Art. 15/20), Favoriten (auf dem Gerät, bei Anmeldung
   mit dem Konto synchronisiert)

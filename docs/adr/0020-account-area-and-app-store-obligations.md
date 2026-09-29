@@ -1,6 +1,7 @@
 # 20. Account area and App Store obligations
 
-- Status: In progress — roadmap phase 2 (`feature/phase-2-account-area`)
+- Status: Accepted 2026-09-30 — implemented in roadmap phase 2 (`feature/phase-2-account-area`); the 👤 steps in
+  `docs/operations/sign-in-providers.md` §5 are pending
 - Date: 2026-09-29
 - Deciders: Johannes Popp
 
@@ -80,11 +81,62 @@ without an app release. App Store Connect needs the same URL separately.
 - "My contributions" lists the caller's own comments and reports; vehicle submissions join it in
   phase 6.
 
+## What phase 2 built (2026-09-30)
+
+**Schema.** `008-apple-refresh-token.sql` adds `refresh_token` (encrypted) and
+`refresh_token_client_id` to `provider_identity`. `009-moderation.sql` adds `comment_report`
+(one per reporter and comment; `open`/`dismissed`) and `account_block` (own row id, so a block can be
+listed and lifted without naming the author). Everything cascades from `user_data.account`.
+
+**Backend.**
+- `api.auth`: `TokenCipher` (AES-256-GCM, `TOKEN_ENCRYPTION_KEY`; off without a key, startup fails on
+  a malformed one). `AppleTokens` redeems the native app's authorization code and revokes tokens;
+  the web exchange in `AppleWebSignIn` now keeps `refresh_token` too. `VerifiedIdentity` carries an
+  optional `ProviderRefreshToken` whose `toString` hides the value; `AccountService` stores it
+  encrypted. `AccountDeletionService` revokes, then deletes; `DELETE /api/v1/me` also clears the
+  session cookie. Native sign-in takes an optional `authorizationCode` and discards the resulting
+  token unless Apple's answer names the same Apple user as the identity token.
+- `api.security.KnownAccounts`: `BearerTokenFilter` treats a valid token for a deleted account as
+  signed out (one primary-key lookup per authenticated request), so deletion ends every session at once.
+- `api.moderation`: `POST /comments/{id}/report`, `POST /comments/{id}/block-author`,
+  `GET/DELETE /me/blocks`, and under `/admin`: `GET /reports`, `POST /reports/{commentId}/dismiss`,
+  `DELETE /comments/{commentId}`, all logged with ids only. `comment.CommentVisibility` removes the
+  reader's blocked authors and own reports from the comment list.
+- `api.account`: `GET /me/export` (attachment, `no-store`) and `GET /me/contributions`.
+  `MyDataTests.exportKnowsEveryUserDataTable` fails when a table joins `user_data` without joining
+  the export. `api.legal`: `GET /api/v1/legal`.
+
+**Web.** `/account` (sign-ins, contributions, blocks, export download, two-step deletion, privacy
+link), `/admin/reports` (queue; removal asks twice), an admin sub-navigation, a footer privacy link,
+`signedInGuard`, and all texts in German and English.
+
+**iOS.** `Features/Account`: `AccountScreen` (reached from the settings, which also carry the
+privacy link so it is available signed out), `AccountViewModel`. The comment context menu offers
+"report or block" on other people's comments (one dialog: four reasons or block author). The app
+gained a sign-out button — there was none. The export is written to the temporary directory with
+complete file protection, shared through `ShareLink`, and removed when the screen is left.
+
+### Deviations from the plan
+
+- iOS had no sign-out UI at all; the account screen adds it.
+- A 401 in the account area signs the iOS session out (the account was deleted elsewhere).
+- Web has no report/block UI: there are no comments on the web yet. Phase 8 must add it, together
+  with the comment list, using the endpoints above.
+- `.env.example` files were not touched (the agent cannot read them); the variables are in both
+  compose files and in `docs/operations/sign-in-providers.md` §5.
+
 ## Open points
 
-None at the start of implementation.
+1. **Rate limiting of report and block endpoints.** A user can file one report per comment, but
+   nothing limits how many comments they report. Options: (a) leave as is and watch the logs
+   (recommended for now — the effect is bounded, reports never hide a comment for others);
+   (b) a per-account limit in the API; (c) `limit_req` in the web container's nginx.
+2. **Telling the reporter what was decided.** They only see "under review" / "closed". Push or
+   e-mail would need infrastructure the project does not have; revisit with notifications.
 
 ## References
 
-- ADR 0018 (accounts, providers, web session), ADR 0019 (backups)
+- ADR 0018 (accounts, providers, web session), ADR 0019 (backups; its open point on deleted accounts is
+  resolved above)
+- `docs/operations/sign-in-providers.md` §5, `docs/privacy/data-processing.md`
 - Lastenheft §8, §9, §11; `docs/privacy/data-processing.md`; `docs/roadmap.md`
