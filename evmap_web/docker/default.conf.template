@@ -1,0 +1,68 @@
+# Rendered by the nginx image's entrypoint (envsubst on the variables that are set, API_UPSTREAM).
+
+# Paths outside the two locale builds (/, /auth/callback/…, /admin) are sent to the visitor's
+# language. The provider redirect URIs are registered without a locale, so this is also what turns
+# /auth/callback/google?code=… into /de/auth/callback/google?code=…, query intact.
+map $http_accept_language $evmap_locale {
+    default de;
+    "~^en" en;
+}
+
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+    server_tokens off;
+    # Relative Location headers: behind the TLS reverse proxy nginx does not know the public host and port.
+    absolute_redirect off;
+
+    # The access token is only ever in memory and in Authorization headers, so the logged request
+    # line carries no credential. It can carry a single-use authorization code on the callback route.
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy no-referrer always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+
+    # Resolved per request through the container's DNS, so the web container starts (and keeps
+    # working) regardless of whether the API is up yet or has been recreated with a new address.
+    resolver ${NGINX_LOCAL_RESOLVERS} valid=10s;
+
+    location /api/ {
+        set $api_upstream ${API_UPSTREAM};
+        proxy_pass $api_upstream;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Request-Id $request_id;
+    }
+
+    # Lets the iOS app receive the sign-in callback on this domain (associated domain, ADR 0018).
+    # Written at container start from APPLE_TEAM_ID; absent (404) without it.
+    location = /.well-known/apple-app-site-association {
+        default_type application/json;
+        alias /tmp/evmap/apple-app-site-association;
+    }
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    location ~ ^/(de|en)/ {
+        try_files $uri $uri/ /$1/index.html;
+        # index.html must be revalidated so a release is picked up; hashed bundles can be cached forever.
+        location ~ \.(js|css|woff2?|ico|png|svg)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable" always;
+            # add_header here replaces the server-level ones, so the one that matters for scripts is repeated.
+            add_header X-Content-Type-Options nosniff always;
+        }
+    }
+
+    location = /favicon.ico {
+        try_files /de/favicon.ico =404;
+    }
+
+    location / {
+        return 302 /$evmap_locale$request_uri;
+    }
+}

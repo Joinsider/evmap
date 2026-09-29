@@ -13,7 +13,7 @@ cd .. && docker compose up --build
 
 Copy `.env.example` to `.env` before running Compose, then replace the placeholder secrets.
 
-The API exposes `GET /api/v1/stations` (latitude/longitude plus optional power and operator filters, and a repeatable `connectorType` parameter matched case-insensitively), station details, public comment reads, Apple login, and authenticated comment create/update/delete. User identities live in `user_data`; sync-owned station data lives in `master`.
+The API exposes `GET /api/v1/stations` (latitude/longitude plus optional power and operator filters, and a repeatable `connectorType` parameter matched case-insensitively), station details, public comment reads, sign-in with Apple, Google and GitHub (ADR 0018), and authenticated comment create/update/delete. Accounts and their provider sign-ins live in `user_data`; sync-owned station data lives in `master`.
 
 Two health URLs, with different meanings: `/actuator/health/container` answers "can this instance serve
 requests" and is what the container healthcheck uses, while `/actuator/health` also covers ingestion and
@@ -51,6 +51,14 @@ The first sync run starts right after the container comes up and then repeats ev
 in batches of `SYNC_BATCH_SIZE` (1000), so an interrupted run keeps what it already stored and the next run
 completes it ([ADR 0007](docs/adr/0007-batched-ingestion-transactions.md)). A run that could not ingest some
 records finishes `PARTIAL`; `/actuator/health` reports the `failed` count.
+
+## Web client
+
+`evmap_web/` is the Angular web client (admin area today, user web app later). See
+[evmap_web/README.md](evmap_web/README.md) for commands and
+[docs/operations/sign-in-providers.md](docs/operations/sign-in-providers.md) for setting up the
+Google, GitHub and Apple web sign-in, the associated domain and admin accounts. In the Compose stacks
+it runs as the `web` service, which serves the app and proxies `/api/**` to the API.
 
 ## Logging
 

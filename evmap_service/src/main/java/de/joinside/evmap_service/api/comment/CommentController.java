@@ -19,24 +19,24 @@ public class CommentController {
 
     @GetMapping("/api/v1/stations/{stationId}/comments")
     List<CommentResponse> list(@PathVariable UUID stationId, @AuthenticationPrincipal CurrentUser user) {
-        return comments.list(stationId, user == null ? null : user.identityId());
+        return comments.list(stationId, user == null ? null : user.accountId());
     }
 
     @PostMapping("/api/v1/stations/{stationId}/comments")
     @ResponseStatus(HttpStatus.CREATED)
     CommentResponse create(@PathVariable UUID stationId, @RequestBody CommentRequest request, @AuthenticationPrincipal CurrentUser user) {
-        return comments.create(stationId, user.identityId(), request);
+        return comments.create(stationId, user.accountId(), request);
     }
 
     @PatchMapping("/api/v1/comments/{id}")
     CommentResponse update(@PathVariable UUID id, @RequestBody CommentRequest request, @AuthenticationPrincipal CurrentUser user) {
-        return comments.update(id, user.identityId(), request);
+        return comments.update(id, user.accountId(), request);
     }
 
     @DeleteMapping("/api/v1/comments/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void delete(@PathVariable UUID id, @AuthenticationPrincipal CurrentUser user) {
-        comments.delete(id, user.identityId());
+        comments.delete(id, user.accountId());
     }
 
     record CommentRequest(String body, Integer paidPriceCents, String experience) {

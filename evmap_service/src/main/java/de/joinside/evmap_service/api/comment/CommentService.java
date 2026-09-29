@@ -27,7 +27,7 @@ class CommentService {
         validate(request);
         StationComment saved = comments.save(new StationComment(stationId, userId, request));
         // User-generated text stays out of the log; ids are enough to follow a moderation case.
-        log.info("Comment {} created for station {} by identity {}", saved.id, stationId, userId);
+        log.info("Comment {} created for station {} by account {}", saved.id, stationId, userId);
         return response(saved, userId);
     }
 
@@ -36,27 +36,27 @@ class CommentService {
         validate(request);
         StationComment comment = findOwned(id, userId);
         comment.apply(request);
-        log.info("Comment {} updated by identity {}", id, userId);
+        log.info("Comment {} updated by account {}", id, userId);
         return response(comment, userId);
     }
 
     @Transactional
     void delete(UUID id, UUID userId) {
         comments.delete(findOwned(id, userId));
-        log.info("Comment {} deleted by identity {}", id, userId);
+        log.info("Comment {} deleted by account {}", id, userId);
     }
 
     private StationComment findOwned(UUID id, UUID userId) {
-        return comments.findByIdAndUserIdentityId(id, userId).orElseThrow(() -> {
+        return comments.findByIdAndAccountId(id, userId).orElseThrow(() -> {
             // Also covers "exists but belongs to somebody else" — worth seeing when it happens repeatedly.
-            log.warn("Identity {} tried to modify comment {} it does not own (or that does not exist)", userId, id);
+            log.warn("Account {} tried to modify comment {} it does not own (or that does not exist)", userId, id);
             return new CommentController.CommentNotFoundException();
         });
     }
 
     private CommentController.CommentResponse response(StationComment comment, UUID userId) {
         return new CommentController.CommentResponse(comment.id, comment.body, comment.paidPriceCents, comment.experience,
-                comment.createdAt, comment.updatedAt, userId != null && userId.equals(comment.userIdentityId));
+                comment.createdAt, comment.updatedAt, userId != null && userId.equals(comment.accountId));
     }
 
     private void validate(CommentController.CommentRequest request) {

@@ -5,6 +5,9 @@
 "action.ok" = "OK";
 "action.save" = "Save";
 "app.title" = "EVMap";
+"auth.signIn" = "Sign in";
+"auth.signInWithGitHub" = "Sign in with GitHub";
+"auth.signInWithGoogle" = "Sign in with Google";
 "comments.add" = "Write comment";
 "comments.empty" = "No comments yet.";
 "comments.experience" = "Charging experience (optional)";
@@ -15,6 +18,7 @@
 "error.appleSignIn" = "Apple sign-in could not be completed.";
 "error.invalidResponse" = "Invalid server response.";
 "error.requestFailed" = "The request failed.";
+"error.signIn" = "Sign-in could not be completed.";
 "error.title" = "Error";
 "error.unauthenticated" = "Please sign in again.";
 "filter.availability" = "Operational stations only";

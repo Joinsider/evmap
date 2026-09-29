@@ -1,0 +1,59 @@
+<h1 i18n="@@admin.title">Administration</h1>
+
+@let counts = overview();
+<section class="counts" aria-labelledby="counts-heading">
+  <h2 id="counts-heading" class="visually-hidden" i18n="@@admin.counts">Kennzahlen</h2>
+  @if (counts.state === 'ready') {
+    <div class="card count"><span class="value">{{ counts.value.stations | number }}</span><span i18n="@@admin.stations">Ladestationen</span></div>
+    <div class="card count"><span class="value">{{ counts.value.chargePoints | number }}</span><span i18n="@@admin.chargePoints">Ladepunkte</span></div>
+    <div class="card count"><span class="value">{{ counts.value.accounts | number }}</span><span i18n="@@admin.accounts">Konten</span></div>
+    <div class="card count"><span class="value">{{ counts.value.comments | number }}</span><span i18n="@@admin.comments">Kommentare</span></div>
+  } @else if (counts.state === 'failed') {
+    <p class="error" i18n="@@admin.loadFailed">Konnte nicht geladen werden.</p>
+  } @else {
+    <p i18n="@@common.loading">Wird geladen …</p>
+  }
+</section>
+
+@let history = runs();
+<section class="card">
+  <h2 i18n="@@admin.syncRuns">Letzte Sync-Läufe</h2>
+  @if (history.state === 'ready') {
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th i18n="@@admin.run.started">Beginn</th>
+            <th i18n="@@admin.run.status">Status</th>
+            <th class="num" i18n="@@admin.run.processed">Verarbeitet</th>
+            <th class="num" i18n="@@admin.run.created">Neu</th>
+            <th class="num" i18n="@@admin.run.updated">Geändert</th>
+            <th class="num" i18n="@@admin.run.failed">Fehler</th>
+            <th i18n="@@admin.run.message">Meldung</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (run of history.value; track run.id) {
+            <tr>
+              <td>{{ run.startedAt | date: 'short' }}</td>
+              <td><span class="status" [class]="run.status.toLowerCase()">{{ statusLabel(run.status) }}</span></td>
+              <td class="num">{{ run.processed | number }}</td>
+              <td class="num">{{ run.created | number }}</td>
+              <td class="num">{{ run.updated | number }}</td>
+              <td class="num">{{ run.failed | number }}</td>
+              <td class="message">{{ run.errorMessage }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="7" i18n="@@admin.noRuns">Noch keine Sync-Läufe.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else if (history.state === 'failed') {
+    <p class="error" i18n="@@admin.loadFailed">Konnte nicht geladen werden.</p>
+  } @else {
+    <p i18n="@@common.loading">Wird geladen …</p>
+  }
+</section>

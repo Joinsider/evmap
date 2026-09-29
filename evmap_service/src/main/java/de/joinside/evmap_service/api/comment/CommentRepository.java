@@ -9,5 +9,5 @@ import java.util.UUID;
 interface CommentRepository extends JpaRepository<StationComment, UUID> {
     List<StationComment> findByStationIdOrderByCreatedAtDesc(UUID stationId);
 
-    Optional<StationComment> findByIdAndUserIdentityId(UUID id, UUID userIdentityId);
+    Optional<StationComment> findByIdAndAccountId(UUID id, UUID accountId);
 }

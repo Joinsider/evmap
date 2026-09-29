@@ -1,6 +1,7 @@
 # 18. Additional identity providers, account linking, and an Angular web client
 
-- Status: Accepted 2026-09-29 — nothing implemented yet; roadmap phase 1
+- Status: Accepted 2026-09-29 — implemented in roadmap phase 1 (`feature/phase-1-login-web`); account
+  deletion and Apple token revocation follow in phase 2
 - Date: 2026-09-29
 - Deciders: Johannes Popp
 
@@ -95,6 +96,89 @@ UI.
   than read-and-moderate powers.
 - **Web map (for the later user web app):** MapKit JS, token signed by the backend; a switch to
   MapLibre is evaluated together with turn-by-turn in v3 (see roadmap).
+
+## Phase 1 decisions (2026-09-29)
+
+Agreed with the product owner when the phase started:
+
+- **Apple e-mail on iOS.** The app now requests the `email` scope. Without it Apple's identity token
+  carries no address and an Apple account could never be linked. Users can still choose "Hide My
+  Email"; the relay address then links nothing. Existing Apple users keep an account without an
+  address until Apple issues a token with one.
+- **iOS redirect via HTTPS.** `ASWebAuthenticationSession` uses an `.https` callback on the web
+  domain (iOS 17.4+; the app targets 26.5), backed by an associated domain whose
+  `apple-app-site-association` the web container serves. One redirect URI per provider serves app
+  and web alike. A custom URL scheme was rejected: GitHub allows one callback URL per OAuth app, so
+  it would have needed a second GitHub app and a separate Google iOS client.
+- **Routing.** The web container's nginx serves the Angular app and proxies `/api/**` to the API
+  container, so the reverse proxy needs one rule for the web domain and API and web share an origin.
+- **Admin content in phase 1.** A read-only overview of recent sync runs (`master.sync_run`) and a
+  few counts. Moderation queues arrive in phase 2.
+- **Web i18n.** `@angular/localize`: messages marked in templates, XLIFF files, one build per
+  locale, nginx picks by `Accept-Language`. A missing translation fails the build.
+- **Web domain.** `evmap.joinside.de`, the domain the API already has. The reverse proxy points it
+  at the web container, which proxies `/api/**` — so the iOS app's base URL does not change.
+
+## What phase 1 built (2026-09-29)
+
+**Schema** (`007-accounts-and-provider-identities.sql`): `user_data.account` (id, `is_admin`,
+timestamps) and `user_identity` renamed to `provider_identity` with `account_id`, `email`,
+`email_verified`. Every existing identity got an account with the same uuid; a new account's first
+identity reuses the account's uuid too, so the rollback stays clean. `station_comment.user_identity_id`
+became `account_id` and references the account. The access token's `sub` is the account id —
+tokens issued before the migration stay valid because the ids did not change.
+
+**Backend** (`api.auth`, `api.admin`):
+- `AccountService.signIn(VerifiedIdentity)` implements the linking rule. Linking happens only at an
+  identity's *first* sign-in; an address that becomes verified later is refreshed but never merges
+  two existing accounts, because that would silently move one person's contributions to another.
+- `CodeSignIn` is one interface per code flow: `GoogleSignIn` (OIDC, ID token checked against
+  Google's keys), `GitHubSignIn` (token, then `/user` and `/user/emails`; subject is the numeric id,
+  the address is the *primary* one) and `AppleWebSignIn` (client secret signed per exchange with the
+  `.p8` key by `AppleClientSecret`). `AppleIdentityTokenVerifier` accepts both audiences, the bundle
+  id and the Services ID.
+- Endpoints: `GET /api/v1/auth/providers` (enabled flows with client id, redirect URI and scope —
+  clients add `state` and the PKCE challenge), `POST /api/v1/auth/{provider}/code`,
+  `POST /api/v1/auth/apple/callback` (relays Apple's `form_post` to the web route as a 303),
+  `GET /api/v1/me`, `GET /api/v1/admin/overview` and `/admin/sync-runs`.
+- A provider with blank credentials is off: not listed, and its code endpoint answers 404. A
+  rejected code is a 401 (`SignInFailedException`).
+- The admin flag is read from the database per request (`AdminAccounts`), not put into the token, so
+  revoking it works at once.
+
+**Web** (`evmap_web/`): Angular 22, standalone components, lazy feature areas (`login`, `admin`,
+`home`). `EvmapApi` is the seam, `RestEvmapApi` the implementation. `AuthService` keeps the token in
+memory; PKCE verifier and `state` survive the provider round trip in `sessionStorage` and are
+removed when read. The container (`nginxinc/nginx-unprivileged`) proxies `/api/**`, resolves the API
+per request (so it starts before the API does), redirects locale-less paths by `Accept-Language`,
+sends a strict CSP (critical-CSS inlining is off because it needs an inline script) and writes
+`apple-app-site-association` from `APPLE_TEAM_ID`. Released as `ghcr.io/joinsider/evmap-web`.
+
+**iOS**: `SignInPrompt` (replacing `AppleSignInPrompt`) shows the native Apple button — now with the
+`email` scope — and one button per web provider the backend lists. `AuthSession.signIn(with:)` runs
+SwiftUI's `WebAuthenticationSession` with an `.https` callback on the provider's redirect URI and
+redeems the code through `ChargingStationRepository`. Entitlement:
+`webcredentials:evmap.joinside.de`.
+
+### Deviations from the plan
+
+- **Apple on the web has no PKCE.** Apple's authorization endpoint does not support it. The client's
+  `state` check is what binds Apple's answer to the tab that asked, and the code is useless without
+  the client secret only the backend can sign.
+- **Apple's `form_post`.** Requesting the e-mail scope forces `response_mode=form_post`, which only a
+  server can receive; hence the relay endpoint, so the browser still has one callback route.
+- **Reload signs out on the web.** A consequence of the in-memory token, accepted: signing in again
+  is one click while the provider session lasts. The language switch is a full page load too.
+- **`.env.example` files** were not updated by the agent (they are outside what it may read); the
+  variables are listed in both compose files and in `docs/operations/sign-in-providers.md`.
+
+## Open points (phase 1)
+
+- **Refresh token for Apple revocation** — phase 2 extends `AppleWebSignIn` and the native flow to
+  keep Apple's refresh token, as planned above.
+- **Rate limiting of the sign-in endpoints** is not built. Every code exchange costs a provider
+  round trip; if abuse shows up in the logs, options are (a) a per-IP limit in the web container's
+  nginx (`limit_req`, recommended — no code), or (b) a bucket in the API.
 
 ## References
 

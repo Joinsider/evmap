@@ -49,6 +49,18 @@ services:
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?Set a long random JWT_SECRET}
       APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
+      # Web sign-in (ADR 0018). Blank credentials switch a provider off. WEB_BASE_URL is the web
+      # client's origin; every provider's redirect URI derives from it (docs/operations/sign-in-providers.md).
+      WEB_BASE_URL: ${WEB_BASE_URL:-http://localhost:4200}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      APPLE_SERVICES_ID: ${APPLE_SERVICES_ID:-}
+      APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+      APPLE_KEY_ID: ${APPLE_KEY_ID:-}
+      # The .p8 key's PEM text; newlines may be written as \n.
+      APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
       LOG_FORMAT: ${LOG_FORMAT-ecs}
       LOG_LEVEL_APP: ${LOG_LEVEL_APP:-INFO}
       LOG_LEVEL_ROOT: ${LOG_LEVEL_ROOT:-INFO}
@@ -68,6 +80,25 @@ services:
       retries: 6
     depends_on:
       database: { condition: service_healthy }
+
+  web:
+    # Angular web client + nginx (ADR 0018). Point the reverse proxy for WEB_BASE_URL's domain at this
+    # container only: it serves the app and proxies /api/** to the API on the same origin.
+    image: ${EVMAP_WEB_IMAGE:-ghcr.io/joinsider/evmap-web:latest}
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      API_UPSTREAM: http://api:8080
+      # Associated domain for the iOS app's HTTPS sign-in callback; empty serves no
+      # apple-app-site-association (the iOS app then cannot use Google/GitHub sign-in).
+      APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+    ports:
+      - "${WEB_PORT:-8081}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
 
   sync:
     image: ${EVMAP_IMAGE:-ghcr.io/joinsider/evmap:latest}

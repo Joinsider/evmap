@@ -30,11 +30,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * the thing under test, not the controllers.
  */
 @WebMvcTest(controllers = SecurityConfigurationTests.Routes.class)
-@Import({SecurityConfiguration.class, AccessTokenService.class, SecurityConfigurationTests.Routes.class})
+@Import({SecurityConfiguration.class, AccessTokenService.class, SecurityConfigurationTests.Routes.class, SecurityConfigurationTests.Admins.class})
 class SecurityConfigurationTests {
 
     private static final String COMMENTS = "/api/v1/stations/{stationId}/comments";
     private static final String BODY = "{\"body\":\"Works fine\"}";
+    private static final UUID ADMIN = UUID.randomUUID();
 
     @Autowired
     private MockMvc mockMvc;
@@ -91,8 +92,67 @@ class SecurityConfigurationTests {
                 .andExpect(status().isOk());
     }
 
+    @Test
+    @DisplayName("the sign-in endpoints of every provider are reachable without a bearer token")
+    void signInFlowsArePublic() throws Exception {
+        mockMvc.perform(get("/api/v1/auth/providers")).andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/auth/google/code").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/auth/apple/callback").contentType(MediaType.APPLICATION_FORM_URLENCODED).content("code=x"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("the account endpoint needs a bearer token")
+    void meNeedsToken() throws Exception {
+        mockMvc.perform(get("/api/v1/me")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("the admin area answers 401 without a token, 403 without the flag and 200 with it")
+    void adminNeedsTheFlag() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/overview")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/admin/overview").header("Authorization", "Bearer " + tokens.issue(UUID.randomUUID())))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/admin/overview").header("Authorization", "Bearer " + tokens.issue(ADMIN)))
+                .andExpect(status().isOk());
+    }
+
+    /** Only {@link #ADMIN} carries the flag. */
+    static class Admins implements AdminAccounts {
+        @Override
+        public boolean isAdmin(UUID accountId) {
+            return ADMIN.equals(accountId);
+        }
+    }
+
     @RestController
     static class Routes {
+        @GetMapping("/api/v1/auth/providers")
+        List<String> providers() {
+            return List.of();
+        }
+
+        @PostMapping("/api/v1/auth/{provider}/code")
+        String code(@PathVariable String provider) {
+            return "{}";
+        }
+
+        @PostMapping("/api/v1/auth/apple/callback")
+        String appleCallback() {
+            return "";
+        }
+
+        @GetMapping("/api/v1/me")
+        UUID me(@AuthenticationPrincipal CurrentUser user) {
+            return user.accountId();
+        }
+
+        @GetMapping("/api/v1/admin/overview")
+        String overview() {
+            return "{}";
+        }
+
         @GetMapping("/api/v1/stations")
         List<String> stations() {
             return List.of();
@@ -106,7 +166,7 @@ class SecurityConfigurationTests {
         @PostMapping(COMMENTS)
         @ResponseStatus(HttpStatus.CREATED)
         UUID createComment(@PathVariable UUID stationId, @AuthenticationPrincipal CurrentUser user) {
-            return user.identityId();
+            return user.accountId();
         }
 
         @GetMapping("/api/v1/operators")

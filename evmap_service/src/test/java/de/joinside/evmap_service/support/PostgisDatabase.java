@@ -73,6 +73,11 @@ public final class PostgisDatabase {
                 + "master.charging_station, master.sync_run, master.source_sync_state CASCADE").update();
     }
 
+    /** Removes every account, provider identity and comment. */
+    public static void clearUserData() {
+        jdbc().sql("TRUNCATE user_data.station_comment, user_data.provider_identity, user_data.account CASCADE").update();
+    }
+
     /**
      * Seeds one station directly, for tests of the read side that live outside {@code sync} and so
      * cannot use its ingestion. {@code location} is a generated column and follows the coordinates.

@@ -1,0 +1,344 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<xliff version="2.0" xmlns="urn:oasis:names:tc:xliff:document:2.0" srcLang="de">
+  <file id="ngi18n" original="ng.template">
+    <unit id="nav.admin">
+      <notes>
+        <note category="location">src/app/app.ts:13,15</note>
+      </notes>
+      <segment>
+        <source>Admin</source>
+      </segment>
+    </unit>
+    <unit id="nav.signOut">
+      <notes>
+        <note category="location">src/app/app.ts:18,19</note>
+      </notes>
+      <segment>
+        <source>Abmelden</source>
+      </segment>
+    </unit>
+    <unit id="nav.signIn">
+      <notes>
+        <note category="location">src/app/app.ts:20,22</note>
+      </notes>
+      <segment>
+        <source>Anmelden</source>
+      </segment>
+    </unit>
+    <unit id="admin.title">
+      <notes>
+        <note category="location">src/app/features/admin/overview.page.html:1,3</note>
+      </notes>
+      <segment>
+        <source>Administration</source>
+      </segment>
+    </unit>
+    <unit id="admin.counts">
+      <notes>
+        <note category="location">src/app/features/admin/overview.page.html:5,6</note>
+      </notes>
+      <segment>
+        <source>Kennzahlen</source>
+      </segment>
+    </unit>
+    <unit id="admin.stations">
+      <notes>
+        <note category="location">src/app/features/admin/overview.page.html:7,8</note>
+      </notes>
+      <segment>
+        <source>Ladestationen</source>
+      </segment>
+    </unit>
+    <unit id="admin.chargePoints">
+      <notes>
+        <note category="location">src/app/features/admin/overview.page.html:8,9</note>
+      </notes>
+      <segment>
+        <source>Ladepunkte</source>
+      </segment>
+    </unit>
+    <unit id="admin.accounts">
+      <notes>
+        <note category="location">src/app/features/admin/overview.page.html:9,10</note>
+      </notes>
+      <segment>
+        <source>Konten</source>
+      </segment>
+    </unit>
+    <unit id="admin.comments">
+      <notes>
+        <note category="location">src/app/features/admin/overview.page.html:10,11</note>
+      </notes>
+      <segment>
+        <source>Kommentare</source>
+      </segment>
+    </unit>
+    <unit id="admin.loadFailed">
+      <notes>
+        <note category="location">src/app/features/admin/overview.page.html:12,14</note>
+        <note category="location">src/app/features/admin/overview.page.html:55,57</note>
+      </notes>
+      <segment>
+        <source>Konnte nicht geladen werden.</source>
+      </segment>
+    </unit>
+    <unit id="common.loading">
+      <notes>
+        <note category="location">src/app/features/admin/overview.page.html:14,18</note>
+        <note category="location">src/app/features/admin/overview.page.html:57,60</note>
+        <note category="location">src/app/features/login/login.page.ts:26,29</note>
+      </notes>
+      <segment>
+        <source>Wird geladen …</source>
+      </segment>
+    </unit>
+    <unit id="admin.syncRuns">
+      <notes>
+        <note category="location">src/app/features/admin/overview.page.html:20,21</note>
+      </notes>
+      <segment>
+        <source>Letzte Sync-Läufe</source>
+      </segment>
+    </unit>
+    <unit id="admin.run.started">
+      <notes>
+        <note category="location">src/app/features/admin/overview.page.html:26,27</note>
+      </notes>
+      <segment>
+        <source>Beginn</source>
+      </segment>
+    </unit>
+    <unit id="admin.run.status">
+      <notes>
+        <note category="location">src/app/features/admin/overview.page.html:27,28</note>
+      </notes>
+      <segment>
+        <source>Status</source>
+      </segment>
+    </unit>
+    <unit id="admin.run.processed">
+      <notes>
+        <note category="location">src/app/features/admin/overview.page.html:28,29</note>
+      </notes>
+      <segment>
+        <source>Verarbeitet</source>
+      </segment>
+    </unit>
+    <unit id="admin.run.created">
+      <notes>
+        <note category="location">src/app/features/admin/overview.page.html:30</note>
+      </notes>
+      <segment>
+        <source>Neu</source>
+      </segment>
+    </unit>
+    <unit id="admin.run.updated">
+      <notes>
+        <note category="location">src/app/features/admin/overview.page.html:30,31</note>
+      </notes>
+      <segment>
+        <source>Geändert</source>
+      </segment>
+    </unit>
+    <unit id="admin.run.failed">
+      <notes>
+        <note category="location">src/app/features/admin/overview.page.html:31,32</note>
+      </notes>
+      <segment>
+        <source>Fehler</source>
+      </segment>
+    </unit>
+    <unit id="admin.run.message">
+      <notes>
+        <note category="location">src/app/features/admin/overview.page.html:32,34</note>
+      </notes>
+      <segment>
+        <source>Meldung</source>
+      </segment>
+    </unit>
+    <unit id="admin.noRuns">
+      <notes>
+        <note category="location">src/app/features/admin/overview.page.html:48,50</note>
+      </notes>
+      <segment>
+        <source>Noch keine Sync-Läufe.</source>
+      </segment>
+    </unit>
+    <unit id="sync.running">
+      <notes>
+        <note category="location">src/app/features/admin/sync-status.ts:6</note>
+      </notes>
+      <segment>
+        <source>Läuft</source>
+      </segment>
+    </unit>
+    <unit id="sync.succeeded">
+      <notes>
+        <note category="location">src/app/features/admin/sync-status.ts:8</note>
+      </notes>
+      <segment>
+        <source>Erfolgreich</source>
+      </segment>
+    </unit>
+    <unit id="sync.partial">
+      <notes>
+        <note category="location">src/app/features/admin/sync-status.ts:10</note>
+      </notes>
+      <segment>
+        <source>Unvollständig</source>
+      </segment>
+    </unit>
+    <unit id="sync.failed">
+      <notes>
+        <note category="location">src/app/features/admin/sync-status.ts:12</note>
+      </notes>
+      <segment>
+        <source>Fehlgeschlagen</source>
+      </segment>
+    </unit>
+    <unit id="sync.skipped">
+      <notes>
+        <note category="location">src/app/features/admin/sync-status.ts:14</note>
+      </notes>
+      <segment>
+        <source>Übersprungen</source>
+      </segment>
+    </unit>
+    <unit id="forbidden.title">
+      <notes>
+        <note category="location">src/app/features/home/forbidden.page.ts:9,10</note>
+      </notes>
+      <segment>
+        <source>Kein Zugriff</source>
+      </segment>
+    </unit>
+    <unit id="forbidden.body">
+      <notes>
+        <note category="location">src/app/features/home/forbidden.page.ts:10,11</note>
+      </notes>
+      <segment>
+        <source>Dieser Bereich ist Administratoren vorbehalten.</source>
+      </segment>
+    </unit>
+    <unit id="forbidden.home">
+      <notes>
+        <note category="location">src/app/features/home/forbidden.page.ts:11,15</note>
+      </notes>
+      <segment>
+        <source>Zur Startseite</source>
+      </segment>
+    </unit>
+    <unit id="home.title">
+      <notes>
+        <note category="location">src/app/features/home/home.page.ts:7,8</note>
+      </notes>
+      <segment>
+        <source>EVMap im Browser</source>
+      </segment>
+    </unit>
+    <unit id="home.body">
+      <notes>
+        <note category="location">src/app/features/home/home.page.ts:8,10</note>
+      </notes>
+      <segment>
+        <source>Karte, Stationen und Kommentare kommen hier später dazu. Bis dahin gibt es EVMap als App für das iPhone.</source>
+      </segment>
+    </unit>
+    <unit id="callback.working">
+      <notes>
+        <note category="location">src/app/features/login/callback.page.ts:13,15</note>
+      </notes>
+      <segment>
+        <source>Anmeldung wird abgeschlossen …</source>
+      </segment>
+    </unit>
+    <unit id="callback.cancelled">
+      <notes>
+        <note category="location">src/app/features/login/callback.page.ts:16,18</note>
+      </notes>
+      <segment>
+        <source>Die Anmeldung wurde abgebrochen.</source>
+      </segment>
+    </unit>
+    <unit id="callback.state">
+      <notes>
+        <note category="location">src/app/features/login/callback.page.ts:19,21</note>
+      </notes>
+      <segment>
+        <source>Die Anmeldung ist abgelaufen oder stammt aus einem anderen Fenster. Bitte erneut versuchen.</source>
+      </segment>
+    </unit>
+    <unit id="callback.failed">
+      <notes>
+        <note category="location">src/app/features/login/callback.page.ts:22,25</note>
+      </notes>
+      <segment>
+        <source>Die Anmeldung ist fehlgeschlagen.</source>
+      </segment>
+    </unit>
+    <unit id="callback.retry">
+      <notes>
+        <note category="location">src/app/features/login/callback.page.ts:26,29</note>
+      </notes>
+      <segment>
+        <source>Erneut anmelden</source>
+      </segment>
+    </unit>
+    <unit id="login.title">
+      <notes>
+        <note category="location">src/app/features/login/login.page.ts:12,13</note>
+      </notes>
+      <segment>
+        <source>Anmelden</source>
+      </segment>
+    </unit>
+    <unit id="login.hint">
+      <notes>
+        <note category="location">src/app/features/login/login.page.ts:13,14</note>
+      </notes>
+      <segment>
+        <source>Konten mit derselben bestätigten E-Mail-Adresse werden automatisch zusammengeführt.</source>
+      </segment>
+    </unit>
+    <unit id="login.none">
+      <notes>
+        <note category="location">src/app/features/login/login.page.ts:21,23</note>
+      </notes>
+      <segment>
+        <source>Auf diesem Server ist noch kein Anmeldeverfahren eingerichtet.</source>
+      </segment>
+    </unit>
+    <unit id="login.unavailable">
+      <notes>
+        <note category="location">src/app/features/login/login.page.ts:24,26</note>
+      </notes>
+      <segment>
+        <source>Die Anmeldung ist gerade nicht erreichbar.</source>
+      </segment>
+    </unit>
+    <unit id="login.withApple">
+      <notes>
+        <note category="location">src/app/features/login/provider-labels.ts:7</note>
+      </notes>
+      <segment>
+        <source>Mit Apple anmelden</source>
+      </segment>
+    </unit>
+    <unit id="login.withGoogle">
+      <notes>
+        <note category="location">src/app/features/login/provider-labels.ts:9</note>
+      </notes>
+      <segment>
+        <source>Mit Google anmelden</source>
+      </segment>
+    </unit>
+    <unit id="login.withGitHub">
+      <notes>
+        <note category="location">src/app/features/login/provider-labels.ts:11</note>
+      </notes>
+      <segment>
+        <source>Mit GitHub anmelden</source>
+      </segment>
+    </unit>
+  </file>
+</xliff>

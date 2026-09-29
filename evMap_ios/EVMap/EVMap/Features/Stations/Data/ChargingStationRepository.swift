@@ -20,4 +20,8 @@ protocol ChargingStationRepository {
     func updateComment(id: UUID, payload: CommentPayload, accessToken: String) async throws -> StationComment
     func deleteComment(id: UUID, accessToken: String) async throws
     func signInWithApple(identityToken: String) async throws -> String
+    /// The web sign-in providers this backend offers (ADR 0018).
+    func signInProviders() async throws -> [SignInProvider]
+    /// Redeems an authorization code from a web sign-in; answers with the backend's access token.
+    func signIn(provider: String, code: String, codeVerifier: String?) async throws -> String
 }

@@ -90,7 +90,17 @@ struct ViewRenderingTests {
 
     @Test("the sign-in prompt renders on its own")
     func signInPrompt() async throws {
-        try await render(AppleSignInPrompt(authSession: AuthSession(repository: StubStationRepository())))
+        try await render(SignInPrompt(authSession: AuthSession(repository: StubStationRepository())))
+
+        let repository = StubStationRepository()
+        repository.signInProviderList = .success(["google", "github", "other"].map {
+            SignInProvider(provider: $0, authorizationEndpoint: URL(string: "https://idp.example/auth")!,
+                           parameters: ["redirect_uri": "https://evmap.joinside.de/auth/callback/\($0)"], pkce: true)
+        })
+        try await render(SignInPrompt(authSession: AuthSession(repository: repository)), settle: .milliseconds(300))
+
+        repository.signInProviderList = .failure(StubStationRepository.Failure(message: "offline"))
+        try await render(SignInPrompt(authSession: AuthSession(repository: repository)), settle: .milliseconds(300))
     }
 
     @Test("settings render with their defaults and with filters and provider choices set")

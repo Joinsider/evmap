@@ -32,8 +32,8 @@ class BearerTokenFilter extends OncePerRequestFilter {
                 CurrentUser user = tokens.verify(authorization.substring(7));
                 SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(user, null, java.util.List.of()));
                 // Makes every subsequent log line of this request attributable to the caller.
-                LogContext.put(LogContext.USER_ID, user.identityId());
-                log.debug("Authenticated request for identity {}", user.identityId());
+                LogContext.put(LogContext.USER_ID, user.accountId());
+                log.debug("Authenticated request for account {}", user.accountId());
             } catch (IllegalArgumentException rejected) {
                 // Never log the token itself — an expired or forged token is a normal, expected event.
                 log.warn("Rejected bearer token on {} {}: {}", request.getMethod(), request.getRequestURI(), rejected.getMessage());

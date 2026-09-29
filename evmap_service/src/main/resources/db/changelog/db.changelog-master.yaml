@@ -11,3 +11,5 @@ databaseChangeLog:
       file: db/changelog/005-operator-directory.sql
   - include:
       file: db/changelog/006-charge-point-inventory.sql
+  - include:
+      file: db/changelog/007-accounts-and-provider-identities.sql

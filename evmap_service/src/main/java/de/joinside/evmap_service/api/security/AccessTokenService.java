@@ -25,10 +25,10 @@ public class AccessTokenService {
         this.ttl = ttl;
     }
 
-    public String issue(UUID identityId) {
+    public String issue(UUID accountId) {
         try {
             String header = encoded("{\"alg\":\"HS256\",\"typ\":\"JWT\"}");
-            String payload = encoded("{\"sub\":\"" + identityId + "\",\"iss\":\"evmap\",\"exp\":" + Instant.now().plus(ttl).getEpochSecond() + "}");
+            String payload = encoded("{\"sub\":\"" + accountId + "\",\"iss\":\"evmap\",\"exp\":" + Instant.now().plus(ttl).getEpochSecond() + "}");
             String unsigned = header + "." + payload;
             return unsigned + "." + ENCODER.encodeToString(sign(unsigned));
         } catch (Exception exception) {

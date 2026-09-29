@@ -30,7 +30,7 @@ struct StationDetailScreen: View {
                 }
             }
             .overlay { if viewModel.isLoading { ProgressView() } }
-            .safeAreaInset(edge: .bottom) { if authSession.accessToken == nil { AppleSignInPrompt(authSession: authSession) } }
+            .safeAreaInset(edge: .bottom) { if authSession.accessToken == nil { SignInPrompt(authSession: authSession) } }
             .sheet(isPresented: $showCommentEditor) { CommentEditorScreen { await create($0) } }
             .sheet(item: $editingComment) { comment in CommentEditorScreen(comment: comment) { await update(comment, payload: $0) } }
             .alert("error.title", isPresented: Binding(get: { viewModel.errorMessage != nil }, set: { if !$0 { viewModel.errorMessage = nil } })) {

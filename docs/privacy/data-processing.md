@@ -1,7 +1,7 @@
 # Verarbeitung personenbezogener Daten in EVMap
 
 - Stand: 2026-09-29
-- Gilt für: iOS-Client (`evMap_ios/`) und API-Service (`evmap_service/`)
+- Gilt für: iOS-Client (`evMap_ios/`), Web-Client (`evmap_web/`) und API-Service (`evmap_service/`)
 
 Dieses Dokument ist eine **technische Bestandsaufnahme** für Entwicklung und
 Architekturentscheidungen. Es ist als Grundlage für ein Verzeichnis von
@@ -19,8 +19,11 @@ hinein.
 | Datum | Zweck | Wo gespeichert | Aufbewahrung | Rechtsgrundlage (Einordnung) |
 | --- | --- | --- | --- | --- |
 | Gerätestandort | Umkreissuche nach Ladestationen | nur flüchtig im Client; als Query-Parameter an die API übertragen | nicht gespeichert | Art. 6 Abs. 1 lit. a (iOS-Standortfreigabe) |
-| Apple `sub` (Provider-Subject) | Wiedererkennung des Kontos | `user_data.user_identity.provider_subject` | bis Kontolöschung | Art. 6 Abs. 1 lit. b |
-| Access Token | Authentifizierung der Session | Client: `UserDefaults`; Server: **nicht** gespeichert (HMAC-signiert, zustandslos) | Client bis Logout, Token-TTL 12 h | Art. 6 Abs. 1 lit. b |
+| Provider-Subject (Apple `sub`, Google `sub`, GitHub-Nutzer-ID) | Wiedererkennung der Anmeldung | `user_data.provider_identity.provider_subject` | bis Kontolöschung | Art. 6 Abs. 1 lit. b |
+| E-Mail-Adresse und ob der Anbieter sie bestätigt hat (seit Phase 1, ADR 0018) | automatische Kontoverknüpfung über eine bestätigte Adresse; ab Phase 2 Datenexport | `user_data.provider_identity.email`, `.email_verified` | bis Kontolöschung; bei jeder Anmeldung auf den Stand des Anbieters gebracht | Art. 6 Abs. 1 lit. b |
+| Konto (interne UUID, Admin-Flag) | Zuordnung aller Nutzerdaten; Zugang zum Admin-Bereich | `user_data.account` | bis Kontolöschung | Art. 6 Abs. 1 lit. b |
+| Access Token | Authentifizierung der Session | iOS: `UserDefaults`; Web: nur im Arbeitsspeicher des Tabs; Server: **nicht** gespeichert (HMAC-signiert, zustandslos) | iOS bis Logout, Web bis Neuladen, Token-TTL 12 h | Art. 6 Abs. 1 lit. b |
+| PKCE-Verifier und `state` einer laufenden Web-Anmeldung | Schutz des Anmeldeablaufs | Web: `sessionStorage` des Tabs | nur zwischen Absprung zum Anbieter und Rückkehr; wird beim Einlesen gelöscht | Art. 6 Abs. 1 lit. b |
 | Kommentartext, Preisangabe, Erfahrung | Nutzerbeiträge zu Ladestationen | `user_data.station_comment` | bis Löschung durch Nutzer | Art. 6 Abs. 1 lit. b |
 | Zeitstempel (`created_at`, `last_login_at`) | Sortierung, Betrieb | `user_data.*` | wie zugehöriger Datensatz | Art. 6 Abs. 1 lit. f |
 | Client-Logs | Fehlerdiagnose | ausschließlich Unified Log des Nutzergeräts | siehe §3 | keine Verarbeitung durch den Verantwortlichen (§3) |
@@ -35,9 +38,14 @@ keine personenbezogenen Daten.
 Diese Punkte sind Ergebnis von Designentscheidungen und sollten bei Änderungen
 nicht stillschweigend aufgegeben:
 
-- **Kein Name, keine E-Mail-Adresse.** Sign in with Apple liefert beides optional
-  mit; `AuthController` verwirft es. Gespeichert wird nur das pseudonyme
-  `provider_subject` aus dem Apple-Identity-Token.
+- **Kein Name.** Keiner der Anbieter wird nach dem Namen gefragt; was Apple beim
+  ersten Web-Login dennoch mitschickt (`user`), verwirft `AuthController`.
+- **E-Mail-Adresse nur zur Kontoverknüpfung** (seit Phase 1, ADR 0018). Sie wird
+  gespeichert, weil sich nur so Konten verschiedener Anbieter automatisch
+  zusammenführen lassen, aber **nie geloggt** (ADR 0002) und nicht an andere
+  Nutzer ausgegeben — `GET /api/v1/me` zeigt sie nur dem Konto selbst. Wer bei
+  Apple „E-Mail verbergen“ wählt, liefert eine Relay-Adresse, die mit nichts
+  verknüpft wird.
 - **Keine Standorthistorie.** Die Koordinate wird pro Suche als Query-Parameter
   gesendet und weder im Client noch in der Datenbank persistiert.
 - **Kein Tracking, keine Analytics, keine Werbe-IDs.** Es gibt keine
@@ -106,8 +114,16 @@ würden.
 
 Loglevel ist `INFO` (`application.yaml`), im Container strukturiert als ECS-JSON.
 Spring Boot loggt Request-URLs auf diesem Level nicht, Koordinaten aus dem
-Query-String erscheinen also nicht in den Anwendungslogs. `UserIdentityService`
-loggt bewusst die interne `UUID` statt des Apple-`sub`.
+Query-String erscheinen also nicht in den Anwendungslogs. `AccountService` und
+`AuthController` loggen bewusst die interne Konto-`UUID` und den Anbieternamen,
+nie Subject, E-Mail-Adresse, Autorisierungscode oder Token.
+
+Der Web-Container (nginx, `evmap_web`) schreibt ein Access-Log mit der
+Request-Zeile. Auf der Rückkehr-Route `/auth/callback/<anbieter>` enthält sie
+einen **einmal verwendbaren, kurzlebigen Autorisierungscode** — für sich allein
+nutzlos, weil der Tausch das Client-Secret (und bei Google/GitHub den
+PKCE-Verifier) braucht. Access Tokens erscheinen dort nie; sie reisen nur im
+`Authorization`-Header.
 
 **Offener Punkt:** Ein vorgelagerter Reverse Proxy (nginx, Traefik, Load
 Balancer) protokolliert standardmäßig vollständige Request-URLs — inklusive
@@ -144,10 +160,11 @@ nächtlich. Für den Datenschutz relevant:
 | Datenübertragbarkeit (Art. 20) | **nicht implementiert** |
 | Widerruf Standortfreigabe | über iOS-Systemeinstellungen jederzeit möglich |
 
-**Die Kontolöschung ist die relevanteste Lücke.** Es existiert kein Endpoint, der
-eine `user_identity` samt Kommentaren entfernt. Das Schema ist darauf schon
-vorbereitet — `station_comment.user_identity_id` hat `ON DELETE CASCADE`, ein
-Löschen der Identity räumt die Kommentare also mit ab. Zusätzlich verlangt Apple
+**Die Kontolöschung ist die relevanteste Lücke** (geplant für Phase 2). Es
+existiert kein Endpoint, der ein `account` samt Anmeldungen und Kommentaren
+entfernt. Das Schema ist darauf schon vorbereitet — `provider_identity.account_id`
+und `station_comment.account_id` haben `ON DELETE CASCADE`, ein Löschen des
+Kontos räumt also Anmeldungen, E-Mail-Adressen und Kommentare mit ab. Zusätzlich verlangt Apple
 für Apps mit Kontoerstellung eine In-App-Kontolöschung als
 Review-Voraussetzung; das ist somit auch ein Release-Blocker, nicht nur ein
 DSGVO-Thema.
@@ -156,7 +173,13 @@ DSGVO-Thema.
 
 - **Apple** — Sign in with Apple. Das Identity-Token wird gegen Apples
   JWKS-Endpoint geprüft (`AppleIdentityTokenVerifier`), wodurch der Server bei
-  jedem Login eine Verbindung zu Apple aufbaut.
+  jedem Login eine Verbindung zu Apple aufbaut. Im Web tauscht der Server
+  zusätzlich den Autorisierungscode bei Apple ein.
+- **Google, GitHub** (seit Phase 1) — Anmeldung über den Browser bzw.
+  `ASWebAuthenticationSession`. Der Server tauscht den Code beim Anbieter ein
+  und liest Subject, E-Mail-Adresse und Bestätigungsstatus (GitHub: `/user`
+  und `/user/emails`). Der Anbieter erfährt dabei, dass sich jemand bei EVMap
+  anmeldet — das ist jeder Anmeldung über einen Dritten eigen.
 - **Hosting des API-Service** — abhängig vom Deployment (aktuell
   `evmap.joinside.de`); AV-Vertrag erforderlich.
 - **Backup-Speicher und Monitoring** — SeaweedFS und Uptime Kuma laufen auf einem
@@ -190,6 +213,6 @@ DSGVO-Thema.
 
 - `evMap_ios/EVMap/EVMap/Core/Logging/AppLogger.swift` — Level-Policy und Redaction-Helper
 - `evMap_ios/EVMap/EVMap/Core/Networking/APIClient.swift` — Query-Redaction, Body-Preview
-- `evmap_service/src/main/resources/db/changelog/001-initial-schema.sql` — `user_data`-Schema
+- `evmap_service/src/main/resources/db/changelog/001-initial-schema.sql`, `007-accounts-and-provider-identities.sql` — `user_data`-Schema
 - `docs/adr/0002-central-ios-logging-via-oslog.md` — Begründung des Logging-Designs
 - `docs/adr/0019-backups-and-monitoring.md` — Backups und Monitoring

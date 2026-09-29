@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<xliff version="2.0" xmlns="urn:oasis:names:tc:xliff:document:2.0" srcLang="de" trgLang="en">
+  <file id="ngi18n" original="ng.template">
+    <unit id="nav.admin">
+      <segment>
+        <source>Admin</source>
+        <target>Admin</target>
+      </segment>
+    </unit>
+    <unit id="nav.signOut">
+      <segment>
+        <source>Abmelden</source>
+        <target>Sign out</target>
+      </segment>
+    </unit>
+    <unit id="nav.signIn">
+      <segment>
+        <source>Anmelden</source>
+        <target>Sign in</target>
+      </segment>
+    </unit>
+    <unit id="admin.title">
+      <segment>
+        <source>Administration</source>
+        <target>Administration</target>
+      </segment>
+    </unit>
+    <unit id="admin.counts">
+      <segment>
+        <source>Kennzahlen</source>
+        <target>Key figures</target>
+      </segment>
+    </unit>
+    <unit id="admin.stations">
+      <segment>
+        <source>Ladestationen</source>
+        <target>Charging stations</target>
+      </segment>
+    </unit>
+    <unit id="admin.chargePoints">
+      <segment>
+        <source>Ladepunkte</source>
+        <target>Charge points</target>
+      </segment>
+    </unit>
+    <unit id="admin.accounts">
+      <segment>
+        <source>Konten</source>
+        <target>Accounts</target>
+      </segment>
+    </unit>
+    <unit id="admin.comments">
+      <segment>
+        <source>Kommentare</source>
+        <target>Comments</target>
+      </segment>
+    </unit>
+    <unit id="admin.loadFailed">
+      <segment>
+        <source>Konnte nicht geladen werden.</source>
+        <target>Could not be loaded.</target>
+      </segment>
+    </unit>
+    <unit id="common.loading">
+      <segment>
+        <source>Wird geladen …</source>
+        <target>Loading …</target>
+      </segment>
+    </unit>
+    <unit id="admin.syncRuns">
+      <segment>
+        <source>Letzte Sync-Läufe</source>
+        <target>Recent sync runs</target>
+      </segment>
+    </unit>
+    <unit id="admin.run.started">
+      <segment>
+        <source>Beginn</source>
+        <target>Started</target>
+      </segment>
+    </unit>
+    <unit id="admin.run.status">
+      <segment>
+        <source>Status</source>
+        <target>Status</target>
+      </segment>
+    </unit>
+    <unit id="admin.run.processed">
+      <segment>
+        <source>Verarbeitet</source>
+        <target>Processed</target>
+      </segment>
+    </unit>
+    <unit id="admin.run.created">
+      <segment>
+        <source>Neu</source>
+        <target>New</target>
+      </segment>
+    </unit>
+    <unit id="admin.run.updated">
+      <segment>
+        <source>Geändert</source>
+        <target>Changed</target>
+      </segment>
+    </unit>
+    <unit id="admin.run.failed">
+      <segment>
+        <source>Fehler</source>
+        <target>Errors</target>
+      </segment>
+    </unit>
+    <unit id="admin.run.message">
+      <segment>
+        <source>Meldung</source>
+        <target>Message</target>
+      </segment>
+    </unit>
+    <unit id="admin.noRuns">
+      <segment>
+        <source>Noch keine Sync-Läufe.</source>
+        <target>No sync runs yet.</target>
+      </segment>
+    </unit>
+    <unit id="sync.running">
+      <segment>
+        <source>Läuft</source>
+        <target>Running</target>
+      </segment>
+    </unit>
+    <unit id="sync.succeeded">
+      <segment>
+        <source>Erfolgreich</source>
+        <target>Succeeded</target>
+      </segment>
+    </unit>
+    <unit id="sync.partial">
+      <segment>
+        <source>Unvollständig</source>
+        <target>Incomplete</target>
+      </segment>
+    </unit>
+    <unit id="sync.failed">
+      <segment>
+        <source>Fehlgeschlagen</source>
+        <target>Failed</target>
+      </segment>
+    </unit>
+    <unit id="sync.skipped">
+      <segment>
+        <source>Übersprungen</source>
+        <target>Skipped</target>
+      </segment>
+    </unit>
+    <unit id="forbidden.title">
+      <segment>
+        <source>Kein Zugriff</source>
+        <target>No access</target>
+      </segment>
+    </unit>
+    <unit id="forbidden.body">
+      <segment>
+        <source>Dieser Bereich ist Administratoren vorbehalten.</source>
+        <target>This area is reserved for administrators.</target>
+      </segment>
+    </unit>
+    <unit id="forbidden.home">
+      <segment>
+        <source>Zur Startseite</source>
+        <target>Back to the start page</target>
+      </segment>
+    </unit>
+    <unit id="home.title">
+      <segment>
+        <source>EVMap im Browser</source>
+        <target>EVMap in the browser</target>
+      </segment>
+    </unit>
+    <unit id="home.body">
+      <segment>
+        <source>Karte, Stationen und Kommentare kommen hier später dazu. Bis dahin gibt es EVMap als App für das iPhone.</source>
+        <target>The map, stations and comments will follow here. Until then, EVMap is available as an iPhone app.</target>
+      </segment>
+    </unit>
+    <unit id="callback.working">
+      <segment>
+        <source>Anmeldung wird abgeschlossen …</source>
+        <target>Completing sign-in …</target>
+      </segment>
+    </unit>
+    <unit id="callback.cancelled">
+      <segment>
+        <source>Die Anmeldung wurde abgebrochen.</source>
+        <target>Sign-in was cancelled.</target>
+      </segment>
+    </unit>
+    <unit id="callback.state">
+      <segment>
+        <source>Die Anmeldung ist abgelaufen oder stammt aus einem anderen Fenster. Bitte erneut versuchen.</source>
+        <target>The sign-in has expired or came from another window. Please try again.</target>
+      </segment>
+    </unit>
+    <unit id="callback.failed">
+      <segment>
+        <source>Die Anmeldung ist fehlgeschlagen.</source>
+        <target>Sign-in failed.</target>
+      </segment>
+    </unit>
+    <unit id="callback.retry">
+      <segment>
+        <source>Erneut anmelden</source>
+        <target>Sign in again</target>
+      </segment>
+    </unit>
+    <unit id="login.title">
+      <segment>
+        <source>Anmelden</source>
+        <target>Sign in</target>
+      </segment>
+    </unit>
+    <unit id="login.hint">
+      <segment>
+        <source>Konten mit derselben bestätigten E-Mail-Adresse werden automatisch zusammengeführt.</source>
+        <target>Accounts with the same verified e-mail address are merged automatically.</target>
+      </segment>
+    </unit>
+    <unit id="login.none">
+      <segment>
+        <source>Auf diesem Server ist noch kein Anmeldeverfahren eingerichtet.</source>
+        <target>No sign-in method has been set up on this server yet.</target>
+      </segment>
+    </unit>
+    <unit id="login.unavailable">
+      <segment>
+        <source>Die Anmeldung ist gerade nicht erreichbar.</source>
+        <target>Sign-in is not reachable right now.</target>
+      </segment>
+    </unit>
+    <unit id="login.withApple">
+      <segment>
+        <source>Mit Apple anmelden</source>
+        <target>Sign in with Apple</target>
+      </segment>
+    </unit>
+    <unit id="login.withGoogle">
+      <segment>
+        <source>Mit Google anmelden</source>
+        <target>Sign in with Google</target>
+      </segment>
+    </unit>
+    <unit id="login.withGitHub">
+      <segment>
+        <source>Mit GitHub anmelden</source>
+        <target>Sign in with GitHub</target>
+      </segment>
+    </unit>
+  </file>
+</xliff>

@@ -55,6 +55,8 @@ private final class StubProviderRepository: ChargingStationRepository {
     func updateComment(id _: UUID, payload _: CommentPayload, accessToken _: String) async throws -> StationComment { fatalError("unused") }
     func deleteComment(id _: UUID, accessToken _: String) async throws { fatalError("unused") }
     func signInWithApple(identityToken _: String) async throws -> String { fatalError("unused") }
+    func signInProviders() async throws -> [SignInProvider] { fatalError("unused") }
+    func signIn(provider _: String, code _: String, codeVerifier _: String?) async throws -> String { fatalError("unused") }
 }
 
 private let sampleProviders = [

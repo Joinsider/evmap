@@ -6,5 +6,11 @@
     <array>
         <string>Default</string>
     </array>
+    <!-- The web sign-in's HTTPS callback (ADR 0018): ASWebAuthenticationSession hands the redirect
+         to the app only for a domain whose apple-app-site-association lists it under webcredentials. -->
+    <key>com.apple.developer.associated-domains</key>
+    <array>
+        <string>webcredentials:evmap.joinside.de</string>
+    </array>
 </dict>
 </plist>

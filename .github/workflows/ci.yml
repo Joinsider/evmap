@@ -1,6 +1,6 @@
 name: CI
 
-# Tests for both deployables on every PR and on master, plus SonarQube Cloud analysis (ADR 0016).
+# Tests for every deployable (API/sync, web client, iOS) on every PR and on master, plus SonarQube Cloud analysis (ADR 0016).
 #
 # - The backend always runs: it is cheap, and the analysis needs its compiled classes.
 # - iOS runs on a PR only when the app (or this file) changed. The repository is private, so macOS
@@ -93,6 +93,46 @@ jobs:
           name: surefire-reports
           path: evmap_service/target/surefire-reports/
           retention-days: 7
+
+  # Angular web client (ADR 0018). Cheap on Linux, so it always runs like the backend. The production
+  # build is part of the test: a text without an English translation fails it (i18nMissingTranslation).
+  web:
+    name: Web tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: evmap_web
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: evmap_web/package-lock.json
+
+      # No lifecycle scripts: nothing in the tree needs one (esbuild ships its binary as an optional
+      # dependency), and a compromised transitive package could otherwise run code on the runner.
+      - run: npm ci --ignore-scripts
+
+      - name: Test
+        run: npm test -- --coverage
+
+      - name: Build both locales
+        run: npm run build
+
+      # lcov paths are relative to evmap_web; the analysis resolves them from the repository root.
+      - name: Hand coverage to the analysis
+        run: sed 's|^SF:|SF:evmap_web/|' coverage/evmap_web/lcov.info > ../sonar-coverage-web.info
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: web-coverage
+          path: sonar-coverage-web.info
+          retention-days: 1
 
   # Rehearses backup, restore test and a real restore of the backup image against throwaway PostGIS
   # and SeaweedFS containers (ADR 0019). Runs on the production database image, which has no arm64
@@ -193,12 +233,13 @@ jobs:
 
   sonar:
     name: SonarQube Cloud
-    needs: [backend, ios]
+    needs: [backend, web, ios]
     # Runs when the tests passed — or iOS was skipped for a PR that did not touch the app — and a
     # token exists. A failed test job means nothing worth analysing.
     if: >-
       !cancelled()
       && needs.backend.result == 'success'
+      && needs.web.result == 'success'
       && (needs.ios.result == 'success' || needs.ios.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -226,6 +267,12 @@ jobs:
         with:
           name: backend-analysis
           path: evmap_service/target
+
+      - name: Fetch web coverage
+        if: env.SONAR_TOKEN != ''
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: web-coverage
 
       - name: Fetch iOS coverage
         if: env.SONAR_TOKEN != '' && needs.ios.result == 'success'

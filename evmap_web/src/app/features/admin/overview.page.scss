@@ -1,0 +1,68 @@
+.counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.count {
+  display: flex;
+  flex-direction: column;
+
+  .value {
+    font-size: 1.75rem;
+    font-weight: 700;
+  }
+}
+
+.scroll {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+th,
+td {
+  padding: 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.message {
+  white-space: normal;
+  color: var(--muted);
+}
+
+.status {
+  font-weight: 600;
+
+  &.failed {
+    color: var(--danger);
+  }
+
+  &.partial {
+    color: var(--warning);
+  }
+
+  &.succeeded {
+    color: var(--accent);
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
