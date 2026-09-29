@@ -21,7 +21,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 |---|---|---|---|---|
 | 0 | Fundament: Backups, Monitoring | fertig ¹ | [#10](https://github.com/Joinsider/evmap/pull/10) | [0019](adr/0019-backups-and-monitoring.md) |
 | 1 | Login mit Google/GitHub, Web-Gerüst | fertig ² | [#11](https://github.com/Joinsider/evmap/pull/11) | [0018](adr/0018-additional-identity-providers-and-web-client.md) |
-| 2 | Konto-Bereich und App-Store-Pflichten | offen | | neu |
+| 2 | Konto-Bereich und App-Store-Pflichten | in Arbeit | `feature/phase-2-account-area` | [0020](adr/0020-account-area-and-app-store-obligations.md) |
 | 3 | Favoriten und Fehler melden | offen | | neu |
 | 4 | Routenplaner Stufe 1 | offen | | 0017 |
 | 5 | Preise an der Station | offen | | 0017 + neu |
@@ -222,6 +222,16 @@ Phase 1 (Details in ADR 0018, Abschnitt „Phase 1 decisions“):
 - Web-i18n mit `@angular/localize` (ein Build je Sprache).
 - Web-Domain ist `evmap.joinside.de`, dieselbe wie die API heute: der Reverse Proxy zeigt auf den
   Web-Container, der `/api/**` weiterleitet. Die iOS-App behält ihre Basis-URL.
+
+Phase 2 (Details in ADR 0020):
+
+- Apple-Widerruf: Der Refresh-Token wird beim Apple-Login gespeichert, AES-GCM-verschlüsselt.
+- Kontolöschung sofort und vollständig, ohne Bedenkzeit; Kommentare werden mitgelöscht.
+- Gelöschte Konten bleiben bis zu ~3 Monate in Backups; kein Löschprotokoll (ADR 0019, offener Punkt a).
+- Gemeldete Kommentare bleiben sichtbar (für den Melder ausgeblendet); Admin kann löschen oder abweisen, kein Nutzer-Bann.
+- Blockierungen serverseitig am Konto, über einen Kommentar ausgelöst.
+- Datenexport als direkter JSON-Download.
+- Datenschutz-Link per Backend-Konfiguration (`PRIVACY_POLICY_URL`).
 
 Roadmap allgemein:
 
