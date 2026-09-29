@@ -24,12 +24,28 @@ management:
         include: health,info
   endpoint:
     health:
+      # INCOMPLETE (a PARTIAL sync run, ADR 0019) ranks below UP here, so the root endpoint keeps
+      # ADR 0004's meaning: DOWN only when ingestion failed or went stale. Must list every status —
+      # one missing from the order would outrank all the others.
+      status:
+        order: DOWN,OUT_OF_SERVICE,UP,INCOMPLETE,UNKNOWN
       group:
         # What the container healthcheck asks: "can this instance serve requests?". Excludes the
         # ingestion indicator on purpose — sync waits for the API to be healthy, so letting a failed
         # or never-run ingestion mark the API unhealthy would deadlock a cold start.
         container:
           include: db
+        # What the external monitor asks for "did the last sync deliver everything?". A PARTIAL run
+        # answers 503 here and nowhere else. A custom http-mapping replaces Boot's defaults, so DOWN
+        # and OUT_OF_SERVICE have to be restated.
+        sync:
+          include: ingestion,ingestionCompleteness
+          status:
+            order: DOWN,OUT_OF_SERVICE,INCOMPLETE,UP,UNKNOWN
+            http-mapping:
+              DOWN: 503
+              OUT_OF_SERVICE: 503
+              INCOMPLETE: 503
 
 # Local default: human-readable console output including the request correlation id.
 # The `docker` profile (application-docker.yaml) switches the same appender to structured JSON.
