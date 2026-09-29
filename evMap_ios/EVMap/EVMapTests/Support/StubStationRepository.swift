@@ -22,6 +22,8 @@ final class StubStationRepository: ChargingStationRepository {
     var commentWrite: Result<StationComment, Error> = .failure(Failure(message: "no comment"))
     var deleteResult: Result<Void, Error> = .success(())
     var signIn: Result<String, Error> = .success("token")
+    var signInProviderList: Result<[SignInProvider], Error> = .success([])
+    private(set) var codeSignIns: [(provider: String, code: String, codeVerifier: String?)] = []
 
     private(set) var nearbyFilters: [StationFilter] = []
     private(set) var deletedComments: [UUID] = []
@@ -49,6 +51,11 @@ final class StubStationRepository: ChargingStationRepository {
         deletedComments.append(id)
     }
     func signInWithApple(identityToken _: String) async throws -> String { try signIn.get() }
+    func signInProviders() async throws -> [SignInProvider] { try signInProviderList.get() }
+    func signIn(provider: String, code: String, codeVerifier: String?) async throws -> String {
+        codeSignIns.append((provider, code, codeVerifier))
+        return try signIn.get()
+    }
 }
 
 /// Small factories for domain values, so tests state only what they are about.

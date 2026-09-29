@@ -5,6 +5,9 @@
 "action.ok" = "OK";
 "action.save" = "Speichern";
 "app.title" = "EVMap";
+"auth.signIn" = "Anmelden";
+"auth.signInWithGitHub" = "Mit GitHub anmelden";
+"auth.signInWithGoogle" = "Mit Google anmelden";
 "comments.add" = "Kommentar schreiben";
 "comments.empty" = "Noch keine Kommentare.";
 "comments.experience" = "Ladeerfahrung (optional)";
@@ -15,6 +18,7 @@
 "error.appleSignIn" = "Apple-Anmeldung konnte nicht abgeschlossen werden.";
 "error.invalidResponse" = "Ungültige Serverantwort.";
 "error.requestFailed" = "Die Anfrage ist fehlgeschlagen.";
+"error.signIn" = "Die Anmeldung konnte nicht abgeschlossen werden.";
 "error.title" = "Fehler";
 "error.unauthenticated" = "Bitte erneut anmelden.";
 "filter.availability" = "Nur betriebsbereite Ladestationen";

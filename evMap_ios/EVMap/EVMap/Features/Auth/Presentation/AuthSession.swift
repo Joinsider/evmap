@@ -41,6 +41,44 @@ final class AuthSession: ObservableObject {
         AppLogger.auth.debug("Access token \(AppLogger.redact(token: accessToken))")
     }
 
+    /// The web providers to offer next to Sign in with Apple.
+    func webSignInProviders() async throws -> [SignInProvider] {
+        try await repository.signInProviders().filter { SignInProvider.webProviders.contains($0.provider) }
+    }
+
+    /// Opens a provider in a web authentication session and exchanges the code it returns (ADR 0018).
+    ///
+    /// `authenticate` presents the session; the view passes SwiftUI's `WebAuthenticationSession`,
+    /// tests a stand-in. The callback is the provider's HTTPS redirect URI, which iOS hands back to
+    /// the app through the associated domain instead of loading it. A cancelled sheet throws
+    /// `ASWebAuthenticationSessionError.canceledLogin`, which callers treat as "nothing happened".
+    func signIn(with provider: SignInProvider,
+                authenticate: (URL, ASWebAuthenticationSession.Callback) async throws -> URL) async throws {
+        let state = PKCE.randomToken()
+        let verifier = provider.pkce ? PKCE.randomToken(byteCount: 48) : nil
+        guard let redirect = provider.redirectURI, let host = redirect.host(),
+              let url = provider.authorizationURL(state: state, codeChallenge: verifier.map(PKCE.challenge(for:))) else {
+            AppLogger.auth.error("Sign-in provider \(provider.provider) is missing its redirect URI")
+            throw APIError.server(String(localized: "error.signIn"))
+        }
+
+        AppLogger.auth.info("Starting \(provider.provider) sign-in")
+        let callback = try await authenticate(url, .https(host: host, path: redirect.path()))
+        let query = URLComponents(url: callback, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        func value(_ name: String) -> String? { query.first { $0.name == name }?.value }
+
+        // The state is what ties this answer to the session this app opened.
+        guard value("state") == state, let code = value("code") else {
+            AppLogger.auth.error("\(provider.provider) sign-in returned \(value("error") ?? "no code or a mismatched state")")
+            throw APIError.server(String(localized: "error.signIn"))
+        }
+        accessToken = try await AppLogger.auth.measure("\(provider.provider) sign-in") {
+            try await repository.signIn(provider: provider.provider, code: code, codeVerifier: verifier)
+        }
+        AppLogger.auth.notice("Signed in")
+        AppLogger.auth.debug("Access token \(AppLogger.redact(token: accessToken))")
+    }
+
     func signOut() {
         AppLogger.auth.notice("Signed out")
         accessToken = nil

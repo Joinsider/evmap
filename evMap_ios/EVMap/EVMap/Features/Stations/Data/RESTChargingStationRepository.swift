@@ -83,7 +83,18 @@ struct RESTChargingStationRepository: ChargingStationRepository {
         let response: AccessTokenResponse = try await client.send(client.endpoint("auth", "apple"), method: "POST", body: AppleLoginRequest(identityToken: identityToken))
         return response.accessToken
     }
+
+    func signInProviders() async throws -> [SignInProvider] {
+        try await client.send(client.endpoint("auth", "providers"))
+    }
+
+    func signIn(provider: String, code: String, codeVerifier: String?) async throws -> String {
+        let response: AccessTokenResponse = try await client.send(client.endpoint("auth", provider, "code"), method: "POST",
+                                                                  body: CodeLoginRequest(code: code, codeVerifier: codeVerifier))
+        return response.accessToken
+    }
 }
 
 private struct AppleLoginRequest: Encodable { let identityToken: String }
+private struct CodeLoginRequest: Encodable { let code: String; let codeVerifier: String? }
 private struct AccessTokenResponse: Decodable { let accessToken: String }

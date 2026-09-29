@@ -90,7 +90,7 @@ struct ViewRenderingTests {
 
     @Test("the sign-in prompt renders on its own")
     func signInPrompt() async throws {
-        try await render(AppleSignInPrompt(authSession: AuthSession(repository: StubStationRepository())))
+        try await render(SignInPrompt(authSession: AuthSession(repository: StubStationRepository())))
     }
 
     @Test("settings render with their defaults and with filters and provider choices set")

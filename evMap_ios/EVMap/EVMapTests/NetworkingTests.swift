@@ -135,6 +135,27 @@ struct NetworkingTests {
         #expect(lastRequest.value(forHTTPHeaderField: "Authorization") == "Bearer abc")
     }
 
+    @Test("web sign-in lists the providers and posts the code with its verifier")
+    func webSignIn() async throws {
+        StubURLProtocol.reset { request in
+            request.url!.lastPathComponent == "providers"
+                ? self.json(#"[{"provider":"google","authorizationEndpoint":"https://accounts.google.com/o/oauth2/v2/auth","parameters":{"redirect_uri":"https://evmap.joinside.de/auth/callback/google"},"pkce":true}]"#)
+                : self.json(#"{"accessToken":"issued"}"#)
+        }
+        let repository = repository()
+
+        let providers = try await repository.signInProviders()
+        #expect(providers.map(\.provider) == ["google"])
+        #expect(providers.first?.redirectURI?.path() == "/auth/callback/google")
+
+        let token = try await repository.signIn(provider: "google", code: "the-code", codeVerifier: "the-verifier")
+        #expect(token == "issued")
+        #expect(lastRequest.url?.path() == "/api/v1/auth/google/code")
+        #expect(lastRequest.httpMethod == "POST")
+        let body = try JSONSerialization.jsonObject(with: lastRequest.httpBody ?? Data()) as? [String: String]
+        #expect(body == ["code": "the-code", "codeVerifier": "the-verifier"])
+    }
+
     @Test("viewport live status and the operator directory pass their parameters")
     func viewportAndOperators() async throws {
         StubURLProtocol.reset { _ in self.json("[]") }
