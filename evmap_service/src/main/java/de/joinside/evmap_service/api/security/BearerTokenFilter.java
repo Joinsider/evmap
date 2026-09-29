@@ -30,9 +30,7 @@ class BearerTokenFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
         // An Authorization header wins outright: a request that carries one is never treated as
         // cookie-authenticated, which is also what exempts it from CSRF protection.
-        String authorization = request.getHeader("Authorization");
-        String token = authorization != null ? (authorization.startsWith("Bearer ") ? authorization.substring(7) : null)
-                : sessionCookie.read(request).orElse(null);
+        String token = tokenOf(request);
         if (token != null) {
             try {
                 CurrentUser user = tokens.verify(token);
@@ -46,5 +44,11 @@ class BearerTokenFilter extends OncePerRequestFilter {
             }
         }
         chain.doFilter(request, response);
+    }
+
+    private String tokenOf(HttpServletRequest request) {
+        String authorization = request.getHeader("Authorization");
+        if (authorization == null) return sessionCookie.read(request).orElse(null);
+        return authorization.startsWith("Bearer ") ? authorization.substring(7) : null;
     }
 }
