@@ -9,6 +9,8 @@ final class StationDetailViewModel: ObservableObject {
     /// a live source being down means the screen shows no live section, not a broken station.
     @Published private(set) var liveAvailability: StationLiveAvailability?
     @Published private(set) var isLoading = true
+    /// Set once a station report was accepted, so the screen can thank the person for it.
+    @Published var reportAccepted = false
     @Published var errorMessage: String?
 
     private let stationID: UUID
@@ -83,6 +85,21 @@ final class StationDetailViewModel: ObservableObject {
         } catch {
             AppLogger.comments.error("Reporting comment \(comment.id) failed", error: error)
             errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Reports a problem with this station (ADR 0021). Returns whether the backend accepted it, so the
+    /// report sheet only closes on success. The note is the person's text and never reaches the log.
+    func reportStation(reason: StationReportReason, note: String?, accessToken: String) async -> Bool {
+        do {
+            try await repository.reportStation(id: stationID, reason: reason, note: note, accessToken: accessToken)
+            reportAccepted = true
+            AppLogger.stations.notice("Reported station \(stationID) as \(reason.rawValue)")
+            return true
+        } catch {
+            AppLogger.stations.error("Reporting station \(stationID) failed", error: error)
+            errorMessage = error.localizedDescription
+            return false
         }
     }
 

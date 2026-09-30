@@ -9,6 +9,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
     <nav class="tabs" aria-label="Admin">
       <a routerLink="." routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" i18n="@@admin.nav.overview">Übersicht</a>
       <a routerLink="reports" routerLinkActive="active" i18n="@@admin.nav.reports">Meldungen</a>
+      <a routerLink="station-reports" routerLinkActive="active" i18n="@@admin.nav.stationReports">Stationsfehler</a>
     </nav>
     <router-outlet />
   `,

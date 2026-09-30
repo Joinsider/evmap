@@ -35,7 +35,7 @@ class AdminController {
         return repository.syncRuns(Math.clamp(limit, 1, MAX_RUNS));
     }
 
-    record Overview(long stations, long chargePoints, long accounts, long comments, long openReports) {
+    record Overview(long stations, long chargePoints, long accounts, long comments, long openReports, long openStationReports) {
     }
 
     record SyncRun(UUID id, Instant startedAt, Instant finishedAt, String status, int processed, int created,

@@ -17,6 +17,7 @@ describe('AccountPage', () => {
     api.contributionsData = {
       comments: [{ id: 'c1', stationId: 's1', stationName: 'EnBW Stuttgart', body: 'Lädt schnell', createdAt: '2026-09-01T10:00:00Z', updatedAt: '2026-09-01T10:00:00Z' }],
       reports: [{ id: 'r1', reason: 'spam', status: 'open', stationName: 'Ionity', createdAt: '2026-09-02T10:00:00Z' }],
+      stationReports: [{ id: 'sr1', stationId: 's1', reason: 'wrong_power', note: 'Es sind nur 11 kW', status: 'resolved', stationName: 'EnBW Stuttgart', createdAt: '2026-09-04T10:00:00Z' }],
     };
     api.blockList = [{ id: 'b1', createdAt: '2026-09-03T10:00:00Z' }];
     TestBed.configureTestingModule({ providers: [{ provide: EvmapApi, useValue: api }, { provide: FILE_SAVER, useValue: save }, provideRouter([])] });
@@ -42,6 +43,8 @@ describe('AccountPage', () => {
     expect(text).toContain('Lädt schnell');
     expect(text).toContain('Spam oder Werbung');
     expect(text).toContain('Wird geprüft');
+    expect(text).toContain('Falsche Leistung');
+    expect(text).toContain('Es sind nur 11 kW');
     expect(text).toContain('Blockiert am');
   });
 

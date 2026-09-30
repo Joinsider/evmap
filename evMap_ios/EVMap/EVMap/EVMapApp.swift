@@ -14,6 +14,8 @@ struct EVMapApp: App {
     /// Loaded once at launch and owned here rather than by a screen, because the map needs the
     /// stored filter before it builds its first query.
     @StateObject private var settings = SettingsViewModel()
+    /// Owned here for the same reason: the map draws from it and the station screen changes it.
+    @StateObject private var favorites: FavoritesViewModel
 
     init() {
         // First line of every run: without it, a console full of request logs
@@ -21,12 +23,14 @@ struct EVMapApp: App {
         AppLogger.app.notice("EVMap \(Bundle.main.appVersion) launched against \(APIEnvironment.baseURL.absoluteString)")
         let repository = RESTChargingStationRepository()
         self.repository = repository
-        _authSession = StateObject(wrappedValue: AuthSession(repository: repository))
+        let authSession = AuthSession(repository: repository)
+        _authSession = StateObject(wrappedValue: authSession)
+        _favorites = StateObject(wrappedValue: FavoritesViewModel(repository: repository, authSession: authSession))
     }
 
     var body: some Scene {
         WindowGroup {
-            MapScreen(repository: repository, authSession: authSession, settings: settings)
+            MapScreen(repository: repository, authSession: authSession, settings: settings, favorites: favorites)
         }
     }
 }

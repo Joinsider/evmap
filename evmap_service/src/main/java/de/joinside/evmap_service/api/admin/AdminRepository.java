@@ -26,9 +26,10 @@ class AdminRepository {
                         + "(SELECT count(*) FROM master.charge_point) AS charge_points, "
                         + "(SELECT count(*) FROM user_data.account) AS accounts, "
                         + "(SELECT count(*) FROM user_data.station_comment) AS comments, "
-                        + "(SELECT count(DISTINCT comment_id) FROM user_data.comment_report WHERE status = 'open') AS open_reports")
+                        + "(SELECT count(DISTINCT comment_id) FROM user_data.comment_report WHERE status = 'open') AS open_reports, "
+                        + "(SELECT count(DISTINCT (station_id, reason)) FROM user_data.station_report WHERE status = 'open') AS open_station_reports")
                 .query((rs, row) -> new AdminController.Overview(rs.getLong("stations"), rs.getLong("charge_points"),
-                        rs.getLong("accounts"), rs.getLong("comments"), rs.getLong("open_reports")))
+                        rs.getLong("accounts"), rs.getLong("comments"), rs.getLong("open_reports"), rs.getLong("open_station_reports")))
                 .single();
     }
 

@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { EvmapApi } from './evmap-api';
-import { Account, AdminOverview, BlockedAuthor, Contributions, Legal, ProviderToken, ReportedComment, SignInProvider, SyncRun } from './models';
+import { Account, AdminOverview, BlockedAuthor, Contributions, Legal, ProviderToken, ReportedComment, ReportedStation, SignInProvider, StationReportReason, SyncRun } from './models';
 
 /**
  * REST implementation of {@link EvmapApi}. Paths are relative: the web container's nginx serves the
@@ -70,5 +70,13 @@ export class RestEvmapApi extends EvmapApi {
 
   adminRemoveComment(commentId: string): Observable<void> {
     return this.http.delete<void>(`/api/v1/admin/comments/${encodeURIComponent(commentId)}`);
+  }
+
+  adminStationReports(): Observable<ReportedStation[]> {
+    return this.http.get<ReportedStation[]>('/api/v1/admin/station-reports');
+  }
+
+  adminCloseStationReports(stationId: string, reason: StationReportReason, outcome: 'resolve' | 'dismiss'): Observable<void> {
+    return this.http.post<void>(`/api/v1/admin/station-reports/${encodeURIComponent(stationId)}/${encodeURIComponent(reason)}/${outcome}`, null);
   }
 }

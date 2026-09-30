@@ -22,6 +22,8 @@ import java.util.UUID;
 class MyDataRepository {
     private static final String ACCOUNT = "account";
     private static final String CREATED_AT = "created_at";
+    private static final String STATION_ID = "station_id";
+    private static final String STATION_NAME = "station_name";
 
     private final JdbcClient jdbc;
 
@@ -48,8 +50,8 @@ class MyDataRepository {
                         + "c.created_at, c.updated_at FROM user_data.station_comment c "
                         + "LEFT JOIN master.charging_station s ON s.id = c.station_id WHERE c.account_id = :account ORDER BY c.created_at DESC")
                 .param(ACCOUNT, accountId)
-                .query((rs, row) -> new MyDataController.CommentData(rs.getObject("id", UUID.class), rs.getObject("station_id", UUID.class),
-                        rs.getString("station_name"), rs.getString("body"), (Integer) rs.getObject("paid_price_cents"),
+                .query((rs, row) -> new MyDataController.CommentData(rs.getObject("id", UUID.class), rs.getObject(STATION_ID, UUID.class),
+                        rs.getString(STATION_NAME), rs.getString("body"), (Integer) rs.getObject("paid_price_cents"),
                         rs.getString("experience"), instant(rs, CREATED_AT), instant(rs, "updated_at"))).list();
     }
 
@@ -60,13 +62,32 @@ class MyDataRepository {
                         + "LEFT JOIN master.charging_station s ON s.id = c.station_id WHERE r.reporter_id = :account ORDER BY r.created_at DESC")
                 .param(ACCOUNT, accountId)
                 .query((rs, row) -> new MyDataController.ReportData(rs.getObject("id", UUID.class), rs.getString("reason"),
-                        rs.getString("status"), rs.getString("station_name"), instant(rs, CREATED_AT), instant(rs, "resolved_at"))).list();
+                        rs.getString("status"), rs.getString(STATION_NAME), instant(rs, CREATED_AT), instant(rs, "resolved_at"))).list();
     }
 
     List<MyDataController.BlockData> blocks(UUID accountId) {
         return jdbc.sql("SELECT id, created_at FROM user_data.account_block WHERE blocker_id = :account ORDER BY created_at DESC")
                 .param(ACCOUNT, accountId)
                 .query((rs, row) -> new MyDataController.BlockData(rs.getObject("id", UUID.class), instant(rs, CREATED_AT))).list();
+    }
+
+    List<MyDataController.FavoriteData> favorites(UUID accountId) {
+        return jdbc.sql("SELECT f.station_id, s.display_name AS station_name, f.created_at FROM user_data.favorite_station f "
+                        + "LEFT JOIN master.charging_station s ON s.id = f.station_id WHERE f.account_id = :account ORDER BY f.created_at DESC")
+                .param(ACCOUNT, accountId)
+                .query((rs, row) -> new MyDataController.FavoriteData(rs.getObject(STATION_ID, UUID.class), rs.getString(STATION_NAME),
+                        instant(rs, CREATED_AT))).list();
+    }
+
+    /** The station reports this account filed, including its own free text. */
+    List<MyDataController.StationReportData> stationReports(UUID accountId) {
+        return jdbc.sql("SELECT r.id, r.station_id, s.display_name AS station_name, r.reason, r.note, r.status, r.created_at, r.resolved_at "
+                        + "FROM user_data.station_report r LEFT JOIN master.charging_station s ON s.id = r.station_id "
+                        + "WHERE r.reporter_id = :account ORDER BY r.created_at DESC")
+                .param(ACCOUNT, accountId)
+                .query((rs, row) -> new MyDataController.StationReportData(rs.getObject("id", UUID.class), rs.getObject(STATION_ID, UUID.class),
+                        rs.getString(STATION_NAME), rs.getString("reason"), rs.getString("note"), rs.getString("status"),
+                        instant(rs, CREATED_AT), instant(rs, "resolved_at"))).list();
     }
 
     private static Instant instant(ResultSet rs, String column) throws SQLException {

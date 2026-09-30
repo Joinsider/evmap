@@ -1,6 +1,6 @@
 # Verarbeitung personenbezogener Daten in EVMap
 
-- Stand: 2026-09-30
+- Stand: 2026-09-30 (Phase 3: Favoriten, Stationsmeldungen)
 - Gilt für: iOS-Client (`evMap_ios/`), Web-Client (`evmap_web/`) und API-Service (`evmap_service/`)
 
 Dieses Dokument ist eine **technische Bestandsaufnahme** für Entwicklung und
@@ -28,6 +28,9 @@ hinein.
 | Kommentartext, Preisangabe, Erfahrung | Nutzerbeiträge zu Ladestationen | `user_data.station_comment` | bis Löschung durch Nutzer | Art. 6 Abs. 1 lit. b |
 | Meldung eines Kommentars (Grund: Spam, unangemessen, falsch, sonstiges) samt Melder-Konto (seit Phase 2) | Moderation; Ausblenden für den Melder | `user_data.comment_report` | bis Kontolöschung des Melders oder Löschung des Kommentars; Admins sehen den Grund, **nicht** den Melder | Art. 6 Abs. 1 lit. f (Nutzerinhalte moderieren), App-Store-Richtlinie 1.2 |
 | Blockierung eines Autors (seit Phase 2) | Kommentare eines Autors für den Blockierenden ausblenden | `user_data.account_block` (Blockierender, Blockierter, Zeitpunkt) | bis Aufhebung oder Kontolöschung einer der beiden Seiten; der Blockierte erfährt nichts davon | Art. 6 Abs. 1 lit. b |
+| Favorisierte Stationen, synchronisiert (seit Phase 3, ADR 0021) | Favoriten über Geräte und Clients hinweg | `user_data.favorite_station` (Konto, Station, Zeitpunkt) | bis Entfernen, Löschung der Station oder Kontolöschung; im Datenexport | Art. 6 Abs. 1 lit. b |
+| Favorisierte Stationen, lokal (iOS, seit Phase 3) | Favoriten ohne Konto; Liste und Kartenmarkierung ohne Netzwerkzugriff | `UserDefaults` der App (Schlüssel `favorites.v1`, ganze Stationsdatensätze); nie geloggt | bis Entfernen, **Abmelden leert die Liste**, oder Deinstallation der App | Art. 6 Abs. 1 lit. b |
+| Fehlermeldung zu einer Station (Grund, optionaler Freitext bis 500 Zeichen) samt Melder-Konto (seit Phase 3, ADR 0021) | Datenqualität; Admin-Warteschlange | `user_data.station_report` | bis Kontolöschung des Melders oder Löschung der Station; Admins sehen Grund, Anzahl und Freitext, **nicht** den Melder; der Freitext wird nie geloggt | Art. 6 Abs. 1 lit. f (Datenqualität der Stationsdaten); der Freitext ist freiwillig, die Einordnung ist juristisch zu prüfen |
 | Datenexport-Datei (iOS, seit Phase 2) | Weitergabe des Exports über das Teilen-Menü | temporäres Verzeichnis der App, mit vollständigem Dateischutz | bis der Konto-Bildschirm verlassen wird (dann gelöscht) oder das System das temporäre Verzeichnis leert | Art. 6 Abs. 1 lit. b (Art. 15/20) |
 | Zeitstempel (`created_at`, `last_login_at`) | Sortierung, Betrieb | `user_data.*` | wie zugehöriger Datensatz | Art. 6 Abs. 1 lit. f |
 | Client-Logs | Fehlerdiagnose | ausschließlich Unified Log des Nutzergeräts | siehe §3 | keine Verarbeitung durch den Verantwortlichen (§3) |
@@ -56,7 +59,9 @@ nicht stillschweigend aufgegeben:
   Drittanbieter-SDKs im Client.
 - **Kein Remote-Log-Sink.** Weder Crashlytics noch Sentry noch Vergleichbares.
 - **Admins sehen keine Melder.** Die Moderations-Warteschlange zeigt den gemeldeten
-  Kommentar, Gründe und Anzahl, nie das Konto, das gemeldet hat. Auch Blockierungen nennen
+  Kommentar, Gründe und Anzahl, nie das Konto, das gemeldet hat. Dasselbe gilt für die
+  Warteschlange der Stationsmeldungen (Phase 3): Grund, Anzahl und die neuesten Freitexte,
+  nie das meldende Konto. Auch Blockierungen nennen
   nicht, wen sie betreffen: der Client bekommt nur eine eigene Blockier-ID, die Konto-ID
   eines anderen verlässt die Datenbankschicht nie.
 - **Keine serverseitige Session.** `SecurityConfiguration` ist zustandslos; das

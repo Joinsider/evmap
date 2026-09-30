@@ -168,6 +168,10 @@ credentials is simply off. Apple sign-ins (native and web) keep Apple's
 refresh token **AES-GCM encrypted** (`TokenCipher`, `TOKEN_ENCRYPTION_KEY`) on the identity, because
 `DELETE /api/v1/me` (`AccountDeletionService`) must revoke it at Apple before it deletes the account
 in one cascading statement; `BearerTokenFilter` rejects tokens of deleted accounts (`KnownAccounts`).
+Favorites (`api.favorite`) and station error reports (`api.stationreport`) are user data too, both
+referencing a master station by uuid with `ON DELETE CASCADE`; a station report never edits `master.*`
+(admins only resolve or dismiss it, and the next sync is the one writer) and its free text is never
+logged. See ADR 0021.
 Reports, blocks and the moderation queue live in `api.moderation` (reports never hide a comment for
 others, blocks are anonymous rows, admins never see who reported); export and "my contributions" in
 `api.account`. **A table added to `user_data` must join the export (`MyDataRepository`) and cascade from
@@ -249,8 +253,8 @@ code — never call networking APIs directly from a ViewModel or View.
 
 Structure follows a feature-module layout under `Features/`, each split into `Domain` (models),
 `Data` (repository implementations), and `Presentation` (SwiftUI views + view models): `Auth`, `Comments`,
-`Map`, `Search`, `Settings`, `StationDetail`, `Stations`, and `Account` (deletion, export, contributions,
-blocks; ADR 0020). Shared networking primitives live in
+`Map`, `Search`, `Settings`, `StationDetail`, `Stations`, `Favorites` (ADR 0021), and `Account` (deletion,
+export, contributions, blocks; ADR 0020). Shared networking primitives live in
 `Core/Networking` (`APIClient`, `APIError`).
 
 `Settings` owns everything that persists between launches. `AppSettings` is the stored value (one JSON
@@ -264,6 +268,11 @@ because throwing sends the store down its corrupt-data path and resets *everythi
 change, but the map refetches only on sheet dismiss (`MapViewModel.apply(_:)`) — do not wire a filter
 change straight to a fetch. Reset restores filters and provider preferences only, never the search
 history or the sign-in. See ADR 0014.
+
+`Favorites` is the device-or-account list (ADR 0021): `FavoriteList` holds whole stations, so it works signed
+out and offline; `FavoritesViewModel` merges it with the account on sign-in (union) and clears the device
+copy on sign-out (never at a signed-out launch), and undoes any change the backend refuses. It is owned by
+`EVMapApp` like the settings, because the map draws its star badges from it.
 
 `Search` (address autocomplete) deliberately does *not* go through `ChargingStationRepository` — it
 talks to MapKit, not the backend — but has its own `AddressSearchProviding` seam for the same reason.

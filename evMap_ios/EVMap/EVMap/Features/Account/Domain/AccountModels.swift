@@ -21,6 +21,37 @@ enum ReportReason: String, CaseIterable, Codable, Identifiable {
 struct Contributions: Decodable, Equatable {
     let comments: [CommentContribution]
     let reports: [ReportContribution]
+    /// Error reports on stations (ADR 0021); an older backend has none.
+    let stationReports: [StationReportContribution]
+
+    init(comments: [CommentContribution], reports: [ReportContribution], stationReports: [StationReportContribution] = []) {
+        self.comments = comments
+        self.reports = reports
+        self.stationReports = stationReports
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        comments = try container.decode([CommentContribution].self, forKey: .comments)
+        reports = try container.decode([ReportContribution].self, forKey: .reports)
+        stationReports = try container.decodeIfPresent([StationReportContribution].self, forKey: .stationReports) ?? []
+    }
+
+    private enum CodingKeys: String, CodingKey { case comments, reports, stationReports }
+}
+
+struct StationReportContribution: Decodable, Identifiable, Equatable {
+    let id: UUID
+    let reason: String
+    let note: String?
+    let status: String
+    let stationName: String?
+    let createdAt: Date
+
+    /// A reason this app does not know yet is shown as "other".
+    var reasonName: String { (StationReportReason(rawValue: reason) ?? .other).displayName }
+    var isOpen: Bool { status == "open" }
+    var isResolved: Bool { status == "resolved" }
 }
 
 struct CommentContribution: Decodable, Identifiable, Equatable {

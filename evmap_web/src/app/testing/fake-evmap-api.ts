@@ -1,18 +1,19 @@
 import { Observable, of, throwError } from 'rxjs';
 import { EvmapApi } from '../core/api/evmap-api';
-import { Account, AdminOverview, BlockedAuthor, Contributions, Legal, ProviderToken, ReportedComment, SignInProvider, SyncRun } from '../core/api/models';
+import { Account, AdminOverview, BlockedAuthor, Contributions, Legal, ProviderToken, ReportedComment, ReportedStation, SignInProvider, StationReportReason, SyncRun } from '../core/api/models';
 
 /** In-memory {@link EvmapApi}: what the tests swap in for REST, the same way a later GraphQL client would be. */
 export class FakeEvmapApi extends EvmapApi {
   providers: SignInProvider[] = [];
   account: Account = { id: 'acc-1', admin: false, identities: [] };
-  overview: AdminOverview = { stations: 0, chargePoints: 0, accounts: 0, comments: 0, openReports: 0 };
+  overview: AdminOverview = { stations: 0, chargePoints: 0, accounts: 0, comments: 0, openReports: 0, openStationReports: 0 };
   runs: SyncRun[] = [];
   exchanges: { provider: ProviderToken; code: string; codeVerifier?: string }[] = [];
   rejectExchange = false;
   /** Stands in for the browser holding the session cookie. */
   hasSession = false;
-  contributionsData: Contributions = { comments: [], reports: [] };
+  contributionsData: Contributions = { comments: [], reports: [], stationReports: [] };
+  stationReports: ReportedStation[] = [];
   blockList: BlockedAuthor[] = [];
   legalData: Legal = {};
   reported: ReportedComment[] = [];
@@ -92,6 +93,16 @@ export class FakeEvmapApi extends EvmapApi {
   adminRemoveComment(commentId: string): Observable<void> {
     this.calls.push(`remove:${commentId}`);
     this.reported = this.reported.filter((item) => item.commentId !== commentId);
+    return of(undefined);
+  }
+
+  adminStationReports(): Observable<ReportedStation[]> {
+    return of(this.stationReports);
+  }
+
+  adminCloseStationReports(stationId: string, reason: StationReportReason, outcome: 'resolve' | 'dismiss'): Observable<void> {
+    this.calls.push(`${outcome}:${stationId}:${reason}`);
+    this.stationReports = this.stationReports.filter((item) => !(item.stationId === stationId && item.reason === reason));
     return of(undefined);
   }
 }

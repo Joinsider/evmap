@@ -65,6 +65,10 @@ private final class StubProviderRepository: ChargingStationRepository {
     func exportData(accessToken _: String) async throws -> Data { fatalError("unused") }
     func deleteAccount(accessToken _: String) async throws { fatalError("unused") }
     func legal() async throws -> LegalInfo { fatalError("unused") }
+    func addFavorite(stationID _: UUID, accessToken _: String) async throws { fatalError("unused") }
+    func removeFavorite(stationID _: UUID, accessToken _: String) async throws { fatalError("unused") }
+    func mergeFavorites(stationIDs _: [UUID], accessToken _: String) async throws -> [Station] { fatalError("unused") }
+    func reportStation(id _: UUID, reason _: StationReportReason, note _: String?, accessToken _: String) async throws { fatalError("unused") }
 }
 
 private let sampleProviders = [
