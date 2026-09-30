@@ -84,7 +84,8 @@ rule that a blank key skips the adapter with a warning instead of failing the ru
 
 - **Austria — E-Control Ladestellenverzeichnis (`ladestellen.at`).** Operators are obliged by law to report
   every charge point including ad-hoc prices and live status. Free API, self-service registration at
-  `admin.ladestellen.at`. Authoritative replacement for OCM's Austrian data.
+  `admin.ladestellen.at`. Authoritative replacement for OCM's Austrian data. **Skipped on 2026-09-30:
+  the terms of use forbid what this service does with data — see "Austria skipped".**
 - **Netherlands — DOT-NL, the Dutch AFIR National Access Point (NDW).** Publishes OCPI and GeoJSON, free.
   NDW's own documentation splits supplier and consumer flows; the consumer terms need reading before
   committing.
@@ -222,6 +223,65 @@ The adapter itself is small — resolve URL, download, parse — because there i
 data.gouv.fr resource id is stable and redirects to the current date-stamped edition. The download and
 temp-file handling moved into `sync.support.BulkDownload`, shared with BNetzA; see ADR 0013 for the
 sync-package restructuring this went in with.
+
+## Austria skipped on 2026-09-30
+
+The roadmap's first gap filler (L1) was to be the E-Control register. The API documentation sits behind
+the registration, so the owner registered and supplied the terms of use before any code was written. They
+rule the source out for this architecture, and the decision is to **skip Austria and leave it to OCM**.
+
+What the terms say (Nutzungsbedingungen, Ladestellenverzeichnis API) and where it collides with EVMap:
+
+- **§7, copying and onward transmission.** Copying the data, or any part of it, is allowed only within
+  the statutory free use of a work; passing on the collected data "z. B. als Datei oder das
+  Weitervermitteln als Webservice" is not permitted. EVMap stores sources in `master.*` and serves them
+  through its own public REST API, which is exactly that.
+- **§3 i), no modification.** Every value must be shown as the API delivered it. `ConnectorTypes`
+  and `AvailabilityStatus` normalization, the geo/address deduplication and the merge with OCM all change
+  values.
+- **§3 g), usage reporting.** Unique visits and unique visitors must be reported to E-Control every
+  quarter. EVMap measures neither, and counting visitors would run against ADR 0002.
+- **§3 c)–e), attribution.** The E-Control logo as an image link, "Datenquelle: E-Control" directly at the
+  data and a fixed disclaimer. Manageable on their own.
+- **§9, penalty.** €10.000 per breach of points 1–5, independent of fault; §3 i) is in that range.
+- **§10, revocation.** E-Control may withdraw the permission with three months' notice and no reason.
+- **§4, limits.** 2.500 requests per hour and 30 concurrent for all users. Not a problem.
+
+Conflicting licence statements exist: a data.gv.at listing is reported to say CC BY 4.0 while the
+terms above apply to the key. That could not be verified (the listing was not reachable), and the
+terms are what a registration binds the user to.
+
+**Alternative considered and rejected: a live pass-through module** in the style of `availability` —
+queried by bounding box, unmodified, attributed, not stored, not merged. It would be compliant in
+letter but: the API shape is unknown (the one public client uses `/search` by coordinate, 10 results);
+the `§7` "Webservice" question stays open for a backend that relays the data to its own clients; and
+Austrian stations would be second-class — no connector/power filter, no comments, favorites or prices
+(they hang off `master.*` ids), and absent from the `along-route` query of phase 4, which is a PostGIS
+query over `master.*`. The effort would be closer to L than S–M.
+
+**Other Austrian routes, looked at on 2026-09-30 and not pursued now** (from catalogue pages; none
+of the terms could be read):
+
+- **ÖAMTC E-Ladestationen** (listed on mobilitaetsdaten.gv.at): REST + OAuth2, JSON, 10-minute updates,
+  Austria-wide including availability. "Lizenz mit Nutzungsgebühr": free for approved purposes, annual SLA
+  contribution, sample contract and API documentation as PDFs on the catalogue page. The only candidate
+  worth a contract read; whether storing, normalizing and relaying through our API is allowed is unknown.
+- **OpenStreetMap / Overpass:** ODbL share-alike would apply to the merged `master.*` (dedup makes it a
+  derivative database) and sits badly with the Swiss `terms_by_ask` licence. Belongs to open point 4, not
+  to Austria.
+- **Operators directly** (Wien Energie, Smatrics, Energie Steiermark, …): Austria's national access point is
+  only a catalogue; no open bulk feed found. **Aggregators** (Eco-Movement, TomTom): commercial, TomTom
+  already rejected in ADR 0015.
+- Before any of this, measure what OCM already delivers:
+  `SELECT count(*) FROM master.charging_station WHERE country_code = 'AT'`.
+
+**What would reopen it:** written permission from E-Control to store, normalize and merge the data, or
+a dataset under an open licence (CC BY 4.0) via the national access point for AFIR
+(mobilitaetsdaten.gv.at). Either brings it back as an ordinary Tier 2 adapter (blank key skips it, per
+ADR 0006).
+
+OCM keeps covering Austria (`AT` is in its default country list), so the map is not blank there. The
+owner has not registered for the key, so no 👤 step is open for this.
 
 ## Open points
 
