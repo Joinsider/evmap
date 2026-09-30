@@ -1,6 +1,6 @@
 # EVMap Roadmap
 
-Stand: 2026-09-29 · abgestimmt mit Johannes Popp · Umsetzung überwiegend durch Claude Code
+Stand: 2026-09-30 · abgestimmt mit Johannes Popp · Umsetzung überwiegend durch Claude Code
 
 Diese Roadmap legt fest, **was** als Nächstes kommt und **in welcher Reihenfolge**. Das *Warum* und
 *Wie* eines Features steht im jeweiligen ADR. Jede Phase bekommt ihr ADR spätestens zu Beginn der
@@ -29,7 +29,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | 7 | Routenplaner Stufe 3 | offen | | 0017 |
 | 8 | Nutzer-Web-App | offen | | 0018 + neu |
 | 9 | CarPlay als Lade-App | offen | | neu |
-| L1 | Lückenfüller: Österreich | offen | | 0012 |
+| L1 | Lückenfüller: Österreich | übersprungen ⁴ | | [0012](adr/0012-additional-national-charging-registers.md) |
 | L2 | Lückenfüller: Schweiz | offen | | 0012 |
 | L3 | Lückenfüller: Italien | offen | | 0012 |
 | L4 | Lückenfüller: Spanien | offen | | 0012 |
@@ -44,6 +44,10 @@ bei Apple, Associated Domains, Gerätetest, Admin-Flag setzen).
 (`TOKEN_ENCRYPTION_KEY`, `APPLE_CLIENT_ID`, Apple-Schlüssel für Bundle-ID und Services ID,
 Datenschutzerklärung veröffentlichen und `PRIVACY_POLICY_URL` setzen, Löschung auf dem Gerät testen).
 Die Web-Oberfläche zum Melden und Blockieren von Kommentaren folgt mit der Nutzer-Web-App (Phase 8).
+⁴ Die Nutzungsbedingungen der E-Control-API verbieten Speichern und Weitergabe als Webservice, jede
+Veränderung der Werte und verlangen Besucherzahlen pro Quartal (ADR 0012, „Austria skipped“). Österreich
+bleibt über OCM abgedeckt. Wieder aufnehmen, falls E-Control das Speichern und Zusammenführen schriftlich
+erlaubt oder eine CC-BY-Fassung über die Mobilitätsdatenplattform erscheint.
 
 Separat angestoßen (Teil von Phase 0): `permitAll` für `/api/v1/stations/**` auf GET beschränken.
 Erledigt mit PR #8 (Commit `3d40492`), vor Beginn von Phase 0 auf `master` geprüft.
@@ -183,7 +187,8 @@ Ein nationales Register pro Lücke zwischen zwei Phasen, jeweils als eigenes `sy
 nach dem Rezept in `sync/package-info.java`, und `SourceAdapterRegistrationTests` erweitert.
 Reihenfolge: **Österreich → Schweiz → Italien → Spanien**. Vor jedem Adapter wird geprüft, ob die
 Daten offen verfügbar sind und unter welcher Lizenz; ein Land ohne offene Daten wird übersprungen
-und im ADR 0012 vermerkt.
+und im ADR 0012 vermerkt. Österreich wurde so übersprungen (Stand 2026-09-30); als Nächstes ist
+**Schweiz** (L2) dran.
 
 ### Skalierung / Variante C · bei Bedarf
 
@@ -237,6 +242,13 @@ Phase 2 (Details in ADR 0020):
 - Blockierungen serverseitig am Konto, über einen Kommentar ausgelöst.
 - Datenexport als direkter JSON-Download.
 - Datenschutz-Link per Backend-Konfiguration (`PRIVACY_POLICY_URL`).
+
+Lückenfüller Österreich (2026-09-30, Details in ADR 0012, Abschnitt „Austria skipped“):
+
+- L1 wird übersprungen. Die E-Control-Bedingungen passen nicht zu EVMap: Speichern und Weitergabe über
+  die eigene API sind verboten, Werte dürfen nicht verändert werden, Besucherzahlen müssen gemeldet werden.
+- Ein Durchreich-Modul ohne Speicherung wurde geprüft und verworfen (keine Filter, Kommentare, Favoriten
+  und Routenplanung für diese Stationen, offene Rechtsfrage).
 
 Roadmap allgemein:
 
