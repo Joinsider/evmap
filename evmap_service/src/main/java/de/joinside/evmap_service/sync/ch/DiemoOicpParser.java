@@ -398,9 +398,8 @@ final class DiemoOicpParser {
     /** One entry per facility, {@code null} where the rating is unknown; may be shorter or longer than the plugs. */
     private static List<BigDecimal> powers(Evse evse) {
         if (evse.facilities() == null) return List.of();
-        List<BigDecimal> powers = new ArrayList<>(evse.facilities().size());
-        for (Facility facility : evse.facilities()) powers.add(facility == null ? null : power(facility.power()));
-        return powers;
+        // Stream.toList() accepts the nulls that stand for "unknown"; Collectors.toList() would too.
+        return evse.facilities().stream().map(facility -> facility == null ? null : power(facility.power())).toList();
     }
 
     private static BigDecimal powerOf(int plug, int plugCount, List<BigDecimal> powers, Set<BigDecimal> distinctPowers) {
