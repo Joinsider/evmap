@@ -98,7 +98,10 @@ CSV bulk download, discovering the date-stamped URL from the Ladesäulenkarte pa
 REST service requires a mail request; the ArcGIS route is token-gated now) — see ADR 0005. `sync.irve`
 ingests the French consolidated register (Etalab/data.gouv.fr, Licence Ouverte, ~51k stations, no key);
 its file has one row per charge point with non-adjacent rows per station, so it groups in memory rather
-than streaming, and it is deliberately lenient about the publishers' data quality — see ADR 0012.
+than streaming, and it is deliberately lenient about the publishers' data quality — see ADR 0012. A
+charge point id is unique per source, but the file lists 20.742 of them under two or three stations: the
+station whose own id the charge point id extends keeps it (else the first), the others keep the plug without
+the EVSE-ID — never emit one id twice, it fails the second station in every run.
 `sync.ch` ingests the Swiss register (BFE ich-tanke-strom / DIEMO, one gzipped OICP JSON, no key, source
 token `DIEMO`, ~5k stations from ~14k EVSEs). The feed lists EVSEs, not stations, so the parser clusters
 them by position within 35 m — deliberately more than the ingestion's 30 m match, so two of its stations

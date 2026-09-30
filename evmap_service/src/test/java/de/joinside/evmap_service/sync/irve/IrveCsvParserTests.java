@@ -526,6 +526,93 @@ class IrveCsvParserTests {
                 .hasMessageContaining("empty");
     }
 
+    // ---- one charge point id listed under several stations -------------------------------------------
+
+    private static Row point(String stationId, String pointId, String latitude, String longitude) {
+        Row row = row();
+        row.stationId = stationId;
+        row.pointId = pointId;
+        row.latitude = latitude;
+        row.longitude = longitude;
+        return row;
+    }
+
+    private static SourceStation station(List<SourceStation> stations, String id) {
+        return stations.stream().filter(s -> s.sourceStationId().equals(id)).findFirst().orElseThrow();
+    }
+
+    @Test
+    @DisplayName("a charge point id listed under two stations is kept by the one whose own id it extends")
+    void sharedIdGoesToTheStationItExtends() {
+        // The first station in the file is not the one the id belongs to; the second one is.
+        List<SourceStation> stations = parse(
+                point("FRXYZP99999999", "FRABCE12345001", "48.0", "7.0"),
+                point("FRABCP12345", "FRABCE12345001", "45.0", "5.0"));
+
+        assertThat(station(stations, "FRABCP12345").chargePoints()).singleElement()
+                .extracting("sourceChargePointId", "evseId").containsExactly("FRABCE12345001", "FRABCE12345001");
+        // The other station keeps the plug, so it still shows what its publisher says is there, but the id
+        // is not its own: it has no EVSE-ID and a key derived from it.
+        assertThat(station(stations, "FRXYZP99999999").chargePoints()).singleElement().satisfies(chargePoint -> {
+            assertThat(chargePoint.evseId()).isNull();
+            assertThat(chargePoint.sourceChargePointId()).isEqualTo("FRXYZP99999999*shared*FRABCE12345001");
+            assertThat(chargePoint.connectors()).hasSize(1);
+        });
+    }
+
+    @Test
+    @DisplayName("with no station the id extends, the first station in the file keeps it")
+    void sharedIdGoesToTheFirstStation() {
+        List<SourceStation> stations = parse(
+                point("FRAAAP1", "FRZZZE555", "48.0", "7.0"),
+                point("FRBBBP2", "FRZZZE555", "45.0", "5.0"));
+
+        assertThat(station(stations, "FRAAAP1").chargePoints().get(0).evseId()).isEqualTo("FRZZZE555");
+        assertThat(station(stations, "FRBBBP2").chargePoints().get(0).evseId()).isNull();
+    }
+
+    @Test
+    @DisplayName("no charge point key occurs twice in the whole result, which is what the ingestion's unique key needs")
+    void chargePointKeysAreUniqueAcrossStations() {
+        List<SourceStation> stations = parse(
+                point("FRAAAP1", "FRZZZE555", "48.0", "7.0"),
+                point("FRBBBP2", "FRZZZE555", "45.0", "5.0"),
+                point("FRCCCP3", "FRZZZE555", "44.0", "4.0"),
+                point("FRCCCP3", "FRZZZE556", "44.0", "4.0"));
+
+        assertThat(stations.stream().flatMap(s -> s.chargePoints().stream())
+                .map(SourceStation.SourceChargePoint::sourceChargePointId)).doesNotHaveDuplicates().hasSize(4);
+        assertThat(stations.stream().flatMap(s -> s.chargePoints().stream())
+                .map(SourceStation.SourceChargePoint::evseId).filter(java.util.Objects::nonNull).toList())
+                .containsExactlyInAnyOrder("FRZZZE555", "FRZZZE556");
+    }
+
+    @Test
+    @DisplayName("a station that is not emitted cannot take an id away from a public one")
+    void restrictedStationsDoNotCompete() {
+        Row restricted = point("FRABCP12345", "FRABCE12345001", "45.0", "5.0");
+        restricted.access = "Accès réservé";
+        List<SourceStation> stations = parse(
+                point("FRXYZP99999999", "FRABCE12345001", "48.0", "7.0"), restricted);
+
+        assertThat(stations).singleElement().satisfies(station ->
+                assertThat(station.chargePoints().get(0).evseId()).isEqualTo("FRABCE12345001"));
+    }
+
+    @Test
+    @DisplayName("recognises the French naming scheme: a charge point id extends its station's id")
+    void extendsStationId() {
+        assertThat(IrveCsvParser.extendsStationId("FRMELEINT591000121", "FRMELPINT5910001")).isTrue();
+        assertThat(IrveCsvParser.extendsStationId("FRSWSE10001499862", "FRSWSE1000149986")).isTrue();
+        // Some publishers drop the country prefix from the station id.
+        assertThat(IrveCsvParser.extendsStationId("FRMELEINT591000121", "MELPINT5910001")).isTrue();
+        assertThat(IrveCsvParser.extendsStationId("frmeleint591000121", "FRMELPINT5910001")).isTrue();
+        assertThat(IrveCsvParser.extendsStationId("FRSWSE10001499862", "FRSWSP89890067")).isFalse();
+        assertThat(IrveCsvParser.extendsStationId("FRABC", "FRAB")).isTrue();
+        assertThat(IrveCsvParser.extendsStationId(null, "FRAB")).isFalse();
+        assertThat(IrveCsvParser.extendsStationId("FRAB", null)).isFalse();
+    }
+
     /**
      * The station-level totals the API rebuilds when it serves a station, summed back out of the
      * charge points the parser now produces.
