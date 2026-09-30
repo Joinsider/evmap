@@ -30,7 +30,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | 8 | Nutzer-Web-App | offen | | 0018 + neu |
 | 9 | CarPlay als Lade-App | offen | | neu |
 | L1 | Lückenfüller: Österreich | übersprungen ⁴ | | [0012](adr/0012-additional-national-charging-registers.md) |
-| L2 | Lückenfüller: Schweiz | offen | | 0012 |
+| L2 | Lückenfüller: Schweiz | in Arbeit | `feature/sync-switzerland` | [0012](adr/0012-additional-national-charging-registers.md) |
 | L3 | Lückenfüller: Italien | offen | | 0012 |
 | L4 | Lückenfüller: Spanien | offen | | 0012 |
 
@@ -249,6 +249,12 @@ Lückenfüller Österreich (2026-09-30, Details in ADR 0012, Abschnitt „Austri
   die eigene API sind verboten, Werte dürfen nicht verändert werden, Besucherzahlen müssen gemeldet werden.
 - Ein Durchreich-Modul ohne Speicherung wurde geprüft und verworfen (keine Filter, Kommentare, Favoriten
   und Routenplanung für diese Stationen, offene Rechtsfrage).
+
+Lückenfüller Schweiz (2026-09-30, Details in ADR 0012, Abschnitt „Switzerland (L2)“):
+
+- Die autoritative Quelle je Land wird eine konfigurierbare Tabelle (`evmap.sync.authority`: DE=BNetzA,
+  FR=IRVE, CH=DIEMO) statt einer festen BNetzA-Regel. Damit entfällt auch die Abhängigkeit von der
+  Reihenfolge der Adapter.
 
 Roadmap allgemein:
 
