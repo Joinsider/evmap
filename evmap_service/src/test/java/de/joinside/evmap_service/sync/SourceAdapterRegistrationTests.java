@@ -2,7 +2,9 @@ package de.joinside.evmap_service.sync;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.boot.test.context.ConfigDataApplicationContextInitializer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -22,8 +24,9 @@ class SourceAdapterRegistrationTests {
      * builder directly rather than pulling in HTTP auto-configuration keeps this test about wiring.
      */
     @Configuration
-    @ComponentScan(basePackages = {"de.joinside.evmap_service.sync.bnetza", "de.joinside.evmap_service.sync.irve",
-            "de.joinside.evmap_service.sync.ocm"})
+    @ComponentScan(basePackages = {"de.joinside.evmap_service.sync.bnetza", "de.joinside.evmap_service.sync.ch",
+            "de.joinside.evmap_service.sync.irve", "de.joinside.evmap_service.sync.ocm"})
+    @EnableConfigurationProperties(SourceAuthority.class)
     static class AdaptersOnly {
         @Bean
         RestClient.Builder restClientBuilder() {
@@ -60,8 +63,8 @@ class SourceAdapterRegistrationTests {
             // a container that starts happily and ingests one country less than it should.
             assertThat(context.getBeansOfType(SourceAdapter.class).values())
                     .extracting(adapter -> adapter.getClass().getSimpleName())
-                    .containsExactlyInAnyOrder("BnetzaCsvSourceAdapter", "IrveCsvSourceAdapter",
-                            "OpenChargeMapSourceAdapter");
+                    .containsExactlyInAnyOrder("BnetzaCsvSourceAdapter", "DiemoSourceAdapter",
+                            "IrveCsvSourceAdapter", "OpenChargeMapSourceAdapter");
         });
     }
 
@@ -74,10 +77,29 @@ class SourceAdapterRegistrationTests {
                     .extracting(SourceAdapter::source)
                     // Two adapters sharing a token would silently overwrite each other's stations and
                     // each other's incremental watermarks.
-                    .containsExactlyInAnyOrder("BNetzA", "IRVE", "OCM")
+                    .containsExactlyInAnyOrder("BNetzA", "DIEMO", "IRVE", "OCM")
                     // master.charging_station_source.source is VARCHAR(32).
                     .allSatisfy(source -> assertThat(source).isNotBlank().hasSizeLessThanOrEqualTo(32));
         });
+    }
+
+    @Test
+    @DisplayName("every authority in the shipped sync configuration names a registered source")
+    void authorityNamesRegisteredSources() {
+        // Loads the real application-sync.yaml. A misspelt token there would not fail anything: the
+        // country would simply have no authority and the last source to run would win again.
+        runner.withInitializer(new ConfigDataApplicationContextInitializer())
+                .withPropertyValues("spring.profiles.active=sync").run(context -> {
+                    assertThat(context).hasNotFailed();
+                    var registered = context.getBeansOfType(SourceAdapter.class).values().stream()
+                            .map(SourceAdapter::source).toList();
+                    SourceAuthority authority = context.getBean(SourceAuthority.class);
+
+                    assertThat(authority.authority()).containsEntry("DE", "BNetzA").containsEntry("FR", "IRVE")
+                            .containsEntry("CH", "DIEMO");
+                    assertThat(authority.authority().values()).isNotEmpty().allSatisfy(source ->
+                            assertThat(registered).contains(source));
+                });
     }
 
     @Test
@@ -108,6 +130,10 @@ class SourceAdapterRegistrationTests {
             Object irve = propertiesBean(context.getBeanNamesForType(Object.class), context, "IrveProperties");
             assertThat(irve).hasFieldOrPropertyWithValue("enabled", true);
             assertThat(irve).extracting("csvUrl").asString().contains("data.gouv.fr");
+
+            Object diemo = propertiesBean(context.getBeanNamesForType(Object.class), context, "DiemoProperties");
+            assertThat(diemo).hasFieldOrPropertyWithValue("enabled", true);
+            assertThat(diemo).extracting("url").asString().contains("data.geo.admin.ch");
         });
     }
 

@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -21,6 +22,7 @@ import java.util.stream.Stream;
 
 @Repository
 @ConditionalOnProperty(name = "evmap.sync.enabled", havingValue = "true")
+@EnableConfigurationProperties(SourceAuthority.class)
 class PostgresStationIngestionRepository implements StationIngestionPort, SyncStateStore {
     private static final Logger log = LoggerFactory.getLogger(PostgresStationIngestionRepository.class);
 
@@ -35,11 +37,14 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
     private final int batchSize;
+    private final SourceAuthority authority;
 
     PostgresStationIngestionRepository(JdbcClient jdbc,
                                        PlatformTransactionManager transactionManager,
-                                       @Value("${evmap.sync.batch-size:1000}") int batchSize) {
+                                       @Value("${evmap.sync.batch-size:1000}") int batchSize,
+                                       SourceAuthority authority) {
         this.jdbc = jdbc;
+        this.authority = authority;
         // A TransactionTemplate rather than @Transactional on a helper method: batches are committed
         // from inside this class, and a self-invocation never passes through the transactional proxy.
         this.transactions = new TransactionTemplate(transactionManager);
@@ -164,7 +169,7 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
                     .update();
             outcome = BatchedIngestion.Outcome.CREATED;
             log.debug("Created station {} from {}/{}", stationId, source.source(), source.sourceStationId());
-        } else if ("BNetzA".equals(source.source()) || !isGerman(stationId)) {
+        } else if (mayUpdate(stationId, source)) {
             jdbc.sql("UPDATE master.charging_station " +
                             "SET display_name=:name, street=:street, city=:city, " +
                             "postal_code=:postal, country_code=:country, operator_name=:operator, " +
@@ -185,7 +190,8 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
             log.debug("Updated station {} from {}/{}", stationId, source.source(), source.sourceStationId());
         } else {
             outcome = BatchedIngestion.Outcome.UNCHANGED;
-            log.debug("Kept BNetzA-owned station {} unchanged, {} did not win the tie", stationId, source.source());
+            log.debug("Kept station {} unchanged, {} is not the authority its country gives way to",
+                    stationId, source.source());
         }
         // Charge points and connectors follow the same tie-break as the station's own fields. Writing
         // them unconditionally would let whichever adapter ran last overwrite the inventory of a station
@@ -272,9 +278,30 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
                 .orElse(null);
     }
 
-    private boolean isGerman(UUID stationId) {
-        return jdbc.sql("SELECT country_code FROM master.charging_station WHERE id=:id")
+    /**
+     * Whether {@code source} may rewrite this existing station's fields and inventory.
+     * <p>
+     * The country's authority always may — that is how it takes over a station another source created
+     * first. Any other source may only while the authority has not claimed the station, i.e. has no
+     * {@code station_source} row for it; from then on it is merely linked. A country without an
+     * authority has no such rule and the most recent source wins.
+     * <p>
+     * The country is the station's stored one, not the record's: a station matched across sources
+     * keeps the country it was created with.
+     */
+    private boolean mayUpdate(UUID stationId, SourceStation source) {
+        String country = jdbc.sql("SELECT country_code FROM master.charging_station WHERE id=:id")
                 .param("id", stationId)
-                .query(String.class).single().equalsIgnoreCase("DE");
+                .query(String.class).single();
+        return authority.sourceFor(country)
+                .map(authoritative -> authoritative.equals(source.source()) || !claimedBy(stationId, authoritative))
+                .orElse(true);
+    }
+
+    private boolean claimedBy(UUID stationId, String source) {
+        return jdbc.sql("SELECT EXISTS (SELECT 1 FROM master.station_source WHERE station_id=:stationId AND source=:source)")
+                .param(PARAM_STATION_ID, stationId)
+                .param(PARAM_SOURCE, source)
+                .query(Boolean.class).single();
     }
 }

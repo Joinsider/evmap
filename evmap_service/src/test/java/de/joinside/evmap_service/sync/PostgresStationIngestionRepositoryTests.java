@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * The write side of master data against a real PostGIS: dedup by source id and by distance, the
- * BNetzA tie-break, the charge point inventory, run bookkeeping and incremental watermarks.
+ * per-country authority tie-break, the charge point inventory, run bookkeeping and incremental watermarks.
  */
 class PostgresStationIngestionRepositoryTests {
     private JdbcClient jdbc;
@@ -29,7 +29,8 @@ class PostgresStationIngestionRepositoryTests {
         var dataSource = PostgisDatabase.dataSource();
         PostgisDatabase.clearMasterData();
         jdbc = PostgisDatabase.jdbc();
-        repository = new PostgresStationIngestionRepository(jdbc, new DataSourceTransactionManager(dataSource), 2);
+        repository = new PostgresStationIngestionRepository(jdbc, new DataSourceTransactionManager(dataSource), 2,
+                new SourceAuthority(Map.of("DE", "BNetzA", "CH", "DIEMO")));
     }
 
     private static SourceStation station(String source, String id, String country, double latitude, double longitude,
@@ -97,7 +98,7 @@ class PostgresStationIngestionRepositoryTests {
     }
 
     @Test
-    @DisplayName("outside Germany the most recent source wins the tie")
+    @DisplayName("in a country without an authority the most recent source wins the tie")
     void updatesForeignStationsFromAnySource() {
         repository.upsert(Stream.of(station("IRVE", "FR-1", "FR", 48.8566, 2.3522, "IRVE name", List.of(), List.of())));
         var result = repository.upsert(Stream.of(station("OCM", "OCM-1", "FR", 48.8566, 2.3522, "OCM name", List.of(), List.of())));
@@ -105,6 +106,66 @@ class PostgresStationIngestionRepositoryTests {
         assertThat(result.updated()).isOne();
         assertThat(jdbc.sql("SELECT display_name FROM master.charging_station").query(String.class).single())
                 .isEqualTo("OCM name");
+    }
+
+    private static SourceStation.SourceChargePoint evse(String id) {
+        return new SourceStation.SourceChargePoint(id, id, List.of(type2(1)));
+    }
+
+    private String displayName() {
+        return jdbc.sql("SELECT display_name FROM master.charging_station").query(String.class).single();
+    }
+
+    private List<String> evseIds() {
+        return jdbc.sql("SELECT evse_id FROM master.charge_point ORDER BY evse_id").query(String.class).list();
+    }
+
+    @Test
+    @DisplayName("the authority takes over a station another source created first")
+    void authorityTakesOver() {
+        repository.upsert(Stream.of(station("OCM", "OCM-7", "CH", 47.3769, 8.5417, "OCM name", List.of(type2(3)), List.of())));
+        var result = repository.upsert(Stream.of(station("DIEMO", "47.37690,8.54170", "CH", 47.3769, 8.5417,
+                "DIEMO name", List.of(), List.of(evse("CH*ABC*E1"), evse("CH*ABC*E2")))));
+
+        assertThat(result.updated()).isOne();
+        assertThat(count("master.charging_station")).isOne();
+        assertThat(displayName()).isEqualTo("DIEMO name");
+        assertThat(evseIds()).containsExactly("CH*ABC*E1", "CH*ABC*E2");
+        // OCM's station-level totals were replaced by the register's per-charge-point inventory.
+        assertThat(jdbc.sql("SELECT COUNT(*) FROM master.charging_connector WHERE charge_point_id IS NULL")
+                .query(Integer.class).single()).isZero();
+    }
+
+    @Test
+    @DisplayName("a source that is not the authority is only linked once the authority has claimed the station")
+    void claimedStationIsNotOverwritten() {
+        repository.upsert(Stream.of(station("DIEMO", "47.37690,8.54170", "CH", 47.3769, 8.5417,
+                "DIEMO name", List.of(), List.of(evse("CH*ABC*E1")))));
+
+        // The order of adapters is undefined, so OCM running after the register is the case that counts.
+        var result = repository.upsert(Stream.of(station("OCM", "OCM-7", "CH", 47.37692, 8.54172, "OCM name",
+                List.of(type2(3)), List.of())));
+
+        assertThat(result.unchanged()).isOne();
+        assertThat(displayName()).isEqualTo("DIEMO name");
+        assertThat(evseIds()).containsExactly("CH*ABC*E1");
+        assertThat(count("master.station_source")).isEqualTo(2);
+
+        // And again on the next day: still the register's data, not a flip back and forth.
+        repository.upsert(Stream.of(station("OCM", "OCM-7", "CH", 47.37692, 8.54172, "OCM renamed",
+                List.of(type2(9)), List.of())));
+        assertThat(displayName()).isEqualTo("DIEMO name");
+        assertThat(evseIds()).containsExactly("CH*ABC*E1");
+    }
+
+    @Test
+    @DisplayName("a source that is not the authority still maintains the stations the authority has not claimed")
+    void unclaimedStationsAreStillUpdated() {
+        repository.upsert(Stream.of(station("OCM", "OCM-8", "CH", 46.9480, 7.4474, "OCM old", List.of(type2(1)), List.of())));
+        var result = repository.upsert(Stream.of(station("OCM", "OCM-8", "CH", 46.9480, 7.4474, "OCM new", List.of(type2(2)), List.of())));
+
+        assertThat(result.updated()).isOne();
+        assertThat(displayName()).isEqualTo("OCM new");
     }
 
     @Test

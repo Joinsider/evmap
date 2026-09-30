@@ -47,6 +47,12 @@
  * <p>
  * Then extend {@code SourceAdapterRegistrationTests}, which asserts the full set of adapters and would
  * otherwise let a wiring mistake ship as a container that starts happily and ingests nothing.
+ * <p>
+ * A source that is the national register of a country also belongs in {@code evmap.sync.authority}
+ * ({@link de.joinside.evmap_service.sync.SourceAuthority}). Adapters run in no defined order and, for a
+ * country without an authority, the last one to run overwrites a station's fields and charge points —
+ * so without an entry Open Charge Map would strip the register's EVSE-IDs on every station they share.
+ * The table is configuration because this package names no source.
  *
  * <h2>What a run guarantees</h2>
  * <p>
