@@ -10,6 +10,7 @@ import { load } from '../../core/loaded';
 import { FILE_SAVER } from '../../core/save-file';
 import { providerName } from '../login/provider-labels';
 import { reportReasonLabel } from '../report-reasons';
+import { stationReportReasonLabel } from '../station-report-reasons';
 
 type DeletionStage = 'idle' | 'confirm' | 'deleting' | 'failed';
 
@@ -41,6 +42,7 @@ export class AccountPage {
 
   protected providerName = providerName;
   protected reasonLabel = reportReasonLabel;
+  protected stationReasonLabel = stationReportReasonLabel;
 
   /** The blocks still in force: the ones lifted on this page are gone from the list at once. */
   protected remaining(blocks: BlockedAuthor[]) {

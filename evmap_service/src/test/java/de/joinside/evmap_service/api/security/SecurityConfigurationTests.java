@@ -145,6 +145,24 @@ class SecurityConfigurationTests {
     }
 
     @Test
+    @DisplayName("favorites and station reports need a token, and the station report queue is admin-only")
+    void favoritesAndStationReports() throws Exception {
+        UUID station = UUID.randomUUID();
+        String member = "Bearer " + tokens.issue(UUID.randomUUID());
+        mockMvc.perform(get("/api/v1/me/favorites")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/me/favorites").header("Authorization", member)).andExpect(status().isOk());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/me/favorites/{id}", station))
+                .andExpect(status().isUnauthorized());
+        // The report shares the public /stations/** prefix with the reads; only GET may pass without a token.
+        mockMvc.perform(post("/api/v1/stations/{id}/reports", station)).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/stations/{id}/reports", station).header("Authorization", member)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/admin/station-reports")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/admin/station-reports").header("Authorization", member)).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/admin/station-reports").header("Authorization", "Bearer " + tokens.issue(ADMIN)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("the admin area answers 401 without a token, 403 without the flag and 200 with it")
     void adminNeedsTheFlag() throws Exception {
         mockMvc.perform(get("/api/v1/admin/overview")).andExpect(status().isUnauthorized());
@@ -257,6 +275,26 @@ class SecurityConfigurationTests {
 
         @GetMapping("/api/v1/admin/reports")
         String reports() {
+            return "[]";
+        }
+
+        @GetMapping("/api/v1/me/favorites")
+        List<String> favorites() {
+            return List.of();
+        }
+
+        @org.springframework.web.bind.annotation.PutMapping("/api/v1/me/favorites/{stationId}")
+        String favorite(@PathVariable UUID stationId) {
+            return "";
+        }
+
+        @PostMapping("/api/v1/stations/{stationId}/reports")
+        String reportStation(@PathVariable UUID stationId) {
+            return "";
+        }
+
+        @GetMapping("/api/v1/admin/station-reports")
+        String stationReports() {
             return "[]";
         }
 

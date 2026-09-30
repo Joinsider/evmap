@@ -1,0 +1,35 @@
+<h1 i18n="@@admin.stationReports.title">Fehler an Stationen</h1>
+<p class="muted" i18n="@@admin.stationReports.hint">Ob erledigt oder abgewiesen: Die Stammdaten ändern sich dadurch nicht. Eine Korrektur, die bleiben soll, muss an der Datenquelle erfolgen.</p>
+
+@if (failed()) {
+  <p class="error" role="alert" i18n="@@admin.reports.actionFailed">Die Aktion ist fehlgeschlagen. Bitte versuche es erneut.</p>
+}
+
+@let items = queue();
+@if (items.state === 'ready') {
+  @for (item of pending(items.value); track trackKey(item)) {
+    <article class="card report">
+      <header>
+        <strong>{{ item.stationName }}</strong>
+        <span class="muted">{{ item.lastReportedAt | date: 'medium' }}</span>
+      </header>
+      <p class="muted">{{ item.operatorName }}@if (item.operatorName && item.city) { · }{{ item.city }}</p>
+      <p class="reasons">
+        <span class="chip">{{ reasonLabel(item.reason) }} × {{ item.count }}</span>
+      </p>
+      @for (note of item.notes; track $index) {
+        <blockquote>{{ note }}</blockquote>
+      }
+      <div class="actions">
+        <button type="button" (click)="resolve(item)" i18n="@@admin.stationReports.resolve">Erledigt</button>
+        <button type="button" (click)="dismiss(item)" i18n="@@admin.stationReports.dismiss">Abweisen</button>
+      </div>
+    </article>
+  } @empty {
+    <p i18n="@@admin.stationReports.empty">Keine offenen Meldungen.</p>
+  }
+} @else if (items.state === 'failed') {
+  <p class="error" i18n="@@admin.loadFailed">Konnte nicht geladen werden.</p>
+} @else {
+  <p i18n="@@common.loading">Wird geladen …</p>
+}

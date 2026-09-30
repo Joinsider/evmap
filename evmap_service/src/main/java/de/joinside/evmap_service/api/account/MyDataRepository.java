@@ -69,6 +69,25 @@ class MyDataRepository {
                 .query((rs, row) -> new MyDataController.BlockData(rs.getObject("id", UUID.class), instant(rs, CREATED_AT))).list();
     }
 
+    List<MyDataController.FavoriteData> favorites(UUID accountId) {
+        return jdbc.sql("SELECT f.station_id, s.display_name AS station_name, f.created_at FROM user_data.favorite_station f "
+                        + "LEFT JOIN master.charging_station s ON s.id = f.station_id WHERE f.account_id = :account ORDER BY f.created_at DESC")
+                .param(ACCOUNT, accountId)
+                .query((rs, row) -> new MyDataController.FavoriteData(rs.getObject("station_id", UUID.class), rs.getString("station_name"),
+                        instant(rs, CREATED_AT))).list();
+    }
+
+    /** The station reports this account filed, including its own free text. */
+    List<MyDataController.StationReportData> stationReports(UUID accountId) {
+        return jdbc.sql("SELECT r.id, r.station_id, s.display_name AS station_name, r.reason, r.note, r.status, r.created_at, r.resolved_at "
+                        + "FROM user_data.station_report r LEFT JOIN master.charging_station s ON s.id = r.station_id "
+                        + "WHERE r.reporter_id = :account ORDER BY r.created_at DESC")
+                .param(ACCOUNT, accountId)
+                .query((rs, row) -> new MyDataController.StationReportData(rs.getObject("id", UUID.class), rs.getObject("station_id", UUID.class),
+                        rs.getString("station_name"), rs.getString("reason"), rs.getString("note"), rs.getString("status"),
+                        instant(rs, CREATED_AT), instant(rs, "resolved_at"))).list();
+    }
+
     private static Instant instant(ResultSet rs, String column) throws SQLException {
         var value = rs.getTimestamp(column);
         return value == null ? null : value.toInstant();

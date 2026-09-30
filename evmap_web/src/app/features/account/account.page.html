@@ -47,6 +47,33 @@
         <li class="muted" i18n="@@account.noReports">Noch keine Meldungen.</li>
       }
     </ul>
+    <h3 i18n="@@account.stationReports">Fehler an Stationen</h3>
+    <ul class="plain">
+      @for (report of mine.value.stationReports; track report.id) {
+        <li class="entry">
+          <span class="muted">{{ report.stationName }} · {{ report.createdAt | date: 'mediumDate' }}</span>
+          <p>
+            {{ stationReasonLabel(report.reason) }} ·
+            @switch (report.status) {
+              @case ('open') {
+                <span i18n="@@account.report.open">Wird geprüft</span>
+              }
+              @case ('resolved') {
+                <span i18n="@@account.stationReport.resolved">Erledigt</span>
+              }
+              @default {
+                <span i18n="@@account.report.closed">Abgeschlossen</span>
+              }
+            }
+          </p>
+          @if (report.note) {
+            <p class="muted">{{ report.note }}</p>
+          }
+        </li>
+      } @empty {
+        <li class="muted" i18n="@@account.noStationReports">Noch keine Fehlermeldungen an Stationen.</li>
+      }
+    </ul>
   } @else if (mine.state === 'failed') {
     <p class="error" i18n="@@account.loadFailed">Konnte nicht geladen werden.</p>
   } @else {

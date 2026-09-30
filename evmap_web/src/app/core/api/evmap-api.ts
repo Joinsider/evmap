@@ -1,5 +1,5 @@
 import { Observable } from 'rxjs';
-import { Account, AdminOverview, BlockedAuthor, Contributions, Legal, ProviderToken, ReportedComment, SignInProvider, SyncRun } from './models';
+import { Account, AdminOverview, BlockedAuthor, Contributions, Legal, ProviderToken, ReportedComment, ReportedStation, SignInProvider, StationReportReason, SyncRun } from './models';
 
 /**
  * The only way features talk to the backend — the web counterpart of the iOS
@@ -42,4 +42,9 @@ export abstract class EvmapApi {
   abstract adminDismissReports(commentId: string): Observable<void>;
 
   abstract adminRemoveComment(commentId: string): Observable<void>;
+
+  abstract adminStationReports(): Observable<ReportedStation[]>;
+
+  /** Closes the open reports of one station for one reason. Master data is never touched (ADR 0021). */
+  abstract adminCloseStationReports(stationId: string, reason: StationReportReason, outcome: 'resolve' | 'dismiss'): Observable<void>;
 }

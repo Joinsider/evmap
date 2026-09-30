@@ -29,6 +29,8 @@ export interface AdminOverview {
   comments: number;
   /** Reported comments still waiting for a decision. */
   openReports: number;
+  /** Open station error reports, counted per station and reason as the queue lists them. */
+  openStationReports: number;
 }
 
 export type ReportReason = 'spam' | 'offensive' | 'wrong' | 'other';
@@ -67,10 +69,37 @@ export interface ReportContribution {
   resolvedAt?: string;
 }
 
+export type StationReportReason = 'gone' | 'wrong_power' | 'wrong_connector' | 'defective' | 'other';
+
+/** One line of the station report queue: the open reports of one station for one reason. Never says who reported. */
+export interface ReportedStation {
+  stationId: string;
+  stationName?: string;
+  operatorName?: string;
+  city?: string;
+  reason: StationReportReason;
+  count: number;
+  lastReportedAt: string;
+  /** The latest free texts of the reporters, newest first. */
+  notes: string[];
+}
+
+export interface StationReportContribution {
+  id: string;
+  stationId: string;
+  stationName?: string;
+  reason: StationReportReason;
+  note?: string;
+  status: 'open' | 'resolved' | 'dismissed';
+  createdAt: string;
+  resolvedAt?: string;
+}
+
 /** What the signed-in person has contributed ("Meine Beiträge"). */
 export interface Contributions {
   comments: CommentContribution[];
   reports: ReportContribution[];
+  stationReports: StationReportContribution[];
 }
 
 /** A block, listed without saying whom it concerns: `id` is only good for lifting it again. */

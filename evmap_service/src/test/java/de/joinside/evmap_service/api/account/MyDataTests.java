@@ -85,7 +85,37 @@ class MyDataTests {
         List<String> tables = PostgisDatabase.jdbc().sql("SELECT table_name FROM information_schema.tables WHERE table_schema = 'user_data' "
                 + "AND table_name NOT IN ('databasechangelog', 'databasechangeloglock') ORDER BY table_name").query(String.class).list();
 
-        assertThat(tables).containsExactlyInAnyOrder("account", "provider_identity", "station_comment", "comment_report", "account_block");
+        assertThat(tables).containsExactlyInAnyOrder("account", "provider_identity", "station_comment", "comment_report", "account_block", "favorite_station", "station_report");
+    }
+
+    @Test
+    @DisplayName("the export holds the caller's favorites and station reports with their own text, and nobody else's")
+    void exportCoversFavoritesAndStationReports() {
+        PostgisDatabase.jdbc().sql("INSERT INTO user_data.favorite_station (account_id, station_id) VALUES (:me, :station), (:other, :station)")
+                .param("me", me).param("other", other).param("station", station).update();
+        stationReport(me, "wrong_power", "It is 11 kW, not 22");
+        stationReport(other, "gone", "their note");
+
+        MyDataController.DataExport export = controller.export(new CurrentUser(me)).getBody();
+
+        assertThat(export.favorites()).singleElement().satisfies(favorite -> {
+            assertThat(favorite.stationId()).isEqualTo(station);
+            assertThat(favorite.stationName()).isEqualTo("EnBW Stuttgart");
+        });
+        assertThat(export.stationReports()).singleElement().satisfies(report -> {
+            assertThat(report.reason()).isEqualTo("wrong_power");
+            assertThat(report.note()).isEqualTo("It is 11 kW, not 22");
+            assertThat(report.status()).isEqualTo("open");
+        });
+        assertThat(export.toString()).doesNotContain("their note");
+        assertThat(controller.contributions(new CurrentUser(me)).stationReports()).hasSize(1);
+        assertThat(controller.contributions(new CurrentUser(other)).stationReports()).singleElement()
+                .satisfies(report -> assertThat(report.note()).isEqualTo("their note"));
+    }
+
+    private void stationReport(UUID reporter, String reason, String note) {
+        PostgisDatabase.jdbc().sql("INSERT INTO user_data.station_report (id, station_id, reporter_id, reason, note) VALUES (:id, :station, :reporter, :reason, :note)")
+                .param("id", UUID.randomUUID()).param("station", station).param("reporter", reporter).param("reason", reason).param("note", note).update();
     }
 
     @Test

@@ -37,10 +37,11 @@ class MyDataController {
     ResponseEntity<DataExport> export(@AuthenticationPrincipal CurrentUser user) {
         UUID id = user.accountId();
         AccountData account = data.account(id).orElseThrow(() -> new IllegalArgumentException("Unknown account"));
-        DataExport export = new DataExport(clock.instant(), account, data.identities(id), data.comments(id), data.reports(id), data.blocks(id));
+        DataExport export = new DataExport(clock.instant(), account, data.identities(id), data.comments(id), data.reports(id), data.blocks(id),
+                data.favorites(id), data.stationReports(id));
         // Counts only: the content is the person's, not the log's (ADR 0002).
-        log.info("Exported the data of account {} ({} comments, {} reports, {} blocks)", id, export.comments().size(),
-                export.reportsFiled().size(), export.blocks().size());
+        log.info("Exported the data of account {} ({} comments, {} reports, {} blocks, {} favorites, {} station reports)", id, export.comments().size(),
+                export.reportsFiled().size(), export.blocks().size(), export.favorites().size(), export.stationReports().size());
         String filename = "evmap-export-" + LocalDate.now(clock.withZone(ZoneOffset.UTC)) + ".json";
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(filename).build().toString())
@@ -50,14 +51,15 @@ class MyDataController {
 
     @GetMapping("/api/v1/me/contributions")
     Contributions contributions(@AuthenticationPrincipal CurrentUser user) {
-        return new Contributions(data.comments(user.accountId()), data.reports(user.accountId()));
+        return new Contributions(data.comments(user.accountId()), data.reports(user.accountId()), data.stationReports(user.accountId()));
     }
 
     record DataExport(Instant exportedAt, AccountData account, List<IdentityData> identities, List<CommentData> comments,
-                      List<ReportData> reportsFiled, List<BlockData> blocks) {
+                      List<ReportData> reportsFiled, List<BlockData> blocks, List<FavoriteData> favorites,
+                      List<StationReportData> stationReports) {
     }
 
-    record Contributions(List<CommentData> comments, List<ReportData> reports) {
+    record Contributions(List<CommentData> comments, List<ReportData> reports, List<StationReportData> stationReports) {
     }
 
     record AccountData(UUID id, boolean admin, Instant createdAt, Instant lastLoginAt) {
@@ -74,5 +76,13 @@ class MyDataController {
     }
 
     record BlockData(UUID id, Instant createdAt) {
+    }
+
+    record FavoriteData(UUID stationId, String stationName, Instant createdAt) {
+    }
+
+    /** A report the caller filed on a station, with their own free text (ADR 0021). */
+    record StationReportData(UUID id, UUID stationId, String stationName, String reason, String note, String status,
+                             Instant createdAt, Instant resolvedAt) {
     }
 }

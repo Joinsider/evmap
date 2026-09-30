@@ -9,6 +9,7 @@
     <div class="card count"><span class="value">{{ counts.value.accounts | number }}</span><span i18n="@@admin.accounts">Konten</span></div>
     <div class="card count"><span class="value">{{ counts.value.comments | number }}</span><span i18n="@@admin.comments">Kommentare</span></div>
     <div class="card count"><span class="value">{{ counts.value.openReports | number }}</span><span i18n="@@admin.openReports">Offene Meldungen</span></div>
+    <div class="card count"><span class="value">{{ counts.value.openStationReports | number }}</span><span i18n="@@admin.openStationReports">Offene Stationsfehler</span></div>
   } @else if (counts.state === 'failed') {
     <p class="error" i18n="@@admin.loadFailed">Konnte nicht geladen werden.</p>
   } @else {

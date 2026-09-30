@@ -55,7 +55,7 @@ public class StationController {
     }
 
     public static class StationNotFoundException extends RuntimeException {
-        StationNotFoundException(UUID id) {
+        public StationNotFoundException(UUID id) {
             super("Station not found: " + id);
         }
     }

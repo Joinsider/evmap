@@ -56,7 +56,7 @@ describe('RestEvmapApi', () => {
     const download = backend.expectOne('/api/v1/me/export');
     expect(download.request.responseType).toBe('blob');
     download.flush(new Blob(['{}']));
-    backend.expectOne('/api/v1/me/contributions').flush({ comments: [], reports: [] });
+    backend.expectOne('/api/v1/me/contributions').flush({ comments: [], reports: [], stationReports: [] });
     backend.expectOne('/api/v1/me/blocks').flush([]);
     expect(backend.expectOne('/api/v1/me/blocks/b%2F1').request.method).toBe('DELETE');
   });
@@ -71,5 +71,15 @@ describe('RestEvmapApi', () => {
     backend.expectOne('/api/v1/admin/reports').flush([]);
     expect(backend.expectOne('/api/v1/admin/reports/c-1/dismiss').request.method).toBe('POST');
     expect(backend.expectOne('/api/v1/admin/comments/c-2').request.method).toBe('DELETE');
+  });
+
+  it('drives the station report queue', () => {
+    api.adminStationReports().subscribe();
+    api.adminCloseStationReports('s/1', 'wrong_power', 'resolve').subscribe();
+    api.adminCloseStationReports('s-2', 'gone', 'dismiss').subscribe();
+
+    backend.expectOne('/api/v1/admin/station-reports').flush([]);
+    expect(backend.expectOne('/api/v1/admin/station-reports/s%2F1/wrong_power/resolve').request.method).toBe('POST');
+    expect(backend.expectOne('/api/v1/admin/station-reports/s-2/gone/dismiss').request.method).toBe('POST');
   });
 });

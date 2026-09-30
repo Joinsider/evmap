@@ -517,5 +517,95 @@
         <target>Other</target>
       </segment>
     </unit>
+    <unit id="account.stationReports">
+      <segment>
+        <source>Fehler an Stationen</source>
+        <target>Station errors</target>
+      </segment>
+    </unit>
+    <unit id="account.stationReport.resolved">
+      <segment>
+        <source>Erledigt</source>
+        <target>Resolved</target>
+      </segment>
+    </unit>
+    <unit id="account.noStationReports">
+      <segment>
+        <source>Noch keine Fehlermeldungen an Stationen.</source>
+        <target>No station error reports yet.</target>
+      </segment>
+    </unit>
+    <unit id="admin.nav.stationReports">
+      <segment>
+        <source>Stationsfehler</source>
+        <target>Station errors</target>
+      </segment>
+    </unit>
+    <unit id="admin.openStationReports">
+      <segment>
+        <source>Offene Stationsfehler</source>
+        <target>Open station errors</target>
+      </segment>
+    </unit>
+    <unit id="admin.stationReports.title">
+      <segment>
+        <source>Fehler an Stationen</source>
+        <target>Station errors</target>
+      </segment>
+    </unit>
+    <unit id="admin.stationReports.hint">
+      <segment>
+        <source>Ob erledigt oder abgewiesen: Die Stammdaten ändern sich dadurch nicht. Eine Korrektur, die bleiben soll, muss an der Datenquelle erfolgen.</source>
+        <target>Whether resolved or dismissed, the master data does not change. A correction that should stick has to be made at the data source.</target>
+      </segment>
+    </unit>
+    <unit id="admin.stationReports.resolve">
+      <segment>
+        <source>Erledigt</source>
+        <target>Resolved</target>
+      </segment>
+    </unit>
+    <unit id="admin.stationReports.dismiss">
+      <segment>
+        <source>Abweisen</source>
+        <target>Dismiss</target>
+      </segment>
+    </unit>
+    <unit id="admin.stationReports.empty">
+      <segment>
+        <source>Keine offenen Meldungen.</source>
+        <target>No open reports.</target>
+      </segment>
+    </unit>
+    <unit id="stationReport.reason.gone">
+      <segment>
+        <source>Station existiert nicht mehr</source>
+        <target>Station no longer exists</target>
+      </segment>
+    </unit>
+    <unit id="stationReport.reason.wrongPower">
+      <segment>
+        <source>Falsche Leistung</source>
+        <target>Wrong power</target>
+      </segment>
+    </unit>
+    <unit id="stationReport.reason.wrongConnector">
+      <segment>
+        <source>Falscher Steckertyp</source>
+        <target>Wrong connector type</target>
+      </segment>
+    </unit>
+    <unit id="stationReport.reason.defective">
+      <segment>
+        <source>Defekt</source>
+        <target>Out of order</target>
+      </segment>
+    </unit>
+    <unit id="stationReport.reason.other">
+      <segment>
+        <source>Sonstiges</source>
+        <target>Other</target>
+      </segment>
+    </unit>
   </file>
 </xliff>

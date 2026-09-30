@@ -17,3 +17,5 @@ databaseChangeLog:
       file: db/changelog/008-apple-refresh-token.sql
   - include:
       file: db/changelog/009-moderation.sql
+  - include:
+      file: db/changelog/010-favorites-and-station-reports.sql

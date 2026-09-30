@@ -44,11 +44,26 @@ class AdminRepositoryTests {
     }
 
     @Test
-    @DisplayName("counts stations, charge points, accounts, comments and open reports")
+    @DisplayName("counts stations, charge points, accounts, comments and open comment reports")
     void countsOverview() {
         UUID station = PostgisDatabase.insertStation("EnBW", "EnBW", "DE", 48.77, 9.18);
         PostgisDatabase.insertChargePoint(station, "1", "DE*EBW*E1*1");
 
-        assertThat(repository.overview()).isEqualTo(new AdminController.Overview(1, 1, 0, 0, 0));
+        assertThat(repository.overview()).isEqualTo(new AdminController.Overview(1, 1, 0, 0, 0, 0));
+    }
+
+    @Test
+    @DisplayName("counts open station reports per station and reason, not per reporter")
+    void countsOpenStationReports() {
+        UUID station = PostgisDatabase.insertStation("EnBW", "EnBW", "DE", 48.77, 9.18);
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        PostgisDatabase.jdbc().sql("INSERT INTO user_data.account (id) VALUES (:first), (:second)").param("first", first).param("second", second).update();
+        PostgisDatabase.jdbc().sql("INSERT INTO user_data.station_report (id, station_id, reporter_id, reason, status) VALUES "
+                        + "(gen_random_uuid(), :station, :first, 'gone', 'open'), (gen_random_uuid(), :station, :second, 'gone', 'open'), "
+                        + "(gen_random_uuid(), :station, :first, 'defective', 'open'), (gen_random_uuid(), :station, :first, 'other', 'dismissed')")
+                .param("station", station).param("first", first).param("second", second).update();
+
+        assertThat(repository.overview().openStationReports()).isEqualTo(2);
     }
 }
