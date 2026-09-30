@@ -3,15 +3,18 @@ import SwiftUI
 struct StationDetailScreen: View {
     let station: Station
     @ObservedObject var authSession: AuthSession
+    @ObservedObject var favorites: FavoritesViewModel
     @StateObject private var viewModel: StationDetailViewModel
     @State private var showCommentEditor = false
+    @State private var showReport = false
     @State private var editingComment: StationComment?
     /// The comment somebody else wrote that the reader is about to report or block the author of.
     @State private var moderatingComment: StationComment?
 
-    init(station: Station, repository: any ChargingStationRepository, authSession: AuthSession) {
+    init(station: Station, repository: any ChargingStationRepository, authSession: AuthSession, favorites: FavoritesViewModel) {
         self.station = station
         self.authSession = authSession
+        self.favorites = favorites
         _viewModel = StateObject(wrappedValue: StationDetailViewModel(stationID: station.id, repository: repository))
     }
 
@@ -24,10 +27,27 @@ struct StationDetailScreen: View {
                 if let detail = viewModel.detail { StationInfrastructureSections(detail: detail) }
                 CommentListSection(comments: viewModel.comments, canModerate: authSession.accessToken != nil, edit: { editingComment = $0 },
                                    delete: { comment in Task { await delete(comment) } }, moderate: { moderatingComment = $0 })
+                if authSession.accessToken != nil {
+                    Section {
+                        Button { showReport = true } label: { Label("station.report", systemImage: "exclamationmark.bubble") }
+                    }
+                }
             }
+            // On the list rather than the stack: one alert per view, and the stack's shows errors.
+            .alert("station.report.thanks.title", isPresented: $viewModel.reportAccepted) {
+                Button("action.ok", role: .cancel) {
+                    // Dismissing is the whole action.
+                }
+            } message: { Text("station.report.thanks.message") }
             .navigationTitle(station.displayName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { Task { await favorites.toggle(station) } } label: {
+                        Label(favorites.isFavorite(station) ? "favorites.remove" : "favorites.add",
+                              systemImage: favorites.isFavorite(station) ? "star.fill" : "star")
+                    }
+                }
                 if authSession.accessToken != nil {
                     ToolbarItem(placement: .topBarTrailing) { Button { showCommentEditor = true } label: { Label("comments.add", systemImage: "square.and.pencil") } }
                 }
@@ -35,6 +55,7 @@ struct StationDetailScreen: View {
             .overlay { if viewModel.isLoading { ProgressView() } }
             .safeAreaInset(edge: .bottom) { if authSession.accessToken == nil { SignInPrompt(authSession: authSession) } }
             .sheet(isPresented: $showCommentEditor) { CommentEditorScreen { await create($0) } }
+            .sheet(isPresented: $showReport) { StationReportScreen { reason, note in await report(reason: reason, note: note) } }
             .sheet(item: $editingComment) { comment in CommentEditorScreen(comment: comment) { await update(comment, payload: $0) } }
             .confirmationDialog("comments.moderation.title", isPresented: Binding(get: { moderatingComment != nil }, set: { if !$0 { moderatingComment = nil } }),
                                 titleVisibility: .visible, presenting: moderatingComment) { comment in
@@ -48,11 +69,14 @@ struct StationDetailScreen: View {
             } message: { _ in
                 Text("comments.moderation.message")
             }
-            .alert("error.title", isPresented: Binding(get: { viewModel.errorMessage != nil }, set: { if !$0 { viewModel.errorMessage = nil } })) {
+            // Both view models report here: a failed favorite toggle happens while this sheet is up,
+            // where the map's own alert could not be shown.
+            .alert("error.title", isPresented: Binding(get: { viewModel.errorMessage != nil || favorites.errorMessage != nil },
+                                                        set: { if !$0 { viewModel.errorMessage = nil; favorites.errorMessage = nil } })) {
                 Button("action.ok", role: .cancel) {
                     // Dismissing is the whole action; the binding's setter clears the message.
                 }
-            } message: { Text(viewModel.errorMessage ?? "") }
+            } message: { Text(viewModel.errorMessage ?? favorites.errorMessage ?? "") }
             .task(id: authSession.accessToken) { await viewModel.load(accessToken: authSession.accessToken) }
         }
     }
@@ -77,6 +101,11 @@ struct StationDetailScreen: View {
     private func blockAuthor(of comment: StationComment) async {
         guard let token = authSession.accessToken else { return }
         await viewModel.blockAuthor(of: comment, accessToken: token)
+    }
+
+    private func report(reason: StationReportReason, note: String?) async -> Bool {
+        guard let token = authSession.accessToken else { return false }
+        return await viewModel.reportStation(reason: reason, note: note, accessToken: token)
     }
 
     private func delete(_ comment: StationComment) async {

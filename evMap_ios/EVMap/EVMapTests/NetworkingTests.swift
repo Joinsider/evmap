@@ -212,7 +212,7 @@ struct NetworkingTests {
         StubURLProtocol.reset { request in
             switch request.url!.path() {
             case "/api/v1/me/blocks": self.json(#"[{"id":"\#(block.uuidString)","createdAt":"2026-09-28T10:00:00Z"}]"#)
-            case "/api/v1/me/contributions": self.json(#"{"comments":[],"reports":[{"id":"\#(block.uuidString)","reason":"spam","status":"open","createdAt":"2026-09-28T10:00:00Z"}]}"#)
+            case "/api/v1/me/contributions": self.json(#"{"comments":[],"reports":[{"id":"\#(block.uuidString)","reason":"spam","status":"open","createdAt":"2026-09-28T10:00:00Z"}],"stationReports":[{"id":"\#(block.uuidString)","reason":"wrong_power","note":"11 kW","status":"resolved","createdAt":"2026-09-28T10:00:00Z"}]}"#)
             case "/api/v1/me/export": self.json(#"{"account":{}}"#)
             case "/api/v1/legal": self.json(#"{"privacyPolicyUrl":"https://evmap.example/privacy"}"#)
             default: .init(status: 204, body: Data())
@@ -238,6 +238,8 @@ struct NetworkingTests {
 
         let contributions = try await repository.contributions(accessToken: "t")
         #expect(contributions.reports.first?.isOpen == true)
+        #expect(contributions.stationReports.first?.isResolved == true)
+        #expect(contributions.stationReports.first?.reasonName == StationReportReason.wrongPower.displayName)
 
         let export = try await repository.exportData(accessToken: "t")
         #expect(String(data: export, encoding: .utf8) == #"{"account":{}}"#)
@@ -248,6 +250,38 @@ struct NetworkingTests {
         try await repository.deleteAccount(accessToken: "t")
         #expect(lastRequest.httpMethod == "DELETE")
         #expect(lastRequest.url?.path() == "/api/v1/me")
+    }
+
+    @Test("favorites are written one by one, merged in bulk, and a station report goes to the station")
+    func favoriteAndReportEndpoints() async throws {
+        let station = UUID(), other = UUID()
+        StubURLProtocol.reset { request in
+            request.url!.path() == "/api/v1/me/favorites/merge"
+                ? self.json(#"[{"id":"\#(station.uuidString)","displayName":"Ada","latitude":48.7,"longitude":9.1}]"#)
+                : .init(status: 204, body: Data())
+        }
+        let repository = repository()
+
+        try await repository.addFavorite(stationID: station, accessToken: "t")
+        #expect(lastRequest.httpMethod == "PUT")
+        #expect(lastRequest.url?.path() == "/api/v1/me/favorites/\(station.uuidString)")
+        #expect(lastRequest.value(forHTTPHeaderField: "Authorization") == "Bearer t")
+
+        try await repository.removeFavorite(stationID: station, accessToken: "t")
+        #expect(lastRequest.httpMethod == "DELETE")
+        #expect(lastRequest.url?.path() == "/api/v1/me/favorites/\(station.uuidString)")
+
+        let merged = try await repository.mergeFavorites(stationIDs: [station, other], accessToken: "t")
+        #expect(merged.map(\.displayName) == ["Ada"])
+        #expect(lastRequest.httpMethod == "POST")
+        let body = try JSONSerialization.jsonObject(with: lastRequest.httpBody ?? Data()) as? [String: [String]]
+        #expect(body == ["stationIds": [station.uuidString, other.uuidString]])
+
+        try await repository.reportStation(id: station, reason: .wrongConnector, note: "Type 2 only", accessToken: "t")
+        #expect(lastRequest.httpMethod == "POST")
+        #expect(lastRequest.url?.path() == "/api/v1/stations/\(station.uuidString)/reports")
+        let report = try JSONSerialization.jsonObject(with: lastRequest.httpBody ?? Data()) as? [String: String]
+        #expect(report == ["reason": "wrong_connector", "note": "Type 2 only"])
     }
 
     @Test("a rejected token, a server error and a malformed body surface as distinct errors")

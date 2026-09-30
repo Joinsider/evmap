@@ -129,9 +129,29 @@ struct RESTChargingStationRepository: ChargingStationRepository {
     func legal() async throws -> LegalInfo {
         try await client.send(client.endpoint("legal"))
     }
+
+    func addFavorite(stationID: UUID, accessToken: String) async throws {
+        let _: EmptyResponse = try await client.send(client.endpoint("me", "favorites", stationID.uuidString), method: "PUT", accessToken: accessToken)
+    }
+
+    func removeFavorite(stationID: UUID, accessToken: String) async throws {
+        let _: EmptyResponse = try await client.send(client.endpoint("me", "favorites", stationID.uuidString), method: "DELETE", accessToken: accessToken)
+    }
+
+    func mergeFavorites(stationIDs: [UUID], accessToken: String) async throws -> [Station] {
+        try await client.send(client.endpoint("me", "favorites", "merge"), method: "POST",
+                              body: MergeFavoritesRequest(stationIds: stationIDs), accessToken: accessToken)
+    }
+
+    func reportStation(id: UUID, reason: StationReportReason, note: String?, accessToken: String) async throws {
+        let _: EmptyResponse = try await client.send(client.endpoint("stations", id.uuidString, "reports"), method: "POST",
+                                                     body: StationReportRequest(reason: reason.rawValue, note: note), accessToken: accessToken)
+    }
 }
 
 private struct AppleLoginRequest: Encodable { let identityToken: String; let authorizationCode: String? }
 private struct ReportRequest: Encodable { let reason: String }
+private struct MergeFavoritesRequest: Encodable { let stationIds: [UUID] }
+private struct StationReportRequest: Encodable { let reason: String; let note: String? }
 private struct CodeLoginRequest: Encodable { let code: String; let codeVerifier: String? }
 private struct AccessTokenResponse: Decodable { let accessToken: String }

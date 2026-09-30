@@ -59,7 +59,7 @@ struct AccountScreen: View {
     private var contributionsSection: some View {
         Section("account.contributions") {
             if let contributions = model.contributions {
-                if contributions.comments.isEmpty && contributions.reports.isEmpty {
+                if contributions.comments.isEmpty && contributions.reports.isEmpty && contributions.stationReports.isEmpty {
                     Text("account.contributions.empty").foregroundStyle(.secondary)
                 }
                 ForEach(contributions.comments) { comment in
@@ -76,10 +76,23 @@ struct AccountScreen: View {
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
+                ForEach(contributions.stationReports) { report in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("account.stationReport \(report.reasonName)")
+                        Text("\(stationReportStatus(report)) · \(report.stationName ?? "")")
+                            .font(.caption).foregroundStyle(.secondary)
+                        if let note = report.note { Text(note).font(.caption).foregroundStyle(.secondary) }
+                    }
+                }
             } else {
                 ProgressView()
             }
         }
+    }
+
+    private func stationReportStatus(_ report: StationReportContribution) -> String {
+        if report.isOpen { return String(localized: "account.report.open") }
+        return report.isResolved ? String(localized: "account.stationReport.resolved") : String(localized: "account.report.closed")
     }
 
     private var blocksSection: some View {

@@ -41,4 +41,13 @@ protocol ChargingStationRepository {
     /// Deletes the account with everything attached, at once and for good.
     func deleteAccount(accessToken: String) async throws
     func legal() async throws -> LegalInfo
+
+    // MARK: Favorites and station reports (ADR 0021)
+
+    func addFavorite(stationID: UUID, accessToken: String) async throws
+    func removeFavorite(stationID: UUID, accessToken: String) async throws
+    /// Adds the device's favorites to the account's and answers with the union; the caller replaces its copy with it.
+    func mergeFavorites(stationIDs: [UUID], accessToken: String) async throws -> [Station]
+    /// Tells the operators what is wrong with a station. Needs a sign-in; the station's data does not change by it.
+    func reportStation(id: UUID, reason: StationReportReason, note: String?, accessToken: String) async throws
 }

@@ -43,6 +43,20 @@ struct ViewRenderingTests {
         window.isHidden = true
     }
 
+    private func favoritesModel(_ repository: StubStationRepository, session: AuthSession? = nil,
+                                stations: [Station] = []) -> FavoritesViewModel {
+        FavoritesViewModel(repository: repository, authSession: session ?? AuthSession(repository: repository),
+                           store: MemoryFavorites(stations))
+    }
+
+    /// Favorites that live only as long as the test.
+    private final class MemoryFavorites: FavoritesStoring {
+        var stored: [Station]
+        init(_ stored: [Station] = []) { self.stored = stored }
+        func load() -> [Station] { stored }
+        func save(_ stations: [Station]) { stored = stations }
+    }
+
     private func settingsModel(_ configure: (inout AppSettings) -> Void = { _ in }) -> SettingsViewModel {
         var settings = AppSettings.factoryDefaults
         configure(&settings)
@@ -72,7 +86,8 @@ struct ViewRenderingTests {
         repository.liveStation = .success(Fixtures.live(stationID: station.id))
 
         let signedOut = AuthSession(repository: repository)
-        try await render(StationDetailScreen(station: station, repository: repository, authSession: signedOut),
+        try await render(StationDetailScreen(station: station, repository: repository, authSession: signedOut,
+                                             favorites: favoritesModel(repository)),
                          settle: .milliseconds(500))
 
         // AuthSession restores its token from UserDefaults; seeding that is the only way in.
@@ -80,11 +95,13 @@ struct ViewRenderingTests {
         defer { UserDefaults.standard.removeObject(forKey: "EVMapAccessToken") }
         let signedIn = AuthSession(repository: repository)
         #expect(signedIn.accessToken == "token")
-        try await render(StationDetailScreen(station: station, repository: repository, authSession: signedIn),
+        try await render(StationDetailScreen(station: station, repository: repository, authSession: signedIn,
+                                             favorites: favoritesModel(repository, session: signedIn, stations: [station])),
                          settle: .milliseconds(500))
 
         repository.stationDetail = .failure(StubStationRepository.Failure(message: "offline"))
-        try await render(StationDetailScreen(station: station, repository: repository, authSession: signedOut),
+        try await render(StationDetailScreen(station: station, repository: repository, authSession: signedOut,
+                                             favorites: favoritesModel(repository)),
                          settle: .milliseconds(500))
     }
 
@@ -126,10 +143,31 @@ struct ViewRenderingTests {
         repository.blockList = .success([BlockedAuthor(id: UUID(), createdAt: Date())])
         repository.contributionList = .success(Contributions(
             comments: [CommentContribution(id: UUID(), stationName: "EnBW", body: "Lädt schnell", createdAt: Date())],
-            reports: [ReportContribution(id: UUID(), reason: "wrong", status: "dismissed", stationName: nil, createdAt: Date())]))
+            reports: [ReportContribution(id: UUID(), reason: "wrong", status: "dismissed", stationName: nil, createdAt: Date())],
+            stationReports: [StationReportContribution(id: UUID(), reason: "wrong_power", note: "11 kW", status: "resolved",
+                                                       stationName: "EnBW", createdAt: Date()),
+                             StationReportContribution(id: UUID(), reason: "unheard-of", note: nil, status: "open",
+                                                       stationName: nil, createdAt: Date())]))
         repository.legalInfo = .success(LegalInfo(privacyPolicyUrl: URL(string: "https://evmap.example/privacy")))
         try await render(NavigationStack { AccountScreen(repository: repository, authSession: AuthSession(repository: repository)) },
                          settle: .milliseconds(400))
+    }
+
+    @Test("the favorites list renders empty and filled, signed out and signed in, and the report form renders")
+    func favoritesAndReportScreens() async throws {
+        let repository = StubStationRepository()
+        let signedOut = AuthSession(repository: repository)
+        try await render(FavoritesScreen(model: favoritesModel(repository), authSession: signedOut) { _ in })
+        try await render(FavoritesScreen(model: favoritesModel(repository, stations: [Fixtures.station(), Fixtures.station(name: "Ionity")]),
+                                         authSession: signedOut) { _ in })
+
+        UserDefaults.standard.set("token", forKey: "EVMapAccessToken")
+        defer { UserDefaults.standard.removeObject(forKey: "EVMapAccessToken") }
+        let signedIn = AuthSession(repository: repository)
+        try await render(FavoritesScreen(model: favoritesModel(repository, session: signedIn, stations: [Fixtures.station()]),
+                                         authSession: signedIn) { _ in })
+
+        try await render(StationReportScreen { _, _ in true })
     }
 
     @Test("the provider picker renders its configured networks and search results")
@@ -158,7 +196,7 @@ struct ViewRenderingTests {
         repository.liveViewport = .success([Fixtures.live(stationID: stations[0].id)])
 
         try await render(MapScreen(repository: repository, authSession: AuthSession(repository: repository),
-                                   settings: settingsModel()),
+                                   settings: settingsModel(), favorites: favoritesModel(repository, stations: [stations[0]])),
                          height: 932, settle: .milliseconds(800))
     }
 }

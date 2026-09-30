@@ -19,6 +19,18 @@ struct DomainVocabularyTests {
         #expect(!status.systemImage.isEmpty)
     }
 
+    @Test("every station report reason has a localised label and the backend's token", arguments: StationReportReason.allCases)
+    func stationReportReasons(reason: StationReportReason) {
+        #expect(!reason.displayName.isEmpty)
+        #expect(!reason.displayName.hasPrefix("stationReport.reason."))
+        #expect(StationReportReason(rawValue: reason.rawValue) == reason)
+    }
+
+    @Test("the station report tokens are the backend's closed set")
+    func stationReportTokens() {
+        #expect(StationReportReason.allCases.map(\.rawValue) == ["gone", "wrong_power", "wrong_connector", "defective", "other"])
+    }
+
     @Test("the occupancy line counts only resolved charge points")
     func occupancyDescription() {
         let live = Fixtures.live(stationID: UUID(), available: 2, occupied: 1, unknown: 5)

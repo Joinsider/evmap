@@ -9,6 +9,8 @@ struct MapScreen: View {
     /// Owned by the app, not by this screen: the settings outlive any one view, and the map has to
     /// be able to read them before its first query.
     @ObservedObject var settings: SettingsViewModel
+    /// Owned by the app too: the stars on the pins and the favorite list outlive any one screen.
+    @ObservedObject var favorites: FavoritesViewModel
     /// Launch view: Germany at overview scale, which loads the highpower backbone straight away and
     /// gives `onMapCameraChange` a defined starting region instead of whatever `.automatic` picks.
     private static let initialRegion = MKCoordinateRegion(
@@ -21,15 +23,19 @@ struct MapScreen: View {
     @State private var selectedAnnotation: StationAnnotation?
     @State private var selectedStation: Station?
     @State private var showSettings = false
+    @State private var showFavorites = false
+    /// The favorite the person picked, opened once the list sheet is gone: two sheets cannot swap in one go.
+    @State private var pendingFavorite: Station?
     /// Focus, not presentation. Dismissing the search *presentation* after a hit would take the
     /// text with it — UIKit clears the field when the search controller goes away — leaving the map
     /// on a place the search bar no longer names. Dropping focus only closes the keyboard.
     @FocusState private var isSearchFieldFocused: Bool
 
-    init(repository: any ChargingStationRepository, authSession: AuthSession, settings: SettingsViewModel) {
+    init(repository: any ChargingStationRepository, authSession: AuthSession, settings: SettingsViewModel, favorites: FavoritesViewModel) {
         self.repository = repository
         self.authSession = authSession
         self.settings = settings
+        self.favorites = favorites
         _viewModel = StateObject(wrappedValue: MapViewModel(repository: repository, filter: settings.settings.stationFilter))
     }
 
@@ -44,7 +50,8 @@ struct MapScreen: View {
                 }
                 ForEach(viewModel.annotations) { annotation in
                     Annotation(annotation.station?.displayName ?? "", coordinate: annotation.coordinate) {
-                        StationAnnotationView(annotation: annotation)
+                        StationAnnotationView(annotation: annotation,
+                                              isFavorite: annotation.stations.contains { favorites.ids.contains($0.id) })
                     }.tag(annotation)
                 }
             }
@@ -85,6 +92,7 @@ struct MapScreen: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button { viewModel.requestLocation() } label: { Label("map.locate", systemImage: "location.fill") } }
+                ToolbarItem(placement: .topBarTrailing) { Button { showFavorites = true } label: { Label("favorites.title", systemImage: "star") } }
                 ToolbarItem(placement: .topBarTrailing) { Button { showSettings = true } label: { Label("settings.title", systemImage: "line.3.horizontal.decrease.circle") } }
                 // Where iOS 26 puts search: a full-width field in the bottom bar, within thumb
                 // reach, rather than a drawer under the title at the far end of the screen.
@@ -97,7 +105,13 @@ struct MapScreen: View {
                     .animation(.default, value: search.isResolving)
             }
             .overlay(alignment: .bottomTrailing) { ChargingPowerLegend().padding(12) }
-            .sheet(item: $selectedStation) { StationDetailScreen(station: $0, repository: repository, authSession: authSession) }
+            .sheet(item: $selectedStation) { StationDetailScreen(station: $0, repository: repository, authSession: authSession, favorites: favorites) }
+            .sheet(isPresented: $showFavorites, onDismiss: openPendingFavorite) {
+                FavoritesScreen(model: favorites, authSession: authSession) { station in
+                    pendingFavorite = station
+                    showFavorites = false
+                }
+            }
             // Applied on dismiss, not on change: the settings persist themselves keystroke by
             // keystroke, but dragging the power slider must not be one network request per step.
             .sheet(isPresented: $showSettings, onDismiss: { viewModel.apply(settings.settings.stationFilter) }) {
@@ -116,7 +130,20 @@ struct MapScreen: View {
             // Seeds the first query from the known starting region rather than waiting for MapKit to
             // report a camera; the coverage check keeps its subsequent report from refetching.
             .task { viewModel.cameraChanged(to: Self.initialRegion); viewModel.requestLocation() }
+            // Merges the device's favorites into the account on sign-in (also at launch with a restored
+            // session) and empties the device copy on sign-out (ADR 0021).
+            .task(id: authSession.accessToken) { await favorites.sessionChanged(to: authSession.accessToken) }
         }
+    }
+
+    /// Centers the map on the favorite picked in the list and opens it.
+    private func openPendingFavorite() {
+        guard let station = pendingFavorite else { return }
+        pendingFavorite = nil
+        withAnimation {
+            position = .region(MKCoordinateRegion(center: station.coordinate, latitudinalMeters: 4_000, longitudinalMeters: 4_000))
+        }
+        selectedStation = station
     }
 
     /// Opens a cluster by zooming to a quarter of the current span, centred on it — enough to break
@@ -136,6 +163,8 @@ struct MapScreen: View {
 /// A single station pin, or a cluster badge carrying its member count.
 private struct StationAnnotationView: View {
     let annotation: StationAnnotation
+    /// Whether this pin is a favorite, or a group that holds one.
+    let isFavorite: Bool
 
     var body: some View {
         Group {
@@ -155,8 +184,22 @@ private struct StationAnnotationView: View {
             }
         }
         .overlay(alignment: .topTrailing) { liveBadge }
+        .overlay(alignment: .topLeading) { favoriteBadge }
         .shadow(radius: 2)
         .accessibilityLabel(accessibilityLabel)
+    }
+
+    /// A star on a favorite, so it stands out among its neighbours without changing its power colour.
+    @ViewBuilder
+    private var favoriteBadge: some View {
+        if isFavorite {
+            Image(systemName: "star.fill")
+                .font(.system(size: 10))
+                .foregroundStyle(.yellow)
+                .padding(2)
+                .background(.white, in: .circle)
+                .offset(x: -6, y: -4)
+        }
     }
 
     /// How many charge points behind this pin are free right now.
@@ -183,9 +226,9 @@ private struct StationAnnotationView: View {
     /// Colour alone must not carry the charging speed or the live status, so the pin says both out loud.
     private var accessibilityLabel: String {
         let power = annotation.maxPowerKw.map(formattedPower(kW:))
-        let live = annotation.liveAvailableCount.map {
+        let live = (annotation.liveAvailableCount.map {
             ", " + String(format: String(localized: "map.liveAvailable"), $0)
-        } ?? ""
+        } ?? "") + (isFavorite ? ", " + String(localized: "map.favorite") : "")
         guard let station = annotation.station else {
             // The count is formatted into a string first: interpolating the `Int` would look up
             // `map.cluster %lld`, which no strings file declares.

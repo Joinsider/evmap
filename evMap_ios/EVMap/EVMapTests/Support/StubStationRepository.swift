@@ -34,6 +34,15 @@ final class StubStationRepository: ChargingStationRepository {
     var exportResult: Result<Data, Error> = .success(Data("{}".utf8))
     var accountDeletion: Result<Void, Error> = .success(())
     var legalInfo: Result<LegalInfo, Error> = .success(LegalInfo(privacyPolicyUrl: nil))
+    var favoriteWrite: Result<Void, Error> = .success(())
+    /// What the account holds; a merge answers with this plus what the device sent, like the backend.
+    var accountFavorites: [Station] = []
+    var mergeFailure: Error?
+    var stationReportResult: Result<Void, Error> = .success(())
+    private(set) var addedFavorites: [UUID] = []
+    private(set) var removedFavorites: [UUID] = []
+    private(set) var mergedFavoriteIDs: [[UUID]] = []
+    private(set) var stationReports: [(id: UUID, reason: StationReportReason, note: String?)] = []
     private(set) var reports: [(id: UUID, reason: ReportReason)] = []
     private(set) var blockedComments: [UUID] = []
     private(set) var liftedBlocks: [UUID] = []
@@ -100,6 +109,27 @@ final class StubStationRepository: ChargingStationRepository {
     }
 
     func legal() async throws -> LegalInfo { try legalInfo.get() }
+
+    func addFavorite(stationID: UUID, accessToken _: String) async throws {
+        try favoriteWrite.get()
+        addedFavorites.append(stationID)
+    }
+
+    func removeFavorite(stationID: UUID, accessToken _: String) async throws {
+        try favoriteWrite.get()
+        removedFavorites.append(stationID)
+    }
+
+    func mergeFavorites(stationIDs: [UUID], accessToken _: String) async throws -> [Station] {
+        if let mergeFailure { throw mergeFailure }
+        mergedFavoriteIDs.append(stationIDs)
+        return accountFavorites
+    }
+
+    func reportStation(id: UUID, reason: StationReportReason, note: String?, accessToken _: String) async throws {
+        try stationReportResult.get()
+        stationReports.append((id, reason, note))
+    }
 }
 
 /// Small factories for domain values, so tests state only what they are about.

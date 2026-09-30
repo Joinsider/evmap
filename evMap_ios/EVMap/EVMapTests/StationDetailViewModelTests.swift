@@ -58,6 +58,34 @@ struct StationDetailViewModelTests {
         #expect(model.liveAvailability == nil)
     }
 
+    @Test("a station report is sent with its reason and note, and thanks the person once it is accepted")
+    func reportsAStation() async {
+        let repository = StubStationRepository()
+        let model = model(repository)
+
+        let accepted = await model.reportStation(reason: .wrongPower, note: "It is 11 kW", accessToken: "t")
+
+        #expect(accepted)
+        #expect(model.reportAccepted)
+        #expect(repository.stationReports.count == 1)
+        #expect(repository.stationReports.first?.id == station.id)
+        #expect(repository.stationReports.first?.reason == .wrongPower)
+        #expect(repository.stationReports.first?.note == "It is 11 kW")
+    }
+
+    @Test("a refused station report is an error and is not thanked")
+    func refusedStationReport() async {
+        let repository = StubStationRepository()
+        repository.stationReportResult = .failure(StubStationRepository.Failure(message: "offline"))
+        let model = model(repository)
+
+        let accepted = await model.reportStation(reason: .gone, note: nil, accessToken: "t")
+
+        #expect(!accepted)
+        #expect(!model.reportAccepted)
+        #expect(model.errorMessage == "offline")
+    }
+
     @Test("a new comment goes to the top, an edit replaces it in place, a delete removes it")
     func writesComments() async {
         let repository = StubStationRepository()
