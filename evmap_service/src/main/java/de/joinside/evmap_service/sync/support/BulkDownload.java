@@ -107,17 +107,22 @@ public final class BulkDownload {
      * instead of silently becoming a replacement character in a station name.
      */
     private static Reader openReader(Path file, Charset charset) throws IOException {
-        InputStream in = new BufferedInputStream(Files.newInputStream(file));
+        InputStream source = new BufferedInputStream(Files.newInputStream(file));
         try {
-            in.mark(2);
-            boolean gzip = in.read() == 0x1f && in.read() == 0x8b;
-            in.reset();
-            return new BufferedReader(new InputStreamReader(gzip ? new GZIPInputStream(in) : in,
-                    charset.newDecoder()));
+            if (startsWithGzipMagic(source)) source = new GZIPInputStream(source);
+            return new BufferedReader(new InputStreamReader(source, charset.newDecoder()));
         } catch (IOException | RuntimeException exception) {
-            in.close();
+            // Closing the outermost stream closes the ones it wraps.
+            source.close();
             throw exception;
         }
+    }
+
+    private static boolean startsWithGzipMagic(InputStream in) throws IOException {
+        in.mark(2);
+        boolean gzip = in.read() == 0x1f && in.read() == 0x8b;
+        in.reset();
+        return gzip;
     }
 
     /**

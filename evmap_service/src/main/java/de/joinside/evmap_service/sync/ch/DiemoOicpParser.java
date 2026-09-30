@@ -22,6 +22,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -192,31 +193,37 @@ final class DiemoOicpParser {
             if (operator == null || operator.evses() == null) continue;
             String operatorName = blankToNull(operator.name());
             for (Evse evse : operator.evses()) {
-                if (evse == null) continue;
-                counters.records++;
-
-                if (isRestricted(evse.accessibility())) {
-                    counters.restricted++;
-                    continue;
-                }
-                String evseKey = evse.evseId() == null ? null : EvseIds.normalize(evse.evseId());
-                if (evseKey == null) {
-                    counters.unidentified++;
-                    continue;
-                }
-                double[] position = position(evse.geo());
-                if (position == null) {
-                    counters.outsideCountry++;
-                    continue;
-                }
-                if (!seenEvseIds.add(evseKey)) {
-                    counters.duplicateEvse++;
-                    continue;
-                }
-                candidates.add(new Candidate(evse, operatorName, position[0], position[1]));
+                Candidate candidate = screen(evse, operatorName, seenEvseIds, counters);
+                if (candidate != null) candidates.add(candidate);
             }
         }
         return candidates;
+    }
+
+    /** @return the EVSE as a candidate for a station, or {@code null} after counting why it is not one */
+    private static Candidate screen(Evse evse, String operatorName, Set<String> seenEvseIds, Counters counters) {
+        if (evse == null) return null;
+        counters.records++;
+
+        if (isRestricted(evse.accessibility())) {
+            counters.restricted++;
+            return null;
+        }
+        String evseKey = evse.evseId() == null ? null : EvseIds.normalize(evse.evseId());
+        if (evseKey == null) {
+            counters.unidentified++;
+            return null;
+        }
+        Optional<Position> position = position(evse.geo());
+        if (position.isEmpty()) {
+            counters.outsideCountry++;
+            return null;
+        }
+        if (!seenEvseIds.add(evseKey)) {
+            counters.duplicateEvse++;
+            return null;
+        }
+        return new Candidate(evse, operatorName, position.get().latitude(), position.get().longitude());
     }
 
     /**
@@ -230,20 +237,23 @@ final class DiemoOicpParser {
         return value.contains("restricted") || value.contains("private") || value.contains("test");
     }
 
-    /** @return {@code {latitude, longitude}}, or {@code null} for anything unreadable or off-country. */
-    private static double[] position(Geo geo) {
-        if (geo == null || geo.google() == null) return null;
+    private record Position(double latitude, double longitude) {
+    }
+
+    /** @return the position, or empty for anything unreadable or off-country */
+    private static Optional<Position> position(Geo geo) {
+        if (geo == null || geo.google() == null) return Optional.empty();
         String[] parts = geo.google().trim().split("\\s+");
-        if (parts.length != 2) return null;
+        if (parts.length != 2) return Optional.empty();
         try {
             double latitude = Double.parseDouble(parts[0]);
             double longitude = Double.parseDouble(parts[1]);
             boolean inside = latitude >= MIN_LATITUDE && latitude <= MAX_LATITUDE
                     && longitude >= MIN_LONGITUDE && longitude <= MAX_LONGITUDE;
-            return inside ? new double[]{latitude, longitude} : null;
-        } catch (NumberFormatException exception) {
+            return inside ? Optional.of(new Position(latitude, longitude)) : Optional.empty();
+        } catch (NumberFormatException _) {
             // The feed writes "None None" where a station has no entrance coordinate.
-            return null;
+            return Optional.empty();
         }
     }
 
@@ -367,19 +377,13 @@ final class DiemoOicpParser {
      */
     private static List<SourceStation.SourceConnector> connectors(Evse evse, Counters counters) {
         List<String> plugs = evse.plugs() == null ? List.of() : evse.plugs();
-        List<BigDecimal> powers = new ArrayList<>();
-        if (evse.facilities() != null) for (Facility facility : evse.facilities())
-            powers.add(facility == null ? null : power(facility.power()));
-
+        List<BigDecimal> powers = powers(evse);
         Set<BigDecimal> distinctPowers = new HashSet<>(powers);
+
         Map<Plug, Integer> merged = new LinkedHashMap<>();
         for (int i = 0; i < plugs.size(); i++) {
             String type = ConnectorTypes.normalize(plugs.get(i));
-            if (type == null) continue;
-            BigDecimal power;
-            if (powers.size() == plugs.size()) power = powers.get(i);
-            else power = distinctPowers.size() == 1 ? powers.get(0) : null;
-            merged.merge(new Plug(type, power), 1, Integer::sum);
+            if (type != null) merged.merge(new Plug(type, powerOf(i, plugs.size(), powers, distinctPowers)), 1, Integer::sum);
         }
 
         boolean oversized = plugs.size() > MAX_PLUGS_PER_EVSE;
@@ -389,6 +393,19 @@ final class DiemoOicpParser {
         merged.forEach((plug, quantity) ->
                 connectors.add(new SourceStation.SourceConnector(plug.type(), plug.powerKw(), oversized ? 1 : quantity)));
         return connectors;
+    }
+
+    /** One entry per facility, {@code null} where the rating is unknown; may be shorter or longer than the plugs. */
+    private static List<BigDecimal> powers(Evse evse) {
+        if (evse.facilities() == null) return List.of();
+        List<BigDecimal> powers = new ArrayList<>(evse.facilities().size());
+        for (Facility facility : evse.facilities()) powers.add(facility == null ? null : power(facility.power()));
+        return powers;
+    }
+
+    private static BigDecimal powerOf(int plug, int plugCount, List<BigDecimal> powers, Set<BigDecimal> distinctPowers) {
+        if (powers.size() == plugCount) return powers.get(plug);
+        return distinctPowers.size() == 1 ? powers.get(0) : null;
     }
 
     /**
@@ -402,7 +419,7 @@ final class DiemoOicpParser {
         BigDecimal value;
         try {
             value = node.isNumber() ? node.decimalValue() : new BigDecimal(node.asText("").trim());
-        } catch (NumberFormatException exception) {
+        } catch (NumberFormatException _) {
             return null;
         }
         if (value.signum() <= 0) return null;
@@ -412,7 +429,7 @@ final class DiemoOicpParser {
 
     private static SourceStation toStation(Site site, Instant fetchedAt) {
         String operator = mostFrequent(site.operators);
-        String name = site.name != null ? site.name : site.street != null ? site.street : operator;
+        String name = firstPresent(site.name, site.street, operator);
         return new SourceStation(SOURCE, stationId(site), name, site.street, site.city, site.postalCode,
                 site.country == null ? COUNTRY_CH : site.country, operator, site.latitude, site.longitude,
                 null, fetchedAt, List.of(), site.chargePoints);
@@ -433,6 +450,11 @@ final class DiemoOicpParser {
             }
         }
         return best;
+    }
+
+    private static String firstPresent(String... values) {
+        for (String value : values) if (value != null) return value;
+        return null;
     }
 
     private static String blankToNull(String value) {
