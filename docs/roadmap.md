@@ -30,7 +30,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | 8 | Nutzer-Web-App | offen | | 0018 + neu |
 | 9 | CarPlay als Lade-App | offen | | neu |
 | L1 | Lückenfüller: Österreich | übersprungen ⁴ | | [0012](adr/0012-additional-national-charging-registers.md) |
-| L2 | Lückenfüller: Schweiz | in Arbeit | `feature/sync-switzerland` | [0012](adr/0012-additional-national-charging-registers.md) |
+| L2 | Lückenfüller: Schweiz | fertig ⁵ | `feature/sync-switzerland` (PR folgt) | [0012](adr/0012-additional-national-charging-registers.md) |
 | L3 | Lückenfüller: Italien | offen | | 0012 |
 | L4 | Lückenfüller: Spanien | offen | | 0012 |
 
@@ -48,6 +48,10 @@ Die Web-Oberfläche zum Melden und Blockieren von Kommentaren folgt mit der Nutz
 Veränderung der Werte und verlangen Besucherzahlen pro Quartal (ADR 0012, „Austria skipped“). Österreich
 bleibt über OCM abgedeckt. Wieder aufnehmen, falls E-Control das Speichern und Zusammenführen schriftlich
 erlaubt oder eine CC-BY-Fassung über die Mobilitätsdatenplattform erscheint.
+⁵ Im Repository fertig (4.977 Stationen aus 14.394 EVSEs gegen die Live-Datei geprüft). Offen ist der erste
+Lauf auf dem Server: zweiten Lauf prüfen, dass kaum noch Stationen neu angelegt werden (ADR 0012, offener
+Punkt 8). Das Schweizer Register steht unter `terms_by_ask`: kommerzielle Nutzung braucht die Erlaubnis
+des BFE.
 
 Separat angestoßen (Teil von Phase 0): `permitAll` für `/api/v1/stations/**` auf GET beschränken.
 Erledigt mit PR #8 (Commit `3d40492`), vor Beginn von Phase 0 auf `master` geprüft.
@@ -254,7 +258,8 @@ Lückenfüller Schweiz (2026-09-30, Details in ADR 0012, Abschnitt „Switzerlan
 
 - Die autoritative Quelle je Land wird eine konfigurierbare Tabelle (`evmap.sync.authority`: DE=BNetzA,
   FR=IRVE, CH=DIEMO) statt einer festen BNetzA-Regel. Damit entfällt auch die Abhängigkeit von der
-  Reihenfolge der Adapter.
+  Reihenfolge der Adapter. Umgesetzt und getestet; jede weitere nationale Quelle trägt sich dort ein.
+- Der Status-Feed wird nicht gelesen (Live-Belegung gehört nicht in die Stammdaten, ADR 0015).
 
 Roadmap allgemein:
 
