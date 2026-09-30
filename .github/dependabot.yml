@@ -1,0 +1,77 @@
+# Dependabot version updates. One block per manifest location; the iOS app has no
+# Swift Package dependencies today, so there is no `swift` entry - add one when it gets some.
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # Backend: Spring Boot 4 service (Maven wrapper, pom.xml)
+  - package-ecosystem: "maven"
+    directory: "/evmap_service"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      maven-minor-patch:
+        update-types: ["minor", "patch"]
+
+  # Web client: Angular (package-lock.json)
+  - package-ecosystem: "npm"
+    directory: "/evmap_web"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      # The @angular/* packages and their build tooling have to move together.
+      angular:
+        patterns: ["@angular/*", "@angular-devkit/*", "ng-packagr"]
+      npm-minor-patch:
+        update-types: ["minor", "patch"]
+
+  # Base images of the API, sync, web and backup Dockerfiles
+  - package-ecosystem: "docker"
+    directories:
+      - "/evmap_service"
+      - "/evmap_web"
+      - "/deploy/backup"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    ignore:
+      # Major bumps are deliberate: Postgres needs a data migration and the backup image's base
+      # moves with the database (CLAUDE.md, ADR 0019); Java and Node move to the next LTS by hand.
+      - dependency-name: "postgres"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eclipse-temurin"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
+
+  # Images pinned in the compose files (Postgres/PostGIS, Uptime Kuma, ...)
+  - package-ecosystem: "docker-compose"
+    directories:
+      - "/"
+      - "/deploy"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    ignore:
+      # Same reason as for the Dockerfiles: a Postgres/PostGIS major is a data migration.
+      - dependency-name: "kartoza/postgis"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "postgis/postgis"
+        update-types: ["version-update:semver-major"]
+
+  # Workflow actions (pinned by SHA with a version comment; Dependabot keeps both in sync)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      github-actions:
+        patterns: ["*"]
