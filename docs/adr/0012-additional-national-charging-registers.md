@@ -259,6 +259,22 @@ Austrian stations would be second-class — no connector/power filter, no commen
 (they hang off `master.*` ids), and absent from the `along-route` query of phase 4, which is a PostGIS
 query over `master.*`. The effort would be closer to L than S–M.
 
+**Other Austrian routes, looked at on 2026-09-30 and not pursued now** (from catalogue pages; none
+of the terms could be read):
+
+- **ÖAMTC E-Ladestationen** (listed on mobilitaetsdaten.gv.at): REST + OAuth2, JSON, 10-minute updates,
+  Austria-wide including availability. "Lizenz mit Nutzungsgebühr": free for approved purposes, annual SLA
+  contribution, sample contract and API documentation as PDFs on the catalogue page. The only candidate
+  worth a contract read; whether storing, normalizing and relaying through our API is allowed is unknown.
+- **OpenStreetMap / Overpass:** ODbL share-alike would apply to the merged `master.*` (dedup makes it a
+  derivative database) and sits badly with the Swiss `terms_by_ask` licence. Belongs to open point 4, not
+  to Austria.
+- **Operators directly** (Wien Energie, Smatrics, Energie Steiermark, …): Austria's national access point is
+  only a catalogue; no open bulk feed found. **Aggregators** (Eco-Movement, TomTom): commercial, TomTom
+  already rejected in ADR 0015.
+- Before any of this, measure what OCM already delivers:
+  `SELECT count(*) FROM master.charging_station WHERE country_code = 'AT'`.
+
 **What would reopen it:** written permission from E-Control to store, normalize and merge the data, or
 a dataset under an open licence (CC BY 4.0) via the national access point for AFIR
 (mobilitaetsdaten.gv.at). Either brings it back as an ordinary Tier 2 adapter (blank key skips it, per
