@@ -1,6 +1,6 @@
 # 21. Favorites and station error reports
 
-- Status: Proposed — roadmap phase 3 (decisions are being collected)
+- Status: Accepted 2026-09-30 — implemented in roadmap phase 3 (`feature/phase-3-favorites-and-reports`); no 👤 steps
 - Date: 2026-09-30
 - Deciders: Johannes Popp
 
@@ -82,9 +82,51 @@ exists) and a place inside the settings sheet (an everyday feature nobody would 
 - Favorites do not go to the web in this phase: the web client has no station view until phase 8. The web
   gets only the admin queue for station reports.
 
+## What phase 3 built (2026-09-30)
+
+**Schema.** `010-favorites-and-station-reports.sql`: `user_data.favorite_station` (primary key
+`(account_id, station_id)`) and `user_data.station_report` (closed reason, optional note ≤ 500, status
+`open`/`resolved`/`dismissed`, a partial unique index on `(reporter, station, reason) WHERE status = 'open'`).
+Both cascade from `user_data.account` and from `master.charging_station`, and neither touches `master.*`.
+
+**Backend.**
+- `api.favorite`: `GET /me/favorites` (the map's station fields plus `favoritedAt`, newest first),
+  `PUT`/`DELETE /me/favorites/{stationId}` (idempotent; an unknown station is a 404, the 500th favorite a
+  400), `POST /me/favorites/merge` (the sign-in merge: adds what is known and fits, answers with the union).
+- `api.stationreport`: `POST /stations/{id}/reports` (signed in; reason and note validated, a repeat of an
+  open report is a no-op), and under `/admin`: `GET /station-reports` (grouped per station and reason with
+  the count and up to five latest notes, never a reporter), `POST /station-reports/{stationId}/{reason}/resolve`
+  and `/dismiss`. Logs carry ids, reason and counts; the note is logged only as a yes/no.
+- Export and "my contributions" carry `favorites` and `stationReports` (`MyDataRepository`,
+  `MyDataTests.exportKnowsEveryUserDataTable` now lists the two tables). The admin overview gained
+  `openStationReports`. `StationNotFoundException`'s constructor became public for the new packages.
+
+**Web.** `/admin/station-reports` (queue with "Erledigt" and "Abweisen", no reporter), a tab and an overview
+card for it, station reports in `/account`, all texts in German and English.
+
+**iOS.** `Features/Favorites` (`FavoriteList`, `FavoritesStoring`/`UserDefaultsFavoritesStore`,
+`FavoritesViewModel`, `FavoritesScreen`): a star button in the map toolbar opens the list, a star in the
+station screen toggles, favorites carry a star badge on their pin (or on a cluster that holds one). The
+view model follows the session (`sessionChanged`, driven by `.task(id:)` in `MapScreen`): merge on sign-in,
+clear on sign-out, never clear at a signed-out launch. Changes apply at once and are undone when the backend
+refuses them; a 401 signs the session out. "Report a problem" (signed in only) opens `StationReportScreen`;
+the account screen lists station reports.
+
+### Deviations from the plan
+
+- The backend's `GET /me/favorites` is not used by iOS (the merge response already is the list); it exists
+  for the web (phase 8) and CarPlay (phase 9), which would otherwise need their own read path.
+- A merge that would exceed the limit adds what fits instead of failing, so a sign-in never breaks over it.
+
 ## Open points
 
-None so far; the phase ended its question round with the decisions above.
+1. **Rate limiting of report endpoints.** As ADR 0020 open point 1, now also for station reports: one open
+   report per account, station and reason, but no limit on how many stations one account reports. Options:
+   (a) leave as is and watch the logs (recommended while the effect is bounded to an admin queue);
+   (b) a per-account limit in the API; (c) `limit_req` in the web container's nginx.
+2. **Telling the reporter what was decided.** They see the status in "my contributions" only; ADR 0020
+   open point 2 (push or e-mail) covers this too.
+3. **Favorites on the web.** The web has no station view before phase 8; the endpoints are ready for it.
 
 ## References
 

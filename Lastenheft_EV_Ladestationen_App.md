@@ -152,9 +152,12 @@ Für v2 werden folgende Abgrenzungen aus §10 aufgehoben: Routenplanung und exte
   Kommentare bleiben für andere sichtbar und sind nur für den Melder ausgeblendet; Admins löschen den
   Kommentar oder weisen die Meldung ab, einen Nutzer-Bann gibt es nicht; Blockierungen wirken nur für
   den Blockierenden. Die Kontolöschung ist sofort und vollständig, ohne Bedenkzeit.
-- Fehlermeldungen zu Stationsdaten (als Nutzerdaten, keine direkte Änderung der Stammdaten)
+- Fehlermeldungen zu Stationsdaten (als Nutzerdaten, keine direkte Änderung der Stammdaten, ADR 0021):
+  nur für angemeldete Nutzer, geschlossener Grund (existiert nicht mehr, falsche Leistung, falscher
+  Stecker, defekt, sonstiges) mit optionalem Kurztext; Admins schließen sie als „erledigt“ oder
+  „abgewiesen“
 - „Meine Beiträge“, Datenexport (DSGVO Art. 15/20), Favoriten (auf dem Gerät, bei Anmeldung
-  mit dem Konto synchronisiert)
+  mit dem Konto vereinigt; beim Abmelden wird die lokale Liste geleert, ADR 0021)
 
 ### Web-Client
 - Angular-Web-Client, zuerst mit Admin-Bereich (Admin-Rolle nur per manuellem Datenbank-Flag),
