@@ -339,6 +339,39 @@ Deliberately weaker than the old German rule, which froze every German station f
 when BNetzA had never matched it — those stations now keep being maintained by their own source. `LI` is
 listed next to `CH` because the register carries Liechtenstein's one station.
 
+## First production runs, 2026-09-28 to 09-30: charge point ids shared between IRVE stations
+
+The run history of the production sync shows every run "Unvollständig" from 2026-09-28 23:39, the first that
+ingested IRVE, with 376, 403, 404 and 405 failed stations — the same stations each run, before the Swiss
+adapter and the authority table existed. Every failure was `duplicate key … charge_point_source_source_charge_point_id_key`.
+
+**Cause, checked against the 2026-09-30 file (157.561.403 bytes, the size the sync downloaded):**
+**20.742 `id_pdc_itinerance` values are listed under more than one station** (20.713 under two, 29 under
+three) — publishers describing one charge point as two entries, e.g. "HYPER U - Rumilly" and "ABB T360 HyperU
+Rumilly 1" both list `FRSWSE10001499862`. `master.charge_point` allows an id on one row only. When the
+stations are within 30 m the ingestion joins them into one master station and the second write simply
+replaces the first (88 % of the 3.965 station pairs); when they are not (476 pairs, median 523 m) the second
+station fails every run. 400 of the 405 failed stations hold such an id, 399 of the 404 conflicting keys are
+listed under several stations. The unexplained five are stations the check could not model. An earlier reading
+of the log, that it heals itself on the next run, was wrong: the run history refutes it.
+
+**Decision (owner, 2026-09-30): the station whose own id the charge point id extends keeps it**, else the first
+in file order. `IrveCsvParser.owners` resolves it over the stations that are emitted (a restricted station
+cannot take an id from a public one); `extendsStationId` encodes the French scheme (`FRMELPINT5910001` →
+`FRMELEINT591000121`, `E` for `P`, the `FR` prefix optional). Every other station keeps the plug but not the
+id: its charge point gets no EVSE-ID and the key `<station id>*shared*<charge point id>`, derived and therefore
+stable, and outside the positional `<station id>*<n>` keys. Plug counts are unchanged (263.665 on the real
+file); what is lost is only a second station's claim on the live availability join.
+
+Against the real file the parser now emits 52.832 stations and 166.466 charge points with **no repeated key
+and no repeated EVSE-ID**; 16.492 ids are shared, 9.718 of them decided by the naming scheme, the rest by file
+order. The summary line logs both counts.
+
+Known residue: if a shared id changes owner between two editions, the new owner can be written before the old
+one released it and fail once (the old owner's write then frees it). The owner is decided by ids and file
+order, so this needs a publisher to change a station id. Making `replaceInventory` release an id held by
+another station of the same source would remove it, and was left out as unneeded until it shows in a run.
+
 ## Open points
 
 4. **OpenStreetMap / ODbL.** Options: (a) leave OSM out entirely and accept blank countries; (b) ingest it,

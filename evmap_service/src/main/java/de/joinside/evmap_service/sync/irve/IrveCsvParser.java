@@ -21,6 +21,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -133,12 +134,72 @@ final class IrveCsvParser {
             else restricted++;
         }
 
+        Map<String, String> owners = owners(usable, counters);
+
         log.info("Parsed the IRVE consolidation: {} charge points in {} stations; emitting {}, "
                         + "skipping {} without a publicly accessible charge point, {} rows without usable "
-                        + "coordinates and {} rows whose id columns hold prose rather than an identifier",
+                        + "coordinates and {} rows whose id columns hold prose rather than an identifier; "
+                        + "{} charge point ids are listed under several stations, {} of them kept by the "
+                        + "station whose own id they extend and the rest by the first",
                 counters.chargePoints, stations.size(), usable.size(), restricted,
-                counters.unusableRows, counters.unidentifiedRows);
-        return usable.stream().map(Station::toSourceStation);
+                counters.unusableRows, counters.unidentifiedRows, counters.sharedIds, counters.sharedByConvention);
+        return usable.stream().map(station -> station.toSourceStation(owners));
+    }
+
+    /**
+     * Decides which station keeps an {@code id_pdc_itinerance} that several stations list.
+     * <p>
+     * The 2026-09-30 edition holds 20.742 such ids (20.713 under two stations, 29 under three): the
+     * consolidation repeats a charge point when publishers describe it independently, and often as two
+     * separate entries — "HYPER U - Rumilly" and "ABB T360 HyperU Rumilly 1" both list
+     * {@code FRSWSE10001499862}. Where the stations are within 30 m the ingestion joins them into one
+     * master station and nothing happens; where they are not (476 pairs, median 523 m) the second one
+     * failed on {@code charge_point (source, source_charge_point_id)}, in every run — 405 stations on
+     * 2026-09-30. An id can live on one charge point row only, so exactly one station may carry it.
+     * <p>
+     * The owner is the station whose own id the charge point id extends, which is how the French
+     * scheme builds them ({@code FRMELPINT5910001} → {@code FRMELEINT591000121}); with no such
+     * station, or several, the first in file order, which is stable across editions. Only stations
+     * that are actually emitted compete, so a restricted station cannot take an id away from a public one.
+     *
+     * @return charge point id to the id of the station that keeps it
+     */
+    private static Map<String, String> owners(List<Station> emitted, Counters counters) {
+        Map<String, String> owners = new HashMap<>();
+        Map<String, Integer> holders = new HashMap<>();
+        for (Station station : emitted) {
+            for (ChargePoint chargePoint : station.chargePoints.values()) {
+                String pdcId = chargePoint.itineranceId;
+                if (pdcId == null || chargePoint.plugs.isEmpty()) continue;
+                holders.merge(pdcId, 1, Integer::sum);
+                String current = owners.get(pdcId);
+                if (current == null || (!extendsStationId(pdcId, current) && extendsStationId(pdcId, station.id)))
+                    owners.put(pdcId, station.id);
+            }
+        }
+        holders.forEach((pdcId, count) -> {
+            if (count < 2) return;
+            counters.sharedIds++;
+            if (extendsStationId(pdcId, owners.get(pdcId))) counters.sharedByConvention++;
+        });
+        return owners;
+    }
+
+    /**
+     * Whether {@code pdcId} is built from {@code stationId}. A station id is
+     * {@code FR + operator + P + number} and its charge points {@code FR + operator + E + number + n}, so
+     * the id counts when it starts with the station id or with its {@code E} form; some publishers
+     * drop the {@code FR}, which is added back for the comparison.
+     */
+    static boolean extendsStationId(String pdcId, String stationId) {
+        if (pdcId == null || stationId == null) return false;
+        String pdc = pdcId.toUpperCase(Locale.ROOT);
+        String station = stationId.toUpperCase(Locale.ROOT);
+        if (!station.startsWith("FR")) station = "FR" + station;
+        if (pdc.startsWith(station)) return true;
+        // "FR" + a three-letter operator code, then P for a station and E for a charge point.
+        return station.length() > 5 && station.charAt(5) == 'P'
+                && pdc.startsWith(station.substring(0, 5) + 'E' + station.substring(6));
     }
 
     private static void accumulate(CSVRecord row, CsvColumns columns,
@@ -275,11 +336,12 @@ final class IrveCsvParser {
             if (flag(columns.get(row, column))) chargePoint.plugs.merge(new Plug(type, power), 1, Integer::sum);
         }
 
-        private SourceStation toSourceStation() {
+        private SourceStation toSourceStation(Map<String, String> owners) {
             List<SourceStation.SourceChargePoint> mapped = new ArrayList<>(chargePoints.size());
             for (ChargePoint chargePoint : chargePoints.values()) {
                 if (chargePoint.plugs.isEmpty()) continue;
-                mapped.add(chargePoint.toSourceChargePoint());
+                boolean owned = chargePoint.itineranceId == null || id.equals(owners.get(chargePoint.itineranceId));
+                mapped.add(owned ? chargePoint.toSourceChargePoint() : chargePoint.toUnnamedSourceChargePoint(id));
             }
 
             return new SourceStation(SOURCE, id, name, street, city, postalCode, COUNTRY_CODE, operator,
@@ -407,6 +469,19 @@ final class IrveCsvParser {
                     connectors.add(new SourceStation.SourceConnector(plug.type(), plug.powerKw(), quantity)));
             return new SourceStation.SourceChargePoint(key, itineranceId, connectors);
         }
+
+        /**
+         * The same charge point on a station that does not own its id: the plugs stay, so the station
+         * shows what the publisher says is there, but the id — the ingestion's unique key and the live
+         * availability join — belongs to the owner. The key is derived from the id, so it is stable
+         * across runs and cannot collide with the positional keys of rows that had no id.
+         */
+        private SourceStation.SourceChargePoint toUnnamedSourceChargePoint(String stationId) {
+            List<SourceStation.SourceConnector> connectors = new ArrayList<>(plugs.size());
+            plugs.forEach((plug, quantity) ->
+                    connectors.add(new SourceStation.SourceConnector(plug.type(), plug.powerKw(), quantity)));
+            return new SourceStation.SourceChargePoint(stationId + "*shared*" + key, null, connectors);
+        }
     }
 
     /** Running totals, kept for the one summary line rather than logged per row. */
@@ -414,6 +489,8 @@ final class IrveCsvParser {
         private int chargePoints;
         private int unusableRows;
         private int unidentifiedRows;
+        private int sharedIds;
+        private int sharedByConvention;
     }
 
     /**
