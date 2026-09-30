@@ -99,7 +99,12 @@ REST service requires a mail request; the ArcGIS route is token-gated now) — s
 ingests the French consolidated register (Etalab/data.gouv.fr, Licence Ouverte, ~51k stations, no key);
 its file has one row per charge point with non-adjacent rows per station, so it groups in memory rather
 than streaming, and it is deliberately lenient about the publishers' data quality — see ADR 0012.
-`sync.ocm` crawls Open Charge Map per country with keyset paging, throttled and page-capped because
+`sync.ch` ingests the Swiss register (BFE ich-tanke-strom / DIEMO, one gzipped OICP JSON, no key, source
+token `DIEMO`, ~5k stations from ~14k EVSEs). The feed lists EVSEs, not stations, so the parser clusters
+them by position within 35 m — deliberately more than the ingestion's 30 m match, so two of its stations
+can never replace each other's charge points — and it reads only the static feed, never the live `status/`
+one (ADR 0015). Austria has no adapter: the E-Control terms forbid storing and relaying the data (ADR 0012,
+"Austria skipped"). `sync.ocm` crawls Open Charge Map per country with keyset paging, throttled and page-capped because
 their fair usage policy allows automated banning; it needs `OCM_API_KEY` and skips itself with a warning
 without one — see ADR 0006, and fetches incrementally via `modifiedsince` with a weekly full refresh.
 All normalize connector labels through `sync.ConnectorTypes` and service state through
@@ -108,6 +113,16 @@ mirror; adding a value on either side without the other leaves it stored but unf
 users as a raw token. `SourceAdapterRegistrationTests` asserts the full set of adapters and their source
 tokens — extend it when adding a source, or a wiring mistake ships as a container that starts happily
 and ingests one country less than it should.
+
+**Which source owns a station is a per-country table, not order.** `evmap.sync.authority` in
+`application-sync.yaml` maps a country to its authoritative source (`DE: BNetzA`, `FR: IRVE`, `CH: DIEMO`,
+`LI: DIEMO`); `SourceAuthority` reads it and `PostgresStationIngestionRepository.mayUpdate` applies it. The
+authority takes over a station another source created first; any other source is only linked once the
+authority has claimed the station, and keeps maintaining the ones the authority has not. A country without
+an entry has no authority and the last source to run wins — adapters have no defined order, so a new
+national register must be added to the table, or Open Charge Map will overwrite its EVSE-IDs.
+`SourceAdapterRegistrationTests` checks that every source named in the shipped table is a registered
+adapter. See ADR 0012, "Switzerland (L2)".
 
 **`availability` is the second data axis and is not part of `sync`.** Live occupancy is volatile,
 per-EVSE and worthless after minutes, so it never enters `master.*` and never goes through
@@ -267,8 +282,8 @@ viewport path, so there is no second fetch trigger. See ADR 0011.
   shown only where a national access point supplies it and the EVSE-ID matches exactly.
 - App strings must go through i18n resources (German base, English), never hardcoded — this is a stated
   requirement, not a style preference.
-- Per-field provenance (`source` + `lastUpdated`) must be preserved through the merge logic; BNetzA wins
-  ties for German locations.
+- Per-field provenance (`source` + `lastUpdated`) must be preserved through the merge logic; the authority
+  source of a country wins ties for its locations (`evmap.sync.authority`, ADR 0012).
 
 # TODOs for you as an AI Agent
 

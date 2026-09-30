@@ -283,13 +283,69 @@ ADR 0006).
 OCM keeps covering Austria (`AT` is in its default country list), so the map is not blank there. The
 owner has not registered for the key, so no 👤 step is open for this.
 
+## Switzerland (L2): data findings and decisions, 2026-09-30
+
+Profiled on the live BFE/DIEMO file before writing the adapter (1,0 MB gzip, 27 MB JSON, 41 operators,
+**19.478 EVSE records**, one record per EVSE, not per station):
+
+- `ChargingStationId` yields 13.658 groups, the coordinates only 8.994; up to 75 EVSEs with distinct
+  station ids share one point, and 10.449 records use their own EVSE-ID as station id. The adapter therefore
+  clusters by position and emits one `SourceStation` per cluster. Emitting per station id would
+  let the ingestion's 30 m match hand every EVSE of a site to one station, each overwriting the previous
+  one's charge points — the failure ADR 0012 already recorded for IRVE.
+- `Restricted access` (4.914) and `Test Station` (2) are skipped per the 2026-07-29 decision, leaving 14.562
+  public EVSEs.
+- 168 records carry the placeholder coordinate `50.0, -15.0` (Atlantic); a few are real stations in
+  Germany or Austria. Anything outside Switzerland and Liechtenstein is dropped and counted.
+- Five EVSE-IDs appear under two operators with conflicting access; the publicly accessible one is kept.
+- Two records hold 157 identical plugs on one EVSE — a data error. In the current edition both are also
+  listed by a second operator with sane data, and the first listing wins, so the guard never fires; it stays
+  as a rule (more than eight plugs on one EVSE → one connector per distinct type and rating) and is tested.
+- Power is `0` on 709 and missing on 487 facilities; both mean "unknown", never 0 kW.
+- Plug labels map onto `ConnectorTypes` except `Type J Swiss Standard` (9) and `Type G British Standard` (1).
+- The separate status feed is **not** ingested: it is live occupancy and ADR 0015 keeps that out of
+  `master.*`. `availabilityStatus` stays `null`, which supersedes the Tier 1 remark above. The register's
+  EVSE-IDs are kept, so the MobiData availability join gets exact matches for Switzerland.
+- The server stores the document gzipped and answers `Content-Encoding: gzip`. The JDK HTTP client does not
+  undo that label, another client would; `BulkDownload` now recognises gzip by its magic bytes and copes
+  with both.
+
+**Implemented as `sync.ch` (`DiemoSourceAdapter`, `DiemoOicpParser`, source token `DIEMO`).** Run against the
+live file on 2026-09-30: **4.977 stations from 14.394 public EVSEs** (of 19.478 records), skipping 4.916
+restricted or test, 166 outside the country and 2 repeated EVSE-IDs (three more repeats were restricted
+listings). Every station id is unique and the closest two stations are 35,06 m apart. 682 connectors have no
+rating. Download 0,7 s, parse 0,4 s. Clustering is at 35 m from the first EVSE of a site, in a fixed
+south-to-north order so the same file yields the same stations. The first of two public listings of one
+EVSE-ID wins, which depends on the operator order in the file — accepted, it affects two EVSEs.
+
+Accepted edges: stations of neighbouring countries that fall inside the country envelope keep country `CH`
+(the register labels everything `CHE`), so the ingestion cannot match them to the German or Austrian
+record of the same site; 219 postal codes have five digits, some of them foreign. The station name is the
+first EVSE's name and is often an internal label (`Parkplatz 4`); the street stands in when there is none.
+
+**Decision (open point 5): a configurable authority table per country, implemented as `SourceAuthority`.** `evmap.sync.authority` maps
+country code to source — `DE: BNetzA`, `FR: IRVE`, `CH: DIEMO`. A source that is not the country's
+authority no longer overwrites a station's fields or inventory once the authority owns it; it is only
+linked. The authority takes over a station an other source created first. This replaces the hard-coded
+BNetzA rule and ends the order dependence found in `PostgresStationIngestionRepository`: adapters have no
+defined order (`SyncJob` takes them as the component scan delivers them), and for every country but
+Germany the source that ran last replaced station fields, charge points and EVSE-IDs — so OCM running
+after IRVE or DIEMO would drop EVSE-IDs on matched stations. Read from the code, not measured on
+production data.
+
+The rule as built: the authority may always rewrite a station, which is how it takes over one another source
+created first; any other source may rewrite it only while the authority has no `station_source` row for it.
+Deliberately weaker than the old German rule, which froze every German station for non-BNetzA sources even
+when BNetzA had never matched it — those stations now keep being maintained by their own source. `LI` is
+listed next to `CH` because the register carries Liechtenstein's one station.
+
 ## Open points
 
 4. **OpenStreetMap / ODbL.** Options: (a) leave OSM out entirely and accept blank countries; (b) ingest it,
    flag those stations by source, and carry the ODbL attribution and share-alike obligations in the app;
    (c) defer until a country actually matters enough to justify the licence work.
 
-5. **Whether to model per-country source precedence explicitly.** Today "BNetzA wins ties for German
+5. **(Resolved 2026-09-30, see "Switzerland (L2)")** **Whether to model per-country source precedence explicitly.** Today "BNetzA wins ties for German
    locations" is a rule about one source. With four or five national registers it becomes a table —
    authoritative source per country code — and that is worth introducing before the third register, not
    after.
@@ -315,6 +371,12 @@ owner has not registered for the key, so no 👤 step is open for this.
    and it may mean the change detection compares something that always differs. Pre-existing behaviour
    rather than something this adapter introduced, but it makes `updated` counts less informative than
    they look.
+
+8. **First production run of `DIEMO`, and of the authority rule.** Expected: ~5.000 stations, most of them
+   `created` and a share `updated` where they matched OCM's Swiss sites; the second consecutive run should
+   report almost no `created`. Also worth a look afterwards: Swiss and French stations with EVSE-IDs
+   (`SELECT source, count(*) FROM master.charge_point GROUP BY source`), which the authority rule is meant to
+   keep stable across OCM runs. Not measured yet — needs the production database.
 
 ## References
 

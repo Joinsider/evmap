@@ -26,6 +26,16 @@ evmap:
     # when a batch fails; a failed batch is retried record by record either way.
     batch-size: ${SYNC_BATCH_SIZE:1000}
 
+    # Which source is authoritative for which country (ADR 0012, "Switzerland (L2)"). The authority
+    # takes over a station another source created first; a source that is not the authority no longer
+    # rewrites a station the authority has claimed and is only linked to it. A country without an entry
+    # has no authority and the most recent source wins. Values are the adapters' source tokens.
+    authority:
+      DE: BNetzA
+      FR: IRVE
+      CH: DIEMO
+      LI: DIEMO
+
     # Bundesnetzagentur Ladesäulenregister (CC BY 4.0, attribution "Bundesnetzagentur.de").
     # The published file name is date-stamped, so the adapter scrapes index-url for the current
     # edition. Set csv-url to pin an edition, point at a local copy, or recover if that page changes.
@@ -45,6 +55,15 @@ evmap:
       csv-url: ${IRVE_CSV_URL:https://www.data.gouv.fr/api/1/datasets/r/eb76d20a-8501-400e-b336-d85724de5435}
       # 162 MB / 231.647 charge points on 2026-07-29, and growing.
       timeout: PT10M
+
+    # Swiss national register (BFE ich-tanke-strom / DIEMO, OICP JSON on data.geo.admin.ch, terms_by_ask:
+    # free use with attribution, commercial use needs the supplier's permission — ADR 0012). No key, one
+    # ~1 MB gzip document of 19.478 EVSEs. Only the static feed is read; the status/ feed is live
+    # occupancy and stays out of master data (ADR 0015). Override url to pin a copy.
+    diemo:
+      enabled: ${DIEMO_ENABLED:true}
+      url: ${DIEMO_URL:https://data.geo.admin.ch/ch.bfe.ladestellen-elektromobilitaet/data/oicp/ch.bfe.ladestellen-elektromobilitaet.json}
+      timeout: PT2M
 
     # Open Charge Map. api-key is mandatory (the API answers 403 without one) and comes from
     # https://openchargemap.org → my profile → my apps → Register An Application. A blank key skips

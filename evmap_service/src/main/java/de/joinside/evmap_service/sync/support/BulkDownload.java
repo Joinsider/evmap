@@ -4,8 +4,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.client.RestClient;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.UncheckedIOException;
 import java.net.URI;
@@ -18,6 +21,7 @@ import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Set;
 import java.util.stream.Stream;
+import java.util.zip.GZIPInputStream;
 
 /**
  * Buffers a large published file to disk, then parses it as a stream that cleans up after itself.
@@ -70,7 +74,7 @@ public final class BulkDownload {
         Path file = fetch(client, uri);
         Reader reader = null;
         try {
-            reader = Files.newBufferedReader(file, charset);
+            reader = openReader(file, charset);
             Reader open = reader;
             return parser.parse(reader).onClose(() -> {
                 closeQuietly(open);
@@ -89,6 +93,36 @@ public final class BulkDownload {
             deleteQuietly(file);
             throw exception;
         }
+    }
+
+    /**
+     * Opens the file as text, decompressing it first when it is gzip.
+     * <p>
+     * A publisher can serve a compressed object under {@code Content-Encoding: gzip} — the Swiss
+     * register does — and whether the HTTP client undoes that depends on the client: the JDK's does
+     * not, most others do. Recognising gzip by its magic bytes makes the download correct either way,
+     * and costs nothing for the sources that publish plain files.
+     * <p>
+     * Decoding stays strict, as {@link Files#newBufferedReader} is: a malformed byte fails the read
+     * instead of silently becoming a replacement character in a station name.
+     */
+    private static Reader openReader(Path file, Charset charset) throws IOException {
+        InputStream source = new BufferedInputStream(Files.newInputStream(file));
+        try {
+            if (startsWithGzipMagic(source)) source = new GZIPInputStream(source);
+            return new BufferedReader(new InputStreamReader(source, charset.newDecoder()));
+        } catch (IOException | RuntimeException exception) {
+            // Closing the outermost stream closes the ones it wraps.
+            source.close();
+            throw exception;
+        }
+    }
+
+    private static boolean startsWithGzipMagic(InputStream in) throws IOException {
+        in.mark(2);
+        boolean gzip = in.read() == 0x1f && in.read() == 0x8b;
+        in.reset();
+        return gzip;
     }
 
     /**
