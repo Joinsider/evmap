@@ -37,7 +37,9 @@ describe('RestEvmapApi', () => {
     api.adminOverview().subscribe();
     api.adminSyncRuns(20).subscribe();
 
-    backend.expectOne('/api/v1/auth/providers').flush([]);
+    const providers = backend.expectOne('/api/v1/auth/providers');
+    expect(providers.request.method).toBe('GET');
+    providers.flush([]);
     backend.expectOne('/api/v1/me').flush({});
     backend.expectOne('/api/v1/admin/overview').flush({});
     backend.expectOne((request) => request.url === '/api/v1/admin/sync-runs' && request.params.get('limit') === '20').flush([]);

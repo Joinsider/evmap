@@ -36,7 +36,7 @@ class TokenCipher {
         byte[] bytes;
         try {
             bytes = Base64.getDecoder().decode(base64Key);
-        } catch (IllegalArgumentException exception) {
+        } catch (IllegalArgumentException _) {
             throw new IllegalStateException("TOKEN_ENCRYPTION_KEY is not valid base64");
         }
         if (bytes.length != KEY_BYTES) throw new IllegalStateException("TOKEN_ENCRYPTION_KEY must be 32 bytes, base64-encoded");

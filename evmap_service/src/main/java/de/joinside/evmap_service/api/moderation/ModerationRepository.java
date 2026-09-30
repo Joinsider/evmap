@@ -21,6 +21,7 @@ import java.util.UUID;
 @Repository
 class ModerationRepository {
     private static final String COMMENT = "comment";
+    private static final String BLOCKER = "blocker";
     private static final String CREATED_AT = "created_at";
 
     private final JdbcClient jdbc;
@@ -45,18 +46,18 @@ class ModerationRepository {
     void block(UUID blocker, UUID blocked) {
         jdbc.sql("INSERT INTO user_data.account_block (id, blocker_id, blocked_id) VALUES (:id, :blocker, :blocked) "
                         + "ON CONFLICT (blocker_id, blocked_id) DO NOTHING")
-                .param("id", UUID.randomUUID()).param("blocker", blocker).param("blocked", blocked).update();
+                .param("id", UUID.randomUUID()).param(BLOCKER, blocker).param("blocked", blocked).update();
     }
 
     List<ModerationController.Block> blocks(UUID blocker) {
         return jdbc.sql("SELECT id, created_at FROM user_data.account_block WHERE blocker_id = :blocker ORDER BY created_at DESC")
-                .param("blocker", blocker)
+                .param(BLOCKER, blocker)
                 .query((rs, row) -> new ModerationController.Block(rs.getObject("id", UUID.class), instant(rs, CREATED_AT))).list();
     }
 
     boolean unblock(UUID blockId, UUID blocker) {
         return jdbc.sql("DELETE FROM user_data.account_block WHERE id = :id AND blocker_id = :blocker")
-                .param("id", blockId).param("blocker", blocker).update() > 0;
+                .param("id", blockId).param(BLOCKER, blocker).update() > 0;
     }
 
     /** Open reports grouped by comment, the most recently reported first. */
