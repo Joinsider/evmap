@@ -30,7 +30,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | 8 | Nutzer-Web-App | offen | | 0018 + neu |
 | 9 | CarPlay als Lade-App | offen | | neu |
 | L1 | Lückenfüller: Österreich | übersprungen ⁴ | | [0012](adr/0012-additional-national-charging-registers.md) |
-| L2 | Lückenfüller: Schweiz | fertig ⁵ | `feature/sync-switzerland` (PR folgt) | [0012](adr/0012-additional-national-charging-registers.md) |
+| L2 | Lückenfüller: Schweiz | fertig ⁵ | [#18](https://github.com/Joinsider/evmap/pull/18) | [0012](adr/0012-additional-national-charging-registers.md) |
 | L3 | Lückenfüller: Italien | offen | | 0012 |
 | L4 | Lückenfüller: Spanien | offen | | 0012 |
 
