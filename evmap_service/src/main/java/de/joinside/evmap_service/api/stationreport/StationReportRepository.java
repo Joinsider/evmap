@@ -22,6 +22,7 @@ import java.util.UUID;
 class StationReportRepository {
     /** Free texts shown per queue line; ten people describing one defect do not need ten paragraphs. */
     private static final int NOTES_PER_LINE = 5;
+    private static final String REASON = "reason";
 
     private final JdbcClient jdbc;
 
@@ -39,7 +40,7 @@ class StationReportRepository {
         return jdbc.sql("INSERT INTO user_data.station_report (id, station_id, reporter_id, reason, note) "
                         + "VALUES (:id, :station, :reporter, :reason, :note) "
                         + "ON CONFLICT (reporter_id, station_id, reason) WHERE status = 'open' DO NOTHING")
-                .param("id", UUID.randomUUID()).param("station", station).param("reporter", reporter).param("reason", reason)
+                .param("id", UUID.randomUUID()).param("station", station).param("reporter", reporter).param(REASON, reason)
                 .param("note", note).update() > 0;
     }
 
@@ -52,7 +53,7 @@ class StationReportRepository {
                         + "FROM user_data.station_report r JOIN master.charging_station s ON s.id = r.station_id "
                         + "WHERE r.status = 'open' ORDER BY r.created_at DESC")
                 .query((RowCallbackHandler) rs -> {
-                    Key key = new Key(rs.getObject("station_id", UUID.class), rs.getString("reason"));
+                    Key key = new Key(rs.getObject("station_id", UUID.class), rs.getString(REASON));
                     Line line = lines.get(key);
                     if (line == null) {
                         line = new Line(key.station(), rs.getString("display_name"), rs.getString("operator_name"), rs.getString("city"),
@@ -95,7 +96,7 @@ class StationReportRepository {
     int close(UUID station, String reason, UUID admin, String status) {
         return jdbc.sql("UPDATE user_data.station_report SET status = :status, resolved_at = now(), resolved_by = :admin "
                         + "WHERE station_id = :station AND reason = :reason AND status = 'open'")
-                .param("status", status).param("admin", admin).param("station", station).param("reason", reason).update();
+                .param("status", status).param("admin", admin).param("station", station).param(REASON, reason).update();
     }
 
     private static Instant instant(ResultSet rs, String column) throws SQLException {
