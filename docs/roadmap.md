@@ -22,7 +22,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | 0 | Fundament: Backups, Monitoring | fertig ¹ | [#10](https://github.com/Joinsider/evmap/pull/10) | [0019](adr/0019-backups-and-monitoring.md) |
 | 1 | Login mit Google/GitHub, Web-Gerüst | fertig ² | [#11](https://github.com/Joinsider/evmap/pull/11) | [0018](adr/0018-additional-identity-providers-and-web-client.md) |
 | 2 | Konto-Bereich und App-Store-Pflichten | fertig ³ | [#13](https://github.com/Joinsider/evmap/pull/13) | [0020](adr/0020-account-area-and-app-store-obligations.md) |
-| 3 | Favoriten und Fehler melden | offen | | neu |
+| 3 | Favoriten und Fehler melden | in Arbeit | `feature/phase-3-favorites-and-reports` | [0021](adr/0021-favorites-and-station-reports.md) |
 | 4 | Routenplaner Stufe 1 | offen | | 0017 |
 | 5 | Preise an der Station | offen | | 0017 + neu |
 | 6 | Routenplaner Stufe 2 | offen | | 0017 |
@@ -260,6 +260,13 @@ Lückenfüller Schweiz (2026-09-30, Details in ADR 0012, Abschnitt „Switzerlan
   FR=IRVE, CH=DIEMO) statt einer festen BNetzA-Regel. Damit entfällt auch die Abhängigkeit von der
   Reihenfolge der Adapter. Umgesetzt und getestet; jede weitere nationale Quelle trägt sich dort ein.
 - Der Status-Feed wird nicht gelesen (Live-Belegung gehört nicht in die Stammdaten, ADR 0015).
+
+Phase 3 (2026-09-30, Details in ADR 0021):
+
+- Favoriten werden bei der Anmeldung vereinigt (Gerät ∪ Konto); beim Abmelden wird die lokale Liste geleert.
+- Fehlermeldung an einer Station: geschlossener Grund plus optionaler Text (max. 500 Zeichen), nur für
+  angemeldete Nutzer. Admins schließen mit „erledigt“ oder „abgewiesen“; Stammdaten bleiben unberührt.
+- iOS: Favoritenliste als Sheet über einen Stern-Button in der Karten-Toolbar. Web: nur die Admin-Warteschlange.
 
 Roadmap allgemein:
 
