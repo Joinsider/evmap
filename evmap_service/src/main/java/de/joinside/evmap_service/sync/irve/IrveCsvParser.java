@@ -169,12 +169,9 @@ final class IrveCsvParser {
         Map<String, Integer> holders = new HashMap<>();
         for (Station station : emitted) {
             for (ChargePoint chargePoint : station.chargePoints.values()) {
-                String pdcId = chargePoint.itineranceId;
-                if (pdcId == null || chargePoint.plugs.isEmpty()) continue;
-                holders.merge(pdcId, 1, Integer::sum);
-                String current = owners.get(pdcId);
-                if (current == null || (!extendsStationId(pdcId, current) && extendsStationId(pdcId, station.id)))
-                    owners.put(pdcId, station.id);
+                if (chargePoint.itineranceId == null || chargePoint.plugs.isEmpty()) continue;
+                holders.merge(chargePoint.itineranceId, 1, Integer::sum);
+                claim(owners, chargePoint.itineranceId, station.id);
             }
         }
         holders.forEach((pdcId, count) -> {
@@ -183,6 +180,13 @@ final class IrveCsvParser {
             if (extendsStationId(pdcId, owners.get(pdcId))) counters.sharedByConvention++;
         });
         return owners;
+    }
+
+    /** The first claimant holds an id until a station it extends claims it; file order decides the rest. */
+    private static void claim(Map<String, String> owners, String pdcId, String stationId) {
+        String current = owners.get(pdcId);
+        boolean takesOver = current != null && !extendsStationId(pdcId, current) && extendsStationId(pdcId, stationId);
+        if (current == null || takesOver) owners.put(pdcId, stationId);
     }
 
     /**
