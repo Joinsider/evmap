@@ -13,3 +13,7 @@ databaseChangeLog:
       file: db/changelog/006-charge-point-inventory.sql
   - include:
       file: db/changelog/007-accounts-and-provider-identities.sql
+  - include:
+      file: db/changelog/008-apple-refresh-token.sql
+  - include:
+      file: db/changelog/009-moderation.sql

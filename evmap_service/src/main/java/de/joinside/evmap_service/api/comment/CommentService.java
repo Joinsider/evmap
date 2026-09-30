@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -13,13 +14,18 @@ class CommentService {
     private static final Logger log = LoggerFactory.getLogger(CommentService.class);
 
     private final CommentRepository comments;
+    private final CommentVisibility visibility;
 
-    CommentService(CommentRepository comments) {
+    CommentService(CommentRepository comments, CommentVisibility visibility) {
         this.comments = comments;
+        this.visibility = visibility;
     }
 
     List<CommentController.CommentResponse> list(UUID stationId, UUID userId) {
-        return comments.findByStationIdOrderByCreatedAtDesc(stationId).stream().map(comment -> response(comment, userId)).toList();
+        List<StationComment> all = comments.findByStationIdOrderByCreatedAtDesc(stationId);
+        // Blocked authors and comments the viewer reported are left out for them alone (ADR 0020).
+        Set<UUID> hidden = userId == null ? Set.of() : visibility.hiddenFor(userId, stationId);
+        return all.stream().filter(comment -> !hidden.contains(comment.id)).map(comment -> response(comment, userId)).toList();
     }
 
     @Transactional

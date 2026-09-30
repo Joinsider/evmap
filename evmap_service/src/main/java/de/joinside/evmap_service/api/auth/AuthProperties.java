@@ -38,7 +38,12 @@ record AuthProperties(@DefaultValue("http://localhost:4200") String webBaseUrl,
     record AppleWeb(@DefaultValue("") String servicesId, @DefaultValue("") String teamId,
                     @DefaultValue("") String keyId, @DefaultValue("") String privateKey) {
         boolean enabled() {
-            return !servicesId.isBlank() && !teamId.isBlank() && !keyId.isBlank() && !privateKey.isBlank();
+            return !servicesId.isBlank() && canSign();
+        }
+
+        /** Whether client secrets can be made at all, which token exchange and revocation need. */
+        boolean canSign() {
+            return !teamId.isBlank() && !keyId.isBlank() && !privateKey.isBlank();
         }
     }
 

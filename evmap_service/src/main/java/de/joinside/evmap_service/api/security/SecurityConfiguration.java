@@ -68,7 +68,7 @@ class SecurityConfiguration {
                         // the native Apple exchange, the code exchanges, Apple's form_post relay and
                         // the list of providers the login screen offers.
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/apple", "/api/v1/auth/apple/callback", "/api/v1/auth/*/code", "/api/v1/auth/logout").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/providers").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/providers", "/api/v1/legal").permitAll()
                         // The admin flag is looked up per request (AdminAccounts), not carried in the
                         // token. Anonymous callers still get 401 from the entry point below, signed-in
                         // non-admins 403. The web client's route guard only hides UI; this is the boundary.

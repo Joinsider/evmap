@@ -106,14 +106,30 @@ struct ViewRenderingTests {
     @Test("settings render with their defaults and with filters and provider choices set")
     func settingsScreen() async throws {
         let repository = StubStationRepository()
-        try await render(NavigationStack { SettingsScreen(model: settingsModel(), repository: repository) })
+        try await render(NavigationStack { SettingsScreen(model: settingsModel(), repository: repository, authSession: AuthSession(repository: repository)) })
         try await render(NavigationStack {
             SettingsScreen(model: settingsModel { settings in
                 settings.connectorTypes = [.ccs, .type2]
                 settings.minimumPower = 150
                 settings.setPreference(.hidden, for: "Tesla")
-            }, repository: repository)
+            }, repository: repository, authSession: AuthSession(repository: repository))
         })
+    }
+
+    @Test("the account screen renders signed out, and signed in with contributions, blocks and a privacy link")
+    func accountScreen() async throws {
+        let repository = StubStationRepository()
+        try await render(NavigationStack { AccountScreen(repository: repository, authSession: AuthSession(repository: repository)) })
+
+        UserDefaults.standard.set("token", forKey: "EVMapAccessToken")
+        defer { UserDefaults.standard.removeObject(forKey: "EVMapAccessToken") }
+        repository.blockList = .success([BlockedAuthor(id: UUID(), createdAt: Date())])
+        repository.contributionList = .success(Contributions(
+            comments: [CommentContribution(id: UUID(), stationName: "EnBW", body: "Lädt schnell", createdAt: Date())],
+            reports: [ReportContribution(id: UUID(), reason: "wrong", status: "dismissed", stationName: nil, createdAt: Date())]))
+        repository.legalInfo = .success(LegalInfo(privacyPolicyUrl: URL(string: "https://evmap.example/privacy")))
+        try await render(NavigationStack { AccountScreen(repository: repository, authSession: AuthSession(repository: repository)) },
+                         settle: .milliseconds(400))
     }
 
     @Test("the provider picker renders its configured networks and search results")

@@ -146,7 +146,14 @@ in with Apple natively (`POST /api/v1/auth/apple`, identity token checked by
 (`CodeSignIn`: `GoogleSignIn`, `GitHubSignIn`, `AppleWebSignIn`) — clients get client id and redirect
 URI from `GET /api/v1/auth/providers`, add `state` and PKCE, and post the code to
 `/api/v1/auth/{provider}/code`. Client secrets never leave the backend; a provider with blank
-credentials is simply off. `AccountService` links a new identity to an existing account **only on a
+credentials is simply off. Apple sign-ins (native and web) keep Apple's
+refresh token **AES-GCM encrypted** (`TokenCipher`, `TOKEN_ENCRYPTION_KEY`) on the identity, because
+`DELETE /api/v1/me` (`AccountDeletionService`) must revoke it at Apple before it deletes the account
+in one cascading statement; `BearerTokenFilter` rejects tokens of deleted accounts (`KnownAccounts`).
+Reports, blocks and the moderation queue live in `api.moderation` (reports never hide a comment for
+others, blocks are anonymous rows, admins never see who reported); export and "my contributions" in
+`api.account`. **A table added to `user_data` must join the export (`MyDataRepository`) and cascade from
+`account`** — `MyDataTests.exportKnowsEveryUserDataTable` enforces the first. See ADR 0020. `AccountService` links a new identity to an existing account **only on a
 matching verified e-mail, never an Apple relay address, and only at that identity's first sign-in**
 — do not loosen any of the three, it is the account-takeover boundary. The API then issues its own
 token (`AccessTokenService`, `sub` = account id), sent by iOS as a bearer header and by the web
@@ -204,7 +211,7 @@ for sync. See ADR 0003.
 ## Web architecture
 
 `evmap_web/` is one Angular application (standalone components, zoneless, signals) with lazy feature
-areas under `src/app/features/` (`login`, `admin`, `home`); the user web app of roadmap phase 8 joins
+areas under `src/app/features/` (`login`, `account`, `admin`, `home`); the user web app of roadmap phase 8 joins
 as more of them. `EvmapApi` (abstract class, `core/api/`) is the only way features reach the backend
 — the counterpart to `ChargingStationRepository`; never inject `HttpClient` into a feature. The
 session is an HttpOnly cookie the page cannot read: `AuthService` holds only the account and
@@ -224,7 +231,8 @@ code — never call networking APIs directly from a ViewModel or View.
 
 Structure follows a feature-module layout under `Features/`, each split into `Domain` (models),
 `Data` (repository implementations), and `Presentation` (SwiftUI views + view models): `Auth`, `Comments`,
-`Map`, `Search`, `Settings`, `StationDetail`, `Stations`. Shared networking primitives live in
+`Map`, `Search`, `Settings`, `StationDetail`, `Stations`, and `Account` (deletion, export, contributions,
+blocks; ADR 0020). Shared networking primitives live in
 `Core/Networking` (`APIClient`, `APIError`).
 
 `Settings` owns everything that persists between launches. `AppSettings` is the stored value (one JSON
@@ -252,7 +260,7 @@ viewport path, so there is no second fetch trigger. See ADR 0011.
   non-goals for v1 *and* v2 (Lastenheft §10, §11), not gaps to fill incidentally.
 - Route planning (ADR 0017) and Google/GitHub sign-in plus an Angular web client (ADR 0018) *were*
   v1 non-goals and are now **v2 work** (Lastenheft §11); sign-in and the web skeleton landed in
-  phase 1. They are built phase by phase in the
+  phase 1, account deletion, export and moderation in phase 2. They are built phase by phase in the
   order of `docs/roadmap.md`; do not start one incidentally or ahead of its phase.
 - Real-time availability *was* on that list and is no longer: ADR 0015 reversed it and the Lastenheft
   was amended in the same change. What remains a non-goal is *complete* coverage — live status is

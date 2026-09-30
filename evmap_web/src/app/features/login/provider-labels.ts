@@ -11,3 +11,15 @@ export function signInLabel(provider: ProviderToken): string {
       return $localize`:@@login.withGitHub:Mit GitHub anmelden`;
   }
 }
+
+/** The provider as a name, for listing linked sign-ins. Proper names, so nothing to translate. */
+export function providerName(provider: ProviderToken): string {
+  switch (provider) {
+    case 'apple':
+      return 'Apple';
+    case 'google':
+      return 'Google';
+    case 'github':
+      return 'GitHub';
+  }
+}

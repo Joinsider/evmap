@@ -64,6 +64,40 @@ class AccountRepository {
         jdbc.sql("UPDATE user_data.account SET last_login_at = now() WHERE id = :id").param("id", accountId).update();
     }
 
+    boolean exists(UUID accountId) {
+        return jdbc.sql("SELECT EXISTS (SELECT 1 FROM user_data.account WHERE id = :id)").param("id", accountId)
+                .query(Boolean.class).single();
+    }
+
+    /** Keeps the encrypted refresh token of the identity that just signed in (ADR 0020). */
+    void storeRefreshToken(Provider provider, String subject, String encryptedToken, String clientId) {
+        jdbc.sql("UPDATE user_data.provider_identity SET refresh_token = :token, refresh_token_client_id = :client "
+                        + "WHERE provider = :provider AND provider_subject = :subject")
+                .param("token", encryptedToken).param("client", clientId).param(PROVIDER, provider.token()).param(SUBJECT, subject)
+                .update();
+    }
+
+    List<StoredRefreshToken> refreshTokens(UUID accountId) {
+        return jdbc.sql("SELECT refresh_token, refresh_token_client_id FROM user_data.provider_identity "
+                        + "WHERE account_id = :id AND refresh_token IS NOT NULL")
+                .param("id", accountId)
+                .query((rs, row) -> new StoredRefreshToken(rs.getString("refresh_token"), rs.getString("refresh_token_client_id"))).list();
+    }
+
+    /** Apple sign-ins that never left a refresh token, so their deletion cannot revoke anything. */
+    long appleIdentitiesWithoutToken(UUID accountId) {
+        return jdbc.sql("SELECT count(*) FROM user_data.provider_identity WHERE account_id = :id AND provider = 'apple' AND refresh_token IS NULL")
+                .param("id", accountId).query(Long.class).single();
+    }
+
+    /**
+     * Removes the account; identities, comments, reports and blocks follow through {@code ON DELETE
+     * CASCADE}. Everything user-owned references the account, which is what makes this one statement.
+     */
+    boolean delete(UUID accountId) {
+        return jdbc.sql("DELETE FROM user_data.account WHERE id = :id").param("id", accountId).update() > 0;
+    }
+
     boolean isAdmin(UUID accountId) {
         return jdbc.sql("SELECT is_admin FROM user_data.account WHERE id = :id").param("id", accountId)
                 .query(Boolean.class).optional().orElse(false);
@@ -76,5 +110,13 @@ class AccountRepository {
     }
 
     record LinkedIdentity(String provider, String email) {
+    }
+
+    /** The value is encrypted; {@code clientId} is what revoking it at the provider has to name. */
+    record StoredRefreshToken(String encryptedValue, String clientId) {
+        @Override
+        public String toString() {
+            return "StoredRefreshToken[clientId=" + clientId + "]";
+        }
     }
 }

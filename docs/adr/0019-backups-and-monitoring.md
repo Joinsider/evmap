@@ -117,7 +117,8 @@ against the real `management.*` configuration.
 
 ## Open points
 
-1. **Retention of a deleted account in backups.** With phase 2's account deletion, the privacy notes
+1. **Retention of a deleted account in backups.** *Resolved in phase 2 (ADR 0020): option (a), the
+   3-month bound is accepted and documented.* With phase 2's account deletion, the privacy notes
    must state that deleted data leaves backups after at most ~3 months. Options: (a) accept and
    document the 3-month bound (recommended — standard practice, and restic cannot rewrite old
    snapshots cheaply); (b) additionally keep a deletion log and re-apply it after any restore, so a

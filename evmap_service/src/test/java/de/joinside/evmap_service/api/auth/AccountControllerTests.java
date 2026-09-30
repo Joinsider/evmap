@@ -9,9 +9,23 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class AccountControllerTests {
+    @Test
+    @DisplayName("deleting the account deletes it for the caller only and expires the session cookie")
+    void deletesOwnAccount() throws Exception {
+        AccountDeletionService deletion = mock(AccountDeletionService.class);
+        UUID id = UUID.randomUUID();
+        var response = new AccountController(mock(AccountService.class), deletion,
+                new de.joinside.evmap_service.api.security.SessionCookieAccess().cookie()).delete(new CurrentUser(id));
+
+        verify(deletion).delete(id);
+        assertThat(response.getStatusCode().value()).isEqualTo(204);
+        assertThat(response.getHeaders().getFirst("Set-Cookie")).contains("Max-Age=0");
+    }
+
     @Test
     @DisplayName("describes the caller's own account: admin flag and linked sign-ins")
     void describesOwnAccount() {
@@ -21,7 +35,7 @@ class AccountControllerTests {
         when(accounts.identities(id)).thenReturn(List.of(new AccountRepository.LinkedIdentity("google", "ada@example.org"),
                 new AccountRepository.LinkedIdentity("apple", null)));
 
-        AccountController.AccountResponse me = new AccountController(accounts).me(new CurrentUser(id));
+        AccountController.AccountResponse me = new AccountController(accounts, mock(AccountDeletionService.class), new de.joinside.evmap_service.api.security.SessionCookieAccess().cookie()).me(new CurrentUser(id));
 
         assertThat(me.id()).isEqualTo(id);
         assertThat(me.admin()).isTrue();

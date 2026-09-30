@@ -108,4 +108,19 @@ describe('AuthService', () => {
     expect(await auth.complete('google', new URLSearchParams({ code: 'c', state }))).toEqual({ error: 'exchange' });
     expect(auth.signedIn()).toBe(false);
   });
+
+  it('signs out locally only after the backend confirmed the deletion', async () => {
+    api.hasSession = true;
+    await auth.refreshAccount();
+    expect(auth.signedIn()).toBe(true);
+
+    api.rejectDeletion = true;
+    await expect(auth.deleteAccount()).rejects.toThrow();
+    expect(auth.signedIn()).toBe(true);
+
+    api.rejectDeletion = false;
+    await auth.deleteAccount();
+    expect(auth.signedIn()).toBe(false);
+    expect(api.hasSession).toBe(false);
+  });
 });

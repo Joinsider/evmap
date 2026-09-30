@@ -25,9 +25,10 @@ class AdminRepository {
         return jdbc.sql("SELECT (SELECT count(*) FROM master.charging_station) AS stations, "
                         + "(SELECT count(*) FROM master.charge_point) AS charge_points, "
                         + "(SELECT count(*) FROM user_data.account) AS accounts, "
-                        + "(SELECT count(*) FROM user_data.station_comment) AS comments")
+                        + "(SELECT count(*) FROM user_data.station_comment) AS comments, "
+                        + "(SELECT count(DISTINCT comment_id) FROM user_data.comment_report WHERE status = 'open') AS open_reports")
                 .query((rs, row) -> new AdminController.Overview(rs.getLong("stations"), rs.getLong("charge_points"),
-                        rs.getLong("accounts"), rs.getLong("comments")))
+                        rs.getLong("accounts"), rs.getLong("comments"), rs.getLong("open_reports")))
                 .single();
     }
 

@@ -44,11 +44,11 @@ class AdminRepositoryTests {
     }
 
     @Test
-    @DisplayName("counts stations, charge points, accounts and comments")
+    @DisplayName("counts stations, charge points, accounts, comments and open reports")
     void countsOverview() {
         UUID station = PostgisDatabase.insertStation("EnBW", "EnBW", "DE", 48.77, 9.18);
         PostgisDatabase.insertChargePoint(station, "1", "DE*EBW*E1*1");
 
-        assertThat(repository.overview()).isEqualTo(new AdminController.Overview(1, 1, 0, 0));
+        assertThat(repository.overview()).isEqualTo(new AdminController.Overview(1, 1, 0, 0, 0));
     }
 }

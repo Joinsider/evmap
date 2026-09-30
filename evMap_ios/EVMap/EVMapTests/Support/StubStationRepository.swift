@@ -24,6 +24,20 @@ final class StubStationRepository: ChargingStationRepository {
     var signIn: Result<String, Error> = .success("token")
     var signInProviderList: Result<[SignInProvider], Error> = .success([])
     private(set) var codeSignIns: [(provider: String, code: String, codeVerifier: String?)] = []
+    private(set) var appleAuthorizationCodes: [String?] = []
+
+    var reportResult: Result<Void, Error> = .success(())
+    var blockResult: Result<Void, Error> = .success(())
+    var unblockResult: Result<Void, Error> = .success(())
+    var blockList: Result<[BlockedAuthor], Error> = .success([])
+    var contributionList: Result<Contributions, Error> = .success(Contributions(comments: [], reports: []))
+    var exportResult: Result<Data, Error> = .success(Data("{}".utf8))
+    var accountDeletion: Result<Void, Error> = .success(())
+    var legalInfo: Result<LegalInfo, Error> = .success(LegalInfo(privacyPolicyUrl: nil))
+    private(set) var reports: [(id: UUID, reason: ReportReason)] = []
+    private(set) var blockedComments: [UUID] = []
+    private(set) var liftedBlocks: [UUID] = []
+    private(set) var accountDeleted = false
 
     private(set) var nearbyFilters: [StationFilter] = []
     private(set) var deletedComments: [UUID] = []
@@ -50,12 +64,42 @@ final class StubStationRepository: ChargingStationRepository {
         try deleteResult.get()
         deletedComments.append(id)
     }
-    func signInWithApple(identityToken _: String) async throws -> String { try signIn.get() }
+    func signInWithApple(identityToken _: String, authorizationCode: String?) async throws -> String {
+        appleAuthorizationCodes.append(authorizationCode)
+        return try signIn.get()
+    }
     func signInProviders() async throws -> [SignInProvider] { try signInProviderList.get() }
     func signIn(provider: String, code: String, codeVerifier: String?) async throws -> String {
         codeSignIns.append((provider, code, codeVerifier))
         return try signIn.get()
     }
+
+    func reportComment(id: UUID, reason: ReportReason, accessToken _: String) async throws {
+        try reportResult.get()
+        reports.append((id, reason))
+    }
+
+    func blockAuthor(ofComment id: UUID, accessToken _: String) async throws {
+        try blockResult.get()
+        blockedComments.append(id)
+    }
+
+    func blockedAuthors(accessToken _: String) async throws -> [BlockedAuthor] { try blockList.get() }
+
+    func unblock(id: UUID, accessToken _: String) async throws {
+        try unblockResult.get()
+        liftedBlocks.append(id)
+    }
+
+    func contributions(accessToken _: String) async throws -> Contributions { try contributionList.get() }
+    func exportData(accessToken _: String) async throws -> Data { try exportResult.get() }
+
+    func deleteAccount(accessToken _: String) async throws {
+        try accountDeletion.get()
+        accountDeleted = true
+    }
+
+    func legal() async throws -> LegalInfo { try legalInfo.get() }
 }
 
 /// Small factories for domain values, so tests state only what they are about.

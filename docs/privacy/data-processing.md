@@ -1,6 +1,6 @@
 # Verarbeitung personenbezogener Daten in EVMap
 
-- Stand: 2026-09-29
+- Stand: 2026-09-30
 - Gilt für: iOS-Client (`evMap_ios/`), Web-Client (`evmap_web/`) und API-Service (`evmap_service/`)
 
 Dieses Dokument ist eine **technische Bestandsaufnahme** für Entwicklung und
@@ -22,9 +22,13 @@ hinein.
 | Provider-Subject (Apple `sub`, Google `sub`, GitHub-Nutzer-ID) | Wiedererkennung der Anmeldung | `user_data.provider_identity.provider_subject` | bis Kontolöschung | Art. 6 Abs. 1 lit. b |
 | E-Mail-Adresse und ob der Anbieter sie bestätigt hat (seit Phase 1, ADR 0018) | automatische Kontoverknüpfung über eine bestätigte Adresse; ab Phase 2 Datenexport | `user_data.provider_identity.email`, `.email_verified` | bis Kontolöschung; bei jeder Anmeldung auf den Stand des Anbieters gebracht | Art. 6 Abs. 1 lit. b |
 | Konto (interne UUID, Admin-Flag) | Zuordnung aller Nutzerdaten; Zugang zum Admin-Bereich | `user_data.account` | bis Kontolöschung | Art. 6 Abs. 1 lit. b |
-| Access Token | Authentifizierung der Session | iOS: `UserDefaults`; Web: nur im Arbeitsspeicher des Tabs; Server: **nicht** gespeichert (HMAC-signiert, zustandslos) | iOS bis Logout, Web bis Neuladen, Token-TTL 12 h | Art. 6 Abs. 1 lit. b |
+| Apple-Refresh-Token (seit Phase 2, ADR 0020) | Widerruf des Sign-in-with-Apple-Tokens bei Kontolöschung (Pflicht von Apple) | `user_data.provider_identity.refresh_token`, AES-256-GCM-verschlüsselt; Schlüssel nur in der Umgebung des API-Containers | bis Kontolöschung; ein Zugangsdatum, kein Nutzerinhalt, deshalb **nicht** im Datenexport | Art. 6 Abs. 1 lit. b |
+| Access Token | Authentifizierung der Session | iOS: `UserDefaults`; Web: `HttpOnly`-Cookie `evmap_session` (für Skripte der Seite nicht lesbar); Server: **nicht** gespeichert (HMAC-signiert, zustandslos), gelöschte Konten werden bei jeder Anfrage abgewiesen | iOS bis Logout, Web bis Logout oder Token-TTL 12 h | Art. 6 Abs. 1 lit. b |
 | PKCE-Verifier und `state` einer laufenden Web-Anmeldung | Schutz des Anmeldeablaufs | Web: `sessionStorage` des Tabs | nur zwischen Absprung zum Anbieter und Rückkehr; wird beim Einlesen gelöscht | Art. 6 Abs. 1 lit. b |
 | Kommentartext, Preisangabe, Erfahrung | Nutzerbeiträge zu Ladestationen | `user_data.station_comment` | bis Löschung durch Nutzer | Art. 6 Abs. 1 lit. b |
+| Meldung eines Kommentars (Grund: Spam, unangemessen, falsch, sonstiges) samt Melder-Konto (seit Phase 2) | Moderation; Ausblenden für den Melder | `user_data.comment_report` | bis Kontolöschung des Melders oder Löschung des Kommentars; Admins sehen den Grund, **nicht** den Melder | Art. 6 Abs. 1 lit. f (Nutzerinhalte moderieren), App-Store-Richtlinie 1.2 |
+| Blockierung eines Autors (seit Phase 2) | Kommentare eines Autors für den Blockierenden ausblenden | `user_data.account_block` (Blockierender, Blockierter, Zeitpunkt) | bis Aufhebung oder Kontolöschung einer der beiden Seiten; der Blockierte erfährt nichts davon | Art. 6 Abs. 1 lit. b |
+| Datenexport-Datei (iOS, seit Phase 2) | Weitergabe des Exports über das Teilen-Menü | temporäres Verzeichnis der App, mit vollständigem Dateischutz | bis der Konto-Bildschirm verlassen wird (dann gelöscht) oder das System das temporäre Verzeichnis leert | Art. 6 Abs. 1 lit. b (Art. 15/20) |
 | Zeitstempel (`created_at`, `last_login_at`) | Sortierung, Betrieb | `user_data.*` | wie zugehöriger Datensatz | Art. 6 Abs. 1 lit. f |
 | Client-Logs | Fehlerdiagnose | ausschließlich Unified Log des Nutzergeräts | siehe §3 | keine Verarbeitung durch den Verantwortlichen (§3) |
 | Server-Logs | Betrieb, Fehlerdiagnose | stdout des Containers | abhängig vom Log-Collector | Art. 6 Abs. 1 lit. f |
@@ -51,6 +55,10 @@ nicht stillschweigend aufgegeben:
 - **Kein Tracking, keine Analytics, keine Werbe-IDs.** Es gibt keine
   Drittanbieter-SDKs im Client.
 - **Kein Remote-Log-Sink.** Weder Crashlytics noch Sentry noch Vergleichbares.
+- **Admins sehen keine Melder.** Die Moderations-Warteschlange zeigt den gemeldeten
+  Kommentar, Gründe und Anzahl, nie das Konto, das gemeldet hat. Auch Blockierungen nennen
+  nicht, wen sie betreffen: der Client bekommt nur eine eigene Blockier-ID, die Konto-ID
+  eines anderen verlässt die Datenbankschicht nie.
 - **Keine serverseitige Session.** `SecurityConfiguration` ist zustandslos; das
   Access Token wird bei jedem Request neu über HMAC verifiziert, statt in einer
   Tabelle nachgeschlagen zu werden.
@@ -140,11 +148,11 @@ nächtlich. Für den Datenschutz relevant:
 - **Verschlüsselung:** restic verschlüsselt vor dem Upload; der Speicher-Host
   sieht nur Chiffrat. Das Passwort liegt außerhalb des VPS.
 - **Aufbewahrung:** Kein Stand ist älter als ca. 3 Monate. Daten, die im
-  Live-System gelöscht werden — einzelne Kommentare heute, ganze Konten ab
-  Phase 2 —, bleiben so lange in älteren Ständen erhalten. Das gehört in die
-  Datenschutzerklärung. Ob nach einer Wiederherstellung zwischenzeitliche
-  Löschungen erneut angewendet werden, ist in ADR 0019 als offener Punkt für
-  Phase 2 vermerkt.
+  Live-System gelöscht werden — einzelne Kommentare, ganze Konten —, bleiben so
+  lange in älteren Ständen erhalten. Das gehört in die Datenschutzerklärung.
+  Entscheidung (ADR 0020): Diese Frist wird akzeptiert und dokumentiert; es gibt
+  kein Löschprotokoll. Nach einer Wiederherstellung können gelöschte Konten
+  deshalb wieder auftauchen, bis sie erneut gelöscht werden.
 - **Logs:** Das Backup-Skript protokolliert nur Snapshot-IDs, Tabellennamen und
   Zeilenanzahlen, keine Inhalte.
 - **Wiederherstellungstest:** läuft wöchentlich in eine temporäre Datenbank auf
@@ -154,27 +162,28 @@ nächtlich. Für den Datenschutz relevant:
 
 | Recht | Stand |
 | --- | --- |
-| Auskunft (Art. 15) | **nicht implementiert** — kein Export-Endpoint |
+| Auskunft (Art. 15) | umgesetzt (Phase 2) — `GET /api/v1/me/export`, in App und Web |
 | Berichtigung (Art. 16) | teilweise — Kommentare via `PATCH /api/v1/comments/{id}` |
-| Löschung (Art. 17) | **lückenhaft** — einzelne Kommentare löschbar, Konto nicht |
-| Datenübertragbarkeit (Art. 20) | **nicht implementiert** |
+| Löschung (Art. 17) | umgesetzt (Phase 2) — `DELETE /api/v1/me` löscht Konto, Anmeldungen, Kommentare, Meldungen und Blockierungen sofort; Backups siehe §5 |
+| Datenübertragbarkeit (Art. 20) | umgesetzt (Phase 2) — derselbe Export als JSON |
 | Widerruf Standortfreigabe | über iOS-Systemeinstellungen jederzeit möglich |
 
-**Die Kontolöschung ist die relevanteste Lücke** (geplant für Phase 2). Es
-existiert kein Endpoint, der ein `account` samt Anmeldungen und Kommentaren
-entfernt. Das Schema ist darauf schon vorbereitet — `provider_identity.account_id`
-und `station_comment.account_id` haben `ON DELETE CASCADE`, ein Löschen des
-Kontos räumt also Anmeldungen, E-Mail-Adressen und Kommentare mit ab. Zusätzlich verlangt Apple
-für Apps mit Kontoerstellung eine In-App-Kontolöschung als
-Review-Voraussetzung; das ist somit auch ein Release-Blocker, nicht nur ein
-DSGVO-Thema.
+**Kontolöschung** (Phase 2, ADR 0020): Alles Nutzereigene hängt über
+`ON DELETE CASCADE` am Konto (`provider_identity`, `station_comment`,
+`comment_report`, `account_block`), das Löschen ist ein einziges Statement. Vorher
+widerruft das Backend den gespeicherten Apple-Refresh-Token bei Apple; ist Apple
+nicht erreichbar oder gibt es noch keinen Token, wird trotzdem gelöscht und das
+protokolliert. Der Access Token verliert mit dem Konto sofort seine Gültigkeit.
+**Wer neue Nutzerdaten in `user_data` ablegt, muss sie in `MyDataRepository`
+(Export) aufnehmen;** `MyDataTests.exportKnowsEveryUserDataTable` schlägt sonst fehl.
 
 ## 7. Auftragsverarbeiter / Dritte
 
 - **Apple** — Sign in with Apple. Das Identity-Token wird gegen Apples
   JWKS-Endpoint geprüft (`AppleIdentityTokenVerifier`), wodurch der Server bei
-  jedem Login eine Verbindung zu Apple aufbaut. Im Web tauscht der Server
-  zusätzlich den Autorisierungscode bei Apple ein.
+  jedem Login eine Verbindung zu Apple aufbaut. Der Server tauscht den
+  Autorisierungscode (Web, seit Phase 2 auch die App) bei Apple gegen einen
+  Refresh-Token und widerruft ihn bei der Kontolöschung.
 - **Google, GitHub** (seit Phase 1) — Anmeldung über den Browser bzw.
   `ASWebAuthenticationSession`. Der Server tauscht den Code beim Anbieter ein
   und liest Subject, E-Mail-Adresse und Bestätigungsstatus (GitHub: `/user`
@@ -216,3 +225,4 @@ DSGVO-Thema.
 - `evmap_service/src/main/resources/db/changelog/001-initial-schema.sql`, `007-accounts-and-provider-identities.sql` — `user_data`-Schema
 - `docs/adr/0002-central-ios-logging-via-oslog.md` — Begründung des Logging-Designs
 - `docs/adr/0019-backups-and-monitoring.md` — Backups und Monitoring
+- `docs/adr/0020-account-area-and-app-store-obligations.md` — Kontolöschung, Export, Melden und Blockieren

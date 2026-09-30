@@ -8,12 +8,25 @@ import SwiftUI
 struct SettingsScreen: View {
     @ObservedObject var model: SettingsViewModel
     let repository: any ChargingStationRepository
+    @ObservedObject var authSession: AuthSession
     @Environment(\.dismiss) private var dismiss
     @State private var isConfirmingReset = false
+    @State private var privacyPolicyURL: URL?
 
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    NavigationLink {
+                        AccountScreen(repository: repository, authSession: authSession)
+                    } label: {
+                        LabeledContent("settings.account") {
+                            Text(authSession.accessToken == nil ? "settings.account.signedOut" : "settings.account.signedIn")
+                        }
+                    }
+                    // Reachable without signing in: the privacy policy is not an account feature.
+                    if let privacyPolicyURL { Link("account.privacy", destination: privacyPolicyURL) }
+                }
                 Section("filter.connector") {
                     ForEach(ConnectorType.allCases) { connector in
                         Button { toggle(connector) } label: {
@@ -61,6 +74,7 @@ struct SettingsScreen: View {
             }
             .navigationTitle("settings.title")
             .navigationBarTitleDisplayMode(.inline)
+            .task { privacyPolicyURL = try? await repository.legal().privacyPolicyUrl }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("action.done") { dismiss() } }
             }

@@ -79,8 +79,10 @@ struct RESTChargingStationRepository: ChargingStationRepository {
     func updateComment(id: UUID, payload: CommentPayload, accessToken: String) async throws -> StationComment { try await client.send(client.endpoint("comments", id.uuidString), method: "PATCH", body: payload, accessToken: accessToken) }
     func deleteComment(id: UUID, accessToken: String) async throws { let _: EmptyResponse = try await client.send(client.endpoint("comments", id.uuidString), method: "DELETE", accessToken: accessToken) }
 
-    func signInWithApple(identityToken: String) async throws -> String {
-        let response: AccessTokenResponse = try await client.send(client.endpoint("auth", "apple"), method: "POST", body: AppleLoginRequest(identityToken: identityToken))
+    func signInWithApple(identityToken: String, authorizationCode: String?) async throws -> String {
+        let response: AccessTokenResponse = try await client.send(
+            client.endpoint("auth", "apple"), method: "POST",
+            body: AppleLoginRequest(identityToken: identityToken, authorizationCode: authorizationCode))
         return response.accessToken
     }
 
@@ -93,8 +95,43 @@ struct RESTChargingStationRepository: ChargingStationRepository {
                                                                   body: CodeLoginRequest(code: code, codeVerifier: codeVerifier))
         return response.accessToken
     }
+
+    func reportComment(id: UUID, reason: ReportReason, accessToken: String) async throws {
+        let _: EmptyResponse = try await client.send(client.endpoint("comments", id.uuidString, "report"), method: "POST",
+                                                     body: ReportRequest(reason: reason.rawValue), accessToken: accessToken)
+    }
+
+    func blockAuthor(ofComment id: UUID, accessToken: String) async throws {
+        let _: EmptyResponse = try await client.send(client.endpoint("comments", id.uuidString, "block-author"), method: "POST", accessToken: accessToken)
+    }
+
+    func blockedAuthors(accessToken: String) async throws -> [BlockedAuthor] {
+        try await client.send(client.endpoint("me", "blocks"), accessToken: accessToken)
+    }
+
+    func unblock(id: UUID, accessToken: String) async throws {
+        let _: EmptyResponse = try await client.send(client.endpoint("me", "blocks", id.uuidString), method: "DELETE", accessToken: accessToken)
+    }
+
+    func contributions(accessToken: String) async throws -> Contributions {
+        try await client.send(client.endpoint("me", "contributions"), accessToken: accessToken)
+    }
+
+    func exportData(accessToken: String) async throws -> Data {
+        let response: RawResponse = try await client.send(client.endpoint("me", "export"), accessToken: accessToken)
+        return response.data
+    }
+
+    func deleteAccount(accessToken: String) async throws {
+        let _: EmptyResponse = try await client.send(client.endpoint("me"), method: "DELETE", accessToken: accessToken)
+    }
+
+    func legal() async throws -> LegalInfo {
+        try await client.send(client.endpoint("legal"))
+    }
 }
 
-private struct AppleLoginRequest: Encodable { let identityToken: String }
+private struct AppleLoginRequest: Encodable { let identityToken: String; let authorizationCode: String? }
+private struct ReportRequest: Encodable { let reason: String }
 private struct CodeLoginRequest: Encodable { let code: String; let codeVerifier: String? }
 private struct AccessTokenResponse: Decodable { let accessToken: String }

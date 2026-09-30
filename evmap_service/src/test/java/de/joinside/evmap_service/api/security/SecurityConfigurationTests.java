@@ -38,6 +38,7 @@ class SecurityConfigurationTests {
     private static final String COMMENTS = "/api/v1/stations/{stationId}/comments";
     private static final String BODY = "{\"body\":\"Works fine\"}";
     private static final UUID ADMIN = UUID.randomUUID();
+    private static final UUID GONE = UUID.randomUUID();
 
     @Autowired
     private MockMvc mockMvc;
@@ -111,6 +112,39 @@ class SecurityConfigurationTests {
     }
 
     @Test
+    @DisplayName("a valid token for a deleted account is treated as signed out")
+    void deletedAccountTokenIsRejected() throws Exception {
+        mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer " + tokens.issue(GONE))).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/me").cookie(new Cookie(SessionCookie.NAME, tokens.issue(GONE)))).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("the privacy policy link is public, while reporting and deleting an account need a token")
+    void accountAreaEndpoints() throws Exception {
+        UUID member = UUID.randomUUID();
+        Cookie session = new Cookie(SessionCookie.NAME, tokens.issue(member));
+        mockMvc.perform(get("/api/v1/legal")).andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/comments/{id}/report", UUID.randomUUID())).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/comments/{id}/report", UUID.randomUUID()).header("Authorization", "Bearer " + tokens.issue(member)))
+                .andExpect(status().isOk());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/me")).andExpect(status().isUnauthorized());
+        // Deleting an account from the web is a cookie write like any other: it needs the CSRF token.
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/me").cookie(session))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/me")
+                .cookie(session, new Cookie("XSRF-TOKEN", "t")).header("X-XSRF-TOKEN", "t")).andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("the moderation queue is admin-only")
+    void moderationQueueIsAdminOnly() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/reports")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/admin/reports").header("Authorization", "Bearer " + tokens.issue(UUID.randomUUID())))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/admin/reports").header("Authorization", "Bearer " + tokens.issue(ADMIN))).andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("the admin area answers 401 without a token, 403 without the flag and 200 with it")
     void adminNeedsTheFlag() throws Exception {
         mockMvc.perform(get("/api/v1/admin/overview")).andExpect(status().isUnauthorized());
@@ -167,7 +201,12 @@ class SecurityConfigurationTests {
     }
 
     /** Only {@link #ADMIN} carries the flag. */
-    static class Admins implements AdminAccounts {
+    static class Admins implements AdminAccounts, KnownAccounts {
+        @Override
+        public boolean exists(UUID accountId) {
+            return !GONE.equals(accountId);
+        }
+
         @Override
         public boolean isAdmin(UUID accountId) {
             return ADMIN.equals(accountId);
@@ -199,6 +238,26 @@ class SecurityConfigurationTests {
         @GetMapping("/api/v1/me")
         UUID me(@AuthenticationPrincipal CurrentUser user) {
             return user.accountId();
+        }
+
+        @GetMapping("/api/v1/legal")
+        String legal() {
+            return "{}";
+        }
+
+        @org.springframework.web.bind.annotation.PostMapping("/api/v1/comments/{id}/report")
+        String report(@PathVariable UUID id) {
+            return "";
+        }
+
+        @org.springframework.web.bind.annotation.DeleteMapping("/api/v1/me")
+        String deleteMe() {
+            return "";
+        }
+
+        @GetMapping("/api/v1/admin/reports")
+        String reports() {
+            return "[]";
         }
 
         @GetMapping("/api/v1/admin/overview")

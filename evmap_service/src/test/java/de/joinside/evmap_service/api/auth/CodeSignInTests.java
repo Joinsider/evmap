@@ -218,10 +218,12 @@ class CodeSignInTests {
                             "redirect_uri", WEB + "/api/v1/auth/apple/callback")))
                     .andExpect(request -> sentForm.set(((org.springframework.mock.http.client.MockClientHttpRequest) request).getBodyAsString()))
                     .andRespond(withSuccess("{\"id_token\":\"" + keys.idToken("https://appleid.apple.com", "de.joinside.evmap.web", "a-1",
-                            Map.of("email", "ada@example.org", "email_verified", "true")) + "\"}", MediaType.APPLICATION_JSON));
+                            Map.of("email", "ada@example.org", "email_verified", "true")) + "\",\"refresh_token\":\"r-1\"}", MediaType.APPLICATION_JSON));
 
+            // The refresh token rides along for revocation on account deletion (ADR 0020), tagged with the Services ID.
             assertThat(signIn.exchange("the-code", null))
-                    .isEqualTo(new VerifiedIdentity(Provider.APPLE, "a-1", "ada@example.org", true));
+                    .isEqualTo(new VerifiedIdentity(Provider.APPLE, "a-1", "ada@example.org", true,
+                            new ProviderRefreshToken("r-1", "de.joinside.evmap.web")));
 
             String secret = java.net.URLDecoder.decode(sentForm.get().replaceAll(".*client_secret=([^&]*).*", "$1"),
                     java.nio.charset.StandardCharsets.UTF_8);

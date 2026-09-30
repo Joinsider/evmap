@@ -1,4 +1,5 @@
-import { SyncRunStatus } from '../core/api/models';
+import { ReportReason, SyncRunStatus } from '../core/api/models';
+import { REPORT_REASONS, reportReasonLabel } from './report-reasons';
 import { syncStatusLabel } from './admin/sync-status';
 import { signInLabel } from './login/provider-labels';
 
@@ -12,5 +13,11 @@ describe('labels', () => {
     expect(signInLabel('apple')).toBe('Mit Apple anmelden');
     expect(signInLabel('google')).toBe('Mit Google anmelden');
     expect(signInLabel('github')).toBe('Mit GitHub anmelden');
+  });
+
+  it('names every report reason', () => {
+    const reasons: ReportReason[] = ['spam', 'offensive', 'wrong', 'other'];
+    expect([...REPORT_REASONS]).toEqual(reasons);
+    expect(reasons.map(reportReasonLabel)).toEqual(['Spam oder Werbung', 'Beleidigend oder unangemessen', 'Falsche Angaben', 'Sonstiges']);
   });
 });

@@ -65,6 +65,7 @@ struct APIClient {
         AppLogger.network.info(summary)
 
         if T.self == EmptyResponse.self { return EmptyResponse() as! T }
+        if T.self == RawResponse.self { return RawResponse(data: data) as! T }
         do {
             return try JSONDecoder.evmap.decode(T.self, from: data)
         } catch {
@@ -103,6 +104,18 @@ struct APIClient {
 
 private struct ServerError: Decodable { let error: String }
 struct EmptyResponse: Decodable { }
+
+/// The response body as it arrived, for endpoints whose payload is a file rather than a model (the data export).
+struct RawResponse: Decodable {
+    let data: Data
+
+    init(data: Data) { self.data = data }
+
+    /// Never decoded: `APIClient.send` hands the bytes over before it would try.
+    init(from decoder: Decoder) throws {
+        throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "RawResponse is not decodable"))
+    }
+}
 struct AnyEncodable: Encodable {
     let value: any Encodable
     init(_ value: any Encodable) { self.value = value }

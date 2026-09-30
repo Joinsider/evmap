@@ -74,6 +74,31 @@ final class StationDetailViewModel: ObservableObject {
         }
     }
 
+    /// Reports somebody else's comment. It is hidden for the reporter at once, before an admin has decided.
+    func report(_ comment: StationComment, reason: ReportReason, accessToken: String) async {
+        do {
+            try await repository.reportComment(id: comment.id, reason: reason, accessToken: accessToken)
+            comments.removeAll { $0.id == comment.id }
+            AppLogger.comments.notice("Reported comment \(comment.id) as \(reason.rawValue)")
+        } catch {
+            AppLogger.comments.error("Reporting comment \(comment.id) failed", error: error)
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Blocks the comment's author. The backend hides every comment of theirs, so the list is fetched
+    /// again rather than guessed at — this app never learns which of the comments share an author.
+    func blockAuthor(of comment: StationComment, accessToken: String) async {
+        do {
+            try await repository.blockAuthor(ofComment: comment.id, accessToken: accessToken)
+            comments = try await repository.comments(stationID: stationID, accessToken: accessToken)
+            AppLogger.comments.notice("Blocked the author of comment \(comment.id)")
+        } catch {
+            AppLogger.comments.error("Blocking the author of comment \(comment.id) failed", error: error)
+            errorMessage = error.localizedDescription
+        }
+    }
+
     private func perform(_ operation: () async throws -> StationComment, onSuccess: (StationComment) -> Void) async {
         do {
             onSuccess(try await operation())

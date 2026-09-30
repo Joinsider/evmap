@@ -18,7 +18,8 @@ import static org.mockito.Mockito.when;
 /** Comments belong to an account (ADR 0018): only its own account may change or delete one. */
 class CommentServiceTests {
     private final CommentRepository repository = mock(CommentRepository.class);
-    private final CommentService service = new CommentService(repository);
+    private final CommentVisibility visibility = mock(CommentVisibility.class);
+    private final CommentService service = new CommentService(repository, visibility);
     private final UUID station = UUID.randomUUID();
     private final UUID author = UUID.randomUUID();
 
@@ -46,6 +47,19 @@ class CommentServiceTests {
 
         assertThat(service.list(station, author)).extracting(CommentController.CommentResponse::ownedByCurrentUser).containsExactly(true, false);
         assertThat(service.list(station, null)).extracting(CommentController.CommentResponse::ownedByCurrentUser).containsExactly(false, false);
+    }
+
+    @Test
+    @DisplayName("the list leaves out what the reader blocked or reported, and only for them")
+    void hidesBlockedAndReportedForTheReader() {
+        StationComment hiddenOne = new StationComment(station, UUID.randomUUID(), request("blocked author"));
+        StationComment shown = new StationComment(station, UUID.randomUUID(), request("fine"));
+        when(repository.findByStationIdOrderByCreatedAtDesc(station)).thenReturn(List.of(hiddenOne, shown));
+        when(visibility.hiddenFor(author, station)).thenReturn(java.util.Set.of(hiddenOne.id));
+
+        assertThat(service.list(station, author)).extracting(CommentController.CommentResponse::body).containsExactly("fine");
+        assertThat(service.list(station, null)).extracting(CommentController.CommentResponse::body).containsExactly("blocked author", "fine");
+        verify(visibility, never()).hiddenFor(null, station);
     }
 
     @Test

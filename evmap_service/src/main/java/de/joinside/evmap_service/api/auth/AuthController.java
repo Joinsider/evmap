@@ -27,15 +27,17 @@ class AuthController {
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     private final AppleIdentityTokenVerifier apple;
+    private final AppleTokens appleTokens;
     private final List<CodeSignIn> codeSignIns;
     private final AccountService accounts;
     private final AccessTokenService tokens;
     private final AuthProperties properties;
     private final SessionCookie sessionCookie;
 
-    AuthController(AppleIdentityTokenVerifier apple, List<CodeSignIn> codeSignIns, AccountService accounts,
+    AuthController(AppleIdentityTokenVerifier apple, AppleTokens appleTokens, List<CodeSignIn> codeSignIns, AccountService accounts,
                    AccessTokenService tokens, AuthProperties properties, SessionCookie sessionCookie) {
         this.apple = apple;
+        this.appleTokens = appleTokens;
         this.codeSignIns = codeSignIns;
         this.accounts = accounts;
         this.tokens = tokens;
@@ -43,11 +45,17 @@ class AuthController {
         this.sessionCookie = sessionCookie;
     }
 
-    /** Native Sign in with Apple from the iOS app: the identity token is already the proof. */
+    /**
+     * Native Sign in with Apple from the iOS app: the identity token is already the proof. The
+     * authorization code that comes with it is optional and only buys a refresh token to revoke when
+     * the account is deleted (ADR 0020); without it, or if Apple refuses it, sign-in works all the same.
+     */
     @PostMapping("/apple")
     AccessTokenResponse apple(@RequestBody AppleLoginRequest request) {
         log.debug("Apple sign-in requested");
-        return issue(apple.verify(request.identityToken()));
+        VerifiedIdentity identity = apple.verify(request.identityToken());
+        ProviderRefreshToken refreshToken = appleTokens.redeemNativeCode(request.authorizationCode(), identity).orElse(null);
+        return issue(refreshToken == null ? identity : identity.withRefreshToken(refreshToken));
     }
 
     /** The code flows this deployment has credentials for, in a fixed order, for clients to offer. */
@@ -102,7 +110,7 @@ class AuthController {
         return new AccessTokenResponse(tokens.issue(account));
     }
 
-    record AppleLoginRequest(@NotBlank String identityToken) {
+    record AppleLoginRequest(@NotBlank String identityToken, String authorizationCode) {
     }
 
     record CodeRequest(String code, String codeVerifier) {

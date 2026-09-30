@@ -1,0 +1,109 @@
+<h1 i18n="@@account.title">Mein Konto</h1>
+
+<section class="card" aria-labelledby="signins-heading">
+  <h2 id="signins-heading" i18n="@@account.signIns">Anmeldungen</h2>
+  <ul class="plain">
+    @for (identity of identities(); track identity.provider) {
+      <li>
+        <strong>{{ providerName(identity.provider) }}</strong>
+        @if (identity.email) {
+          <span class="muted"> · {{ identity.email }}</span>
+        }
+      </li>
+    }
+  </ul>
+</section>
+
+<section class="card" aria-labelledby="contributions-heading">
+  <h2 id="contributions-heading" i18n="@@account.contributions">Meine Beiträge</h2>
+  @let mine = contributions();
+  @if (mine.state === 'ready') {
+    <h3 i18n="@@account.comments">Kommentare</h3>
+    <ul class="plain">
+      @for (comment of mine.value.comments; track comment.id) {
+        <li class="entry">
+          <span class="muted">{{ comment.stationName }} · {{ comment.createdAt | date: 'mediumDate' }}</span>
+          <p>{{ comment.body }}</p>
+        </li>
+      } @empty {
+        <li class="muted" i18n="@@account.noComments">Noch keine Kommentare.</li>
+      }
+    </ul>
+    <h3 i18n="@@account.reports">Meldungen</h3>
+    <ul class="plain">
+      @for (report of mine.value.reports; track report.id) {
+        <li class="entry">
+          <span class="muted">{{ report.stationName }} · {{ report.createdAt | date: 'mediumDate' }}</span>
+          <p>
+            {{ reasonLabel(report.reason) }} ·
+            @if (report.status === 'open') {
+              <span i18n="@@account.report.open">Wird geprüft</span>
+            } @else {
+              <span i18n="@@account.report.closed">Abgeschlossen</span>
+            }
+          </p>
+        </li>
+      } @empty {
+        <li class="muted" i18n="@@account.noReports">Noch keine Meldungen.</li>
+      }
+    </ul>
+  } @else if (mine.state === 'failed') {
+    <p class="error" i18n="@@account.loadFailed">Konnte nicht geladen werden.</p>
+  } @else {
+    <p i18n="@@common.loading">Wird geladen …</p>
+  }
+</section>
+
+<section class="card" aria-labelledby="blocks-heading">
+  <h2 id="blocks-heading" i18n="@@account.blocks">Blockierte Autoren</h2>
+  <p class="muted" i18n="@@account.blocksHint">Kommentare blockierter Autoren werden dir nicht mehr angezeigt. Namen gibt es nicht, deshalb erscheinen Blockierungen nur mit Datum.</p>
+  @let blocked = blocks();
+  @if (blocked.state === 'ready') {
+    <ul class="plain">
+      @for (block of remaining(blocked.value); track block.id) {
+        <li class="row">
+          <span i18n="@@account.blockedOn">Blockiert am {{ block.createdAt | date: 'mediumDate' }}</span>
+          <button type="button" (click)="unblock(block)" i18n="@@account.unblock">Aufheben</button>
+        </li>
+      } @empty {
+        <li class="muted" i18n="@@account.noBlocks">Du hast niemanden blockiert.</li>
+      }
+    </ul>
+  } @else if (blocked.state === 'failed') {
+    <p class="error" i18n="@@account.loadFailed">Konnte nicht geladen werden.</p>
+  } @else {
+    <p i18n="@@common.loading">Wird geladen …</p>
+  }
+</section>
+
+<section class="card" aria-labelledby="data-heading">
+  <h2 id="data-heading" i18n="@@account.data">Meine Daten</h2>
+  <p i18n="@@account.dataHint">Lade alles herunter, was EVMap über dich gespeichert hat, als JSON-Datei.</p>
+  <button type="button" (click)="download()" i18n="@@account.export">Daten herunterladen</button>
+  @if (exportFailed()) {
+    <p class="error" role="alert" i18n="@@account.exportFailed">Der Export ist fehlgeschlagen. Bitte versuche es später erneut.</p>
+  }
+  @if (privacyPolicyUrl(); as url) {
+    <p><a [href]="url" target="_blank" rel="noopener" i18n="@@account.privacy">Datenschutzerklärung</a></p>
+  }
+</section>
+
+<section class="card danger-zone" aria-labelledby="delete-heading">
+  <h2 id="delete-heading" i18n="@@account.delete">Konto löschen</h2>
+  <p i18n="@@account.deleteHint">Dein Konto, alle verknüpften Anmeldungen, deine Kommentare, Meldungen und Blockierungen werden sofort und endgültig gelöscht. Das lässt sich nicht rückgängig machen.</p>
+  @switch (deletion()) {
+    @case ('idle') {
+      <button type="button" class="danger" (click)="askToDelete()" i18n="@@account.deleteAsk">Konto löschen …</button>
+    }
+    @default {
+      <p role="alert"><strong i18n="@@account.deleteSure">Konto wirklich endgültig löschen?</strong></p>
+      <div class="row">
+        <button type="button" class="danger" [disabled]="deletion() === 'deleting'" (click)="confirmDeletion()" i18n="@@account.deleteConfirm">Endgültig löschen</button>
+        <button type="button" [disabled]="deletion() === 'deleting'" (click)="cancelDeletion()" i18n="@@account.deleteCancel">Abbrechen</button>
+      </div>
+      @if (deletion() === 'failed') {
+        <p class="error" role="alert" i18n="@@account.deleteFailed">Das Konto konnte nicht gelöscht werden. Bitte versuche es später erneut.</p>
+      }
+    }
+  }
+</section>

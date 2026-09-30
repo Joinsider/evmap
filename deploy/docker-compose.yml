@@ -61,6 +61,11 @@ services:
       APPLE_KEY_ID: ${APPLE_KEY_ID:-}
       # The .p8 key's PEM text; newlines may be written as \n.
       APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
+      # Account area (ADR 0020). Encrypts the Apple refresh tokens kept for revocation on account
+      # deletion: `openssl rand -base64 32`. Blank = none are stored. The privacy policy link is
+      # shown by the clients only when the URL is set.
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-}
+      PRIVACY_POLICY_URL: ${PRIVACY_POLICY_URL:-}
       LOG_FORMAT: ${LOG_FORMAT-ecs}
       LOG_LEVEL_APP: ${LOG_LEVEL_APP:-INFO}
       LOG_LEVEL_ROOT: ${LOG_LEVEL_ROOT:-INFO}

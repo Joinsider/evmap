@@ -1,6 +1,7 @@
 package de.joinside.evmap_service.api.auth;
 
 import de.joinside.evmap_service.api.security.AdminAccounts;
+import de.joinside.evmap_service.api.security.KnownAccounts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -19,18 +20,28 @@ import java.util.UUID;
  * that already exist, because that would silently move one person's contributions to another.
  */
 @Service
-class AccountService implements AdminAccounts {
+class AccountService implements AdminAccounts, KnownAccounts {
     private static final Logger log = LoggerFactory.getLogger(AccountService.class);
 
     private final AccountRepository accounts;
+    private final TokenCipher cipher;
 
-    AccountService(AccountRepository accounts) {
+    AccountService(AccountRepository accounts, TokenCipher cipher) {
         this.accounts = accounts;
+        this.cipher = cipher;
+    }
+
+    @Transactional
+    UUID signIn(VerifiedIdentity identity) {
+        UUID account = resolve(identity);
+        ProviderRefreshToken refreshToken = identity.refreshToken();
+        if (refreshToken != null && cipher.enabled())
+            accounts.storeRefreshToken(identity.provider(), identity.subject(), cipher.encrypt(refreshToken.value()), refreshToken.clientId());
+        return account;
     }
 
     // Logs name the account uuid and the provider only — never the subject or the address (ADR 0002).
-    @Transactional
-    UUID signIn(VerifiedIdentity identity) {
+    private UUID resolve(VerifiedIdentity identity) {
         Optional<UUID> known = accounts.accountOf(identity.provider(), identity.subject());
         if (known.isPresent()) {
             accounts.recordLogin(known.get(), identity);
@@ -57,6 +68,11 @@ class AccountService implements AdminAccounts {
         accounts.createIdentity(created, created, identity);
         log.info("Created account {} (provider {})", created, identity.provider().token());
         return created;
+    }
+
+    @Override
+    public boolean exists(UUID accountId) {
+        return accounts.exists(accountId);
     }
 
     @Override

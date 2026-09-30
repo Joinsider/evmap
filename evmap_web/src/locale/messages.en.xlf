@@ -253,5 +253,269 @@
         <target>Sign in with GitHub</target>
       </segment>
     </unit>
+    <unit id="nav.account">
+      <segment>
+        <source>Mein Konto</source>
+        <target>My account</target>
+      </segment>
+    </unit>
+    <unit id="footer.privacy">
+      <segment>
+        <source>Datenschutz</source>
+        <target>Privacy</target>
+      </segment>
+    </unit>
+    <unit id="account.title">
+      <segment>
+        <source>Mein Konto</source>
+        <target>My account</target>
+      </segment>
+    </unit>
+    <unit id="account.signIns">
+      <segment>
+        <source>Anmeldungen</source>
+        <target>Sign-ins</target>
+      </segment>
+    </unit>
+    <unit id="account.contributions">
+      <segment>
+        <source>Meine Beiträge</source>
+        <target>My contributions</target>
+      </segment>
+    </unit>
+    <unit id="account.comments">
+      <segment>
+        <source>Kommentare</source>
+        <target>Comments</target>
+      </segment>
+    </unit>
+    <unit id="account.noComments">
+      <segment>
+        <source>Noch keine Kommentare.</source>
+        <target>No comments yet.</target>
+      </segment>
+    </unit>
+    <unit id="account.reports">
+      <segment>
+        <source>Meldungen</source>
+        <target>Reports</target>
+      </segment>
+    </unit>
+    <unit id="account.report.open">
+      <segment>
+        <source>Wird geprüft</source>
+        <target>Under review</target>
+      </segment>
+    </unit>
+    <unit id="account.report.closed">
+      <segment>
+        <source>Abgeschlossen</source>
+        <target>Closed</target>
+      </segment>
+    </unit>
+    <unit id="account.noReports">
+      <segment>
+        <source>Noch keine Meldungen.</source>
+        <target>No reports yet.</target>
+      </segment>
+    </unit>
+    <unit id="account.loadFailed">
+      <segment>
+        <source>Konnte nicht geladen werden.</source>
+        <target>Could not be loaded.</target>
+      </segment>
+    </unit>
+    <unit id="account.blocks">
+      <segment>
+        <source>Blockierte Autoren</source>
+        <target>Blocked authors</target>
+      </segment>
+    </unit>
+    <unit id="account.blocksHint">
+      <segment>
+        <source>Kommentare blockierter Autoren werden dir nicht mehr angezeigt. Namen gibt es nicht, deshalb erscheinen Blockierungen nur mit Datum.</source>
+        <target>You no longer see comments from blocked authors. There are no names, so blocks are listed by date only.</target>
+      </segment>
+    </unit>
+    <unit id="account.blockedOn">
+      <segment>
+        <source>Blockiert am <ph id="0" equiv="INTERPOLATION" disp="{{ block.createdAt | date: &apos;mediumDate&apos; }}"/></source>
+        <target>Blocked on <ph id="0" equiv="INTERPOLATION" disp="{{ block.createdAt | date: &apos;mediumDate&apos; }}"/></target>
+      </segment>
+    </unit>
+    <unit id="account.unblock">
+      <segment>
+        <source>Aufheben</source>
+        <target>Lift block</target>
+      </segment>
+    </unit>
+    <unit id="account.noBlocks">
+      <segment>
+        <source>Du hast niemanden blockiert.</source>
+        <target>You haven't blocked anyone.</target>
+      </segment>
+    </unit>
+    <unit id="account.data">
+      <segment>
+        <source>Meine Daten</source>
+        <target>My data</target>
+      </segment>
+    </unit>
+    <unit id="account.dataHint">
+      <segment>
+        <source>Lade alles herunter, was EVMap über dich gespeichert hat, als JSON-Datei.</source>
+        <target>Download everything EVMap has stored about you as a JSON file.</target>
+      </segment>
+    </unit>
+    <unit id="account.export">
+      <segment>
+        <source>Daten herunterladen</source>
+        <target>Download data</target>
+      </segment>
+    </unit>
+    <unit id="account.exportFailed">
+      <segment>
+        <source>Der Export ist fehlgeschlagen. Bitte versuche es später erneut.</source>
+        <target>The export failed. Please try again later.</target>
+      </segment>
+    </unit>
+    <unit id="account.privacy">
+      <segment>
+        <source>Datenschutzerklärung</source>
+        <target>Privacy policy</target>
+      </segment>
+    </unit>
+    <unit id="account.delete">
+      <segment>
+        <source>Konto löschen</source>
+        <target>Delete account</target>
+      </segment>
+    </unit>
+    <unit id="account.deleteHint">
+      <segment>
+        <source>Dein Konto, alle verknüpften Anmeldungen, deine Kommentare, Meldungen und Blockierungen werden sofort und endgültig gelöscht. Das lässt sich nicht rückgängig machen.</source>
+        <target>Your account, all linked sign-ins, your comments, reports and blocks are deleted immediately and permanently. This cannot be undone.</target>
+      </segment>
+    </unit>
+    <unit id="account.deleteAsk">
+      <segment>
+        <source>Konto löschen …</source>
+        <target>Delete account …</target>
+      </segment>
+    </unit>
+    <unit id="account.deleteSure">
+      <segment>
+        <source>Konto wirklich endgültig löschen?</source>
+        <target>Really delete the account permanently?</target>
+      </segment>
+    </unit>
+    <unit id="account.deleteConfirm">
+      <segment>
+        <source>Endgültig löschen</source>
+        <target>Delete permanently</target>
+      </segment>
+    </unit>
+    <unit id="account.deleteCancel">
+      <segment>
+        <source>Abbrechen</source>
+        <target>Cancel</target>
+      </segment>
+    </unit>
+    <unit id="account.deleteFailed">
+      <segment>
+        <source>Das Konto konnte nicht gelöscht werden. Bitte versuche es später erneut.</source>
+        <target>The account could not be deleted. Please try again later.</target>
+      </segment>
+    </unit>
+    <unit id="admin.nav.overview">
+      <segment>
+        <source>Übersicht</source>
+        <target>Overview</target>
+      </segment>
+    </unit>
+    <unit id="admin.nav.reports">
+      <segment>
+        <source>Meldungen</source>
+        <target>Reports</target>
+      </segment>
+    </unit>
+    <unit id="admin.openReports">
+      <segment>
+        <source>Offene Meldungen</source>
+        <target>Open reports</target>
+      </segment>
+    </unit>
+    <unit id="admin.reports.title">
+      <segment>
+        <source>Gemeldete Kommentare</source>
+        <target>Reported comments</target>
+      </segment>
+    </unit>
+    <unit id="admin.reports.actionFailed">
+      <segment>
+        <source>Die Aktion ist fehlgeschlagen. Bitte versuche es erneut.</source>
+        <target>The action failed. Please try again.</target>
+      </segment>
+    </unit>
+    <unit id="admin.reports.sure">
+      <segment>
+        <source>Kommentar endgültig löschen?</source>
+        <target>Delete the comment permanently?</target>
+      </segment>
+    </unit>
+    <unit id="admin.reports.removeConfirm">
+      <segment>
+        <source>Endgültig löschen</source>
+        <target>Delete permanently</target>
+      </segment>
+    </unit>
+    <unit id="admin.reports.cancel">
+      <segment>
+        <source>Abbrechen</source>
+        <target>Cancel</target>
+      </segment>
+    </unit>
+    <unit id="admin.reports.remove">
+      <segment>
+        <source>Kommentar löschen</source>
+        <target>Delete comment</target>
+      </segment>
+    </unit>
+    <unit id="admin.reports.dismiss">
+      <segment>
+        <source>Meldungen abweisen</source>
+        <target>Dismiss reports</target>
+      </segment>
+    </unit>
+    <unit id="admin.reports.empty">
+      <segment>
+        <source>Keine offenen Meldungen.</source>
+        <target>No open reports.</target>
+      </segment>
+    </unit>
+    <unit id="report.reason.spam">
+      <segment>
+        <source>Spam oder Werbung</source>
+        <target>Spam or advertising</target>
+      </segment>
+    </unit>
+    <unit id="report.reason.offensive">
+      <segment>
+        <source>Beleidigend oder unangemessen</source>
+        <target>Offensive or inappropriate</target>
+      </segment>
+    </unit>
+    <unit id="report.reason.wrong">
+      <segment>
+        <source>Falsche Angaben</source>
+        <target>Incorrect information</target>
+      </segment>
+    </unit>
+    <unit id="report.reason.other">
+      <segment>
+        <source>Sonstiges</source>
+        <target>Other</target>
+      </segment>
+    </unit>
   </file>
 </xliff>

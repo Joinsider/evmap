@@ -22,7 +22,7 @@ class AccountRepositoryTests {
     void setUp() {
         PostgisDatabase.clearUserData();
         repository = new AccountRepository(PostgisDatabase.jdbc());
-        service = new AccountService(repository);
+        service = new AccountService(repository, new TokenCipher(""));
     }
 
     private static VerifiedIdentity google(String subject, String email, boolean verified) {

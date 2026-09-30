@@ -1,6 +1,6 @@
 # Sign-in providers, web client and admin access
 
-Operator runbook for phase 1 (ADR 0018). The why is in
+Operator runbook for phase 1 (ADR 0018) and the account settings of phase 2 (ADR 0020). The why is in
 [ADR 0018](../adr/0018-additional-identity-providers-and-web-client.md). Everything below is a
 one-time setup; secrets go into `deploy/.env` on the VPS and nowhere else.
 
@@ -66,7 +66,25 @@ Google/GitHub callbacks:
    `{"webcredentials":{"apps":["56T6W6Z755.de.joinside.EVMap"]}}`. Apple's CDN caches the file, so
    a device may need up to a day to see a change.
 
-## 5. Making an account admin
+## 5. Account deletion, Apple token revocation and the privacy link (phase 2, ADR 0020)
+
+Deleting an account works without any of this. Two settings make it complete:
+
+1. **Apple token revocation.** Apple requires that a deleted account's Sign in with Apple token is
+   revoked. The backend keeps Apple's refresh token, encrypted, and needs a key for that:
+   `openssl rand -base64 32` → `deploy/.env`: `TOKEN_ENCRYPTION_KEY=…`. Keep it with the other
+   secrets; if it is lost, stored tokens cannot be read any more and their accounts are deleted
+   without a revocation (a warning names the account). Without the variable no token is stored.
+   Revocation and the native app's code exchange also need `APPLE_TEAM_ID`, `APPLE_KEY_ID`,
+   `APPLE_PRIVATE_KEY` (section 4) and `APPLE_CLIENT_ID=de.joinside.EVMap`. The one key must belong to
+   the primary App ID `de.joinside.EVMap` *and* be enabled for the Services ID (section 4, step 2),
+   because it signs for both the bundle id (app) and the Services ID (web).
+   Apple users who signed in before this phase have no stored token until their next Apple sign-in.
+2. **Privacy policy link.** Publish the policy wherever you like and set
+   `PRIVACY_POLICY_URL=https://…` in `deploy/.env`. The iOS settings, the account screen and the web
+   footer then link to it; without it they show no link. App Store Connect needs the same URL.
+
+## 6. Making an account admin
 
 There is deliberately no API or UI for this. Sign in once on the web, open `/api/v1/me` in the same
 tab's developer tools (or look for the account uuid in the API log line `Issued access token for
@@ -79,7 +97,10 @@ docker compose -f deploy/docker-compose.yml exec database \
 
 The flag is read on every admin request, so revoking it (`false`) takes effect immediately.
 
-## 6. Local development
+The moderation queue (*Admin* → *Meldungen*) shows comments users reported. An admin can delete the
+comment or dismiss the reports; there is no account ban. Blocking is a per-user preference.
+
+## 7. Local development
 
 - API: `WEB_BASE_URL=http://localhost:4200`, and a *separate* test OAuth app per provider whose
   redirect URI is `http://localhost:4200/auth/callback/<provider>` (Google accepts `http://localhost`;

@@ -19,9 +19,26 @@ protocol ChargingStationRepository {
     func createComment(stationID: UUID, payload: CommentPayload, accessToken: String) async throws -> StationComment
     func updateComment(id: UUID, payload: CommentPayload, accessToken: String) async throws -> StationComment
     func deleteComment(id: UUID, accessToken: String) async throws
-    func signInWithApple(identityToken: String) async throws -> String
+    /// `authorizationCode` is what lets the backend keep a refresh token to revoke when the account
+    /// is deleted (ADR 0020). Sign-in works without it.
+    func signInWithApple(identityToken: String, authorizationCode: String?) async throws -> String
     /// The web sign-in providers this backend offers (ADR 0018).
     func signInProviders() async throws -> [SignInProvider]
     /// Redeems an authorization code from a web sign-in; answers with the backend's access token.
     func signIn(provider: String, code: String, codeVerifier: String?) async throws -> String
+
+    // MARK: Account area (ADR 0020)
+
+    /// Reports another person's comment. Reporting hides it for the reporter at once.
+    func reportComment(id: UUID, reason: ReportReason, accessToken: String) async throws
+    /// Blocks the author of a comment without learning who that is; their comments disappear.
+    func blockAuthor(ofComment id: UUID, accessToken: String) async throws
+    func blockedAuthors(accessToken: String) async throws -> [BlockedAuthor]
+    func unblock(id: UUID, accessToken: String) async throws
+    func contributions(accessToken: String) async throws -> Contributions
+    /// The account's data as the raw JSON document the backend sends (GDPR Art. 15/20).
+    func exportData(accessToken: String) async throws -> Data
+    /// Deletes the account with everything attached, at once and for good.
+    func deleteAccount(accessToken: String) async throws
+    func legal() async throws -> LegalInfo
 }

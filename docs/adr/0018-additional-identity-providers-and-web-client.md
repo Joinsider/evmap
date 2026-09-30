@@ -1,7 +1,7 @@
 # 18. Additional identity providers, account linking, and an Angular web client
 
 - Status: Accepted 2026-09-29 — implemented in roadmap phase 1 (`feature/phase-1-login-web`); account
-  deletion and Apple token revocation follow in phase 2
+  deletion and Apple token revocation followed in phase 2 ([ADR 0020](0020-account-area-and-app-store-obligations.md))
 - Date: 2026-09-29
 - Deciders: Johannes Popp
 
@@ -174,8 +174,7 @@ redeems the code through `ChargingStationRepository`. Entitlement:
 
 ## Open points (phase 1)
 
-- **Refresh token for Apple revocation** — phase 2 extends `AppleWebSignIn` and the native flow to
-  keep Apple's refresh token, as planned above.
+- **Refresh token for Apple revocation** — done in phase 2 (ADR 0020).
 - **Rate limiting of the sign-in endpoints** is not built. Every code exchange costs a provider
   round trip; if abuse shows up in the logs, options are (a) a per-IP limit in the web container's
   nginx (`limit_req`, recommended — no code), or (b) a bucket in the API.
