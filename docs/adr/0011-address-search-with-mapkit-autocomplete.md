@@ -227,3 +227,11 @@ means the user has to know it exists.
 - `evMap_ios/EVMap/EVMapTests/AddressSearchTests.swift`
 - ADR 0002 (iOS logging) — the rules the recents history is handled under
 - ADR 0009 §2 — the status badge this record fixes
+
+## Update 2026-10-01 (roadmap phase 4, ADR 0017)
+
+The search no longer moves the camera and nothing else: picking a suggestion also opens an **info card**
+for the place with the route actions (route to here, route from here, add as waypoint, save place). The
+camera still moves first, and the viewport path is still the only thing that fetches stations. A tap on
+a town or place of interest on the map opens the same card.
+

@@ -13,6 +13,7 @@ RUN npm run build
 FROM nginxinc/nginx-unprivileged:1.29-alpine
 COPY --from=build /build/dist/evmap_web/browser /usr/share/nginx/html
 COPY docker/default.conf.template /etc/nginx/templates/default.conf.template
+COPY docker/route-notice.html /usr/share/nginx/route-notice.html
 COPY docker/40-apple-app-site-association.sh /docker-entrypoint.d/40-apple-app-site-association.sh
 # Where the upstream API lives inside the Compose network.
 ENV API_UPSTREAM=http://api:8080

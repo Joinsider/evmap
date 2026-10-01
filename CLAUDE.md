@@ -199,6 +199,13 @@ from the database per request (`AdminAccounts`) and set **only by a manual `UPDA
 API that grants it. E-mail addresses are personal data: never log them (ADR 0002). Provider setup:
 `docs/operations/sign-in-providers.md`.
 
+`POST /api/v1/stations/along-route` (ADR 0017, phase 4) answers "stations in a corridor around this route" in
+driving order. It is the one POST under `/stations/**` that is public (explicit `permitAll`; every other write
+there needs a bearer token) and it is a read. The route is the request **body**, never a query string, and never
+logged — not even at debug, only its point count (ADR 0002). The corridor test runs against `ST_Subdivide`d pieces
+of the line, not the whole of it, or the GiST index would return a continent's bounding box; keep it that way
+when touching `StationSpatialRepository.findAlongRoute`. Filter SQL is shared with the viewport query.
+
 `GET /api/v1/operators` is the searchable charging-network directory the client's provider settings are
 built from. There is no operator table and no operator id — `operator_name` is a string the adapters
 normalize onto each station — so the directory is a `GROUP BY operator_name` and **the name is the
@@ -262,7 +269,7 @@ code — never call networking APIs directly from a ViewModel or View.
 
 Structure follows a feature-module layout under `Features/`, each split into `Domain` (models),
 `Data` (repository implementations), and `Presentation` (SwiftUI views + view models): `Auth`, `Comments`,
-`Map`, `Search`, `Settings`, `StationDetail`, `Stations`, `Favorites` (ADR 0021), and `Account` (deletion,
+`Map`, `Search`, `Settings`, `StationDetail`, `Stations`, `Favorites` (ADR 0021), `Routing` (ADR 0017), and `Account` (deletion,
 export, contributions, blocks; ADR 0020). Shared networking primitives live in
 `Core/Networking` (`APIClient`, `APIError`).
 
@@ -290,13 +297,33 @@ only the *fact* of a search may be logged above `.debug`, never the address or i
 search moves the camera and nothing else; `onMapCameraChange` then loads stations through the normal
 viewport path, so there is no second fetch trigger. See ADR 0011.
 
+`Routing` is the manual route planner (ADR 0017, phase 4). A route starts from an **info card** (`PlaceInfoCard`) that
+opens after a search hit or a tap on a town, place of interest or station — there is no planner button in the toolbar,
+and the station screen carries the same actions. `RoutePlannerViewModel` (owned by `EVMapApp`, like the settings and the
+favorites) holds the plan as `RouteSlot` rows, which may still be empty ("route from here" has no destination yet), and
+persists it on the device after every change (`FileRoutingStore`, JSON in Application Support — a route is too big for
+`UserDefaults`), so a restart or a tunnel finds it again. Routes come only through `RouteProviding` (MapKit today; the
+way out to Valhalla/turn-by-turn), points of interest through `NearbyPlacesProviding`. The simplified polyline
+(`PolylineSimplifier`, ≤ 400 points) goes to the backend through `ChargingStationRepository.stationsAlongRoute`; detours
+are exact for the ten stations nearest the road and estimated for the rest (`≈`). `MapViewModel` has two modes —
+`.viewport` and `.route` — which must not overwrite each other: in route mode camera changes load nothing. Saved places,
+saved routes and the open plan are device-only and never logged; "Mein Standort" is never written into a share link
+(`RouteShareLink`, universal link `https://evmap.joinside.de/route?…`, the web container's `apple-app-site-association`
+carries `applinks` for `/route`). Apple Maps takes only start → destination reliably, hence leg by leg
+(`RouteHandoff`).
+The map's sheets (info card, station screen, planner) are orchestrated by `MapPlaceFlow`, not by `MapScreen`:
+SwiftUI cannot swap one sheet for another in a single step, so a choice made on a card is parked and carried out in
+the card's `onDismiss`. Logic that does not need SwiftUI belongs in such testable types (`MapPlaceFlow`,
+`MapCamera`, `RouteFraming`, `RouteStopRole`), because the view bodies and their tap closures are the part the unit
+tests cannot reach; MapKit itself sits behind `DirectionsServing` and `NearbyPlacesProviding`.
+
 ## Constraints worth knowing before changing scope
 
 - No Android client, no payment handling or charge-session control, no own turn-by-turn navigation —
   non-goals for v1 *and* v2 (Lastenheft §10, §11), not gaps to fill incidentally.
 - Route planning (ADR 0017) and Google/GitHub sign-in plus an Angular web client (ADR 0018) *were*
   v1 non-goals and are now **v2 work** (Lastenheft §11); sign-in and the web skeleton landed in
-  phase 1, account deletion, export and moderation in phase 2. They are built phase by phase in the
+  phase 1, account deletion, export and moderation in phase 2, the manual route planner (stage 1) in phase 4. They are built phase by phase in the
   order of `docs/roadmap.md`; do not start one incidentally or ahead of its phase.
 - Real-time availability *was* on that list and is no longer: ADR 0015 reversed it and the Lastenheft
   was amended in the same change. What remains a non-goal is *complete* coverage — live status is

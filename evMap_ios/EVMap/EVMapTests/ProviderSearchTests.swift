@@ -69,6 +69,7 @@ private final class StubProviderRepository: ChargingStationRepository {
     func removeFavorite(stationID _: UUID, accessToken _: String) async throws { fatalError("unused") }
     func mergeFavorites(stationIDs _: [UUID], accessToken _: String) async throws -> [Station] { fatalError("unused") }
     func reportStation(id _: UUID, reason _: StationReportReason, note _: String?, accessToken _: String) async throws { fatalError("unused") }
+    func stationsAlongRoute(route _: [RouteCoordinate], corridorKm _: Double, limit _: Int, filter _: StationFilter) async throws -> [RouteStation] { fatalError("unused") }
 }
 
 private let sampleProviders = [
@@ -127,8 +128,9 @@ struct ProviderSearchTests {
         repository.gateNextCall()
 
         model.queryChanged(to: "stale")
-        // Past the debounce, so the first lookup is inside the repository and parked there.
-        try await Task.sleep(for: .milliseconds(400))
+        // Until the first lookup is inside the repository and parked there. Polled rather than slept: a fixed
+        // pause past the debounce is shorter than it looks when the main actor is busy.
+        for _ in 0..<500 where repository.queries.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
         model.queryChanged(to: "ionity")
         repository.releaseGate()
         try await settle()
