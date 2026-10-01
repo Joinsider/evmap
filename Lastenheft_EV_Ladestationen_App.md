@@ -170,6 +170,7 @@ Für v2 werden folgende Abgrenzungen aus §10 aufgehoben: Routenplanung und exte
 ### Weitere Datenquellen
 - Nationale Register für Österreich, Schweiz, Italien und Spanien, soweit offen verfügbar
   (Österreich entfällt: Nutzungsbedingungen der E-Control verbieten Speichern und Weitergabe, ADR 0012;
+  Italien entfällt: kein offener Export der PUN mehr, Zugang nur mit italienischem Ausweis, ADR 0012;
   Schweiz umgesetzt)
 
 ### Schnittstelle

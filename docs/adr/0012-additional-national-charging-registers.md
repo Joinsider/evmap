@@ -110,6 +110,7 @@ varies far more than a register's.
   and OSM stay the only free UK routes.
 - **Italy — Piattaforma Unica Nazionale (PUN).** Ministerial platform, but map and list views only; no raw
   open-data export at the time of writing. Worth re-checking, since AFIR obliges Italy to run a NAP.
+  Re-checked on 2026-09-30 and skipped, see "Italy skipped".
 - **Belgium — MOW Vlaanderen WFS.** Real and open, but Flanders only, and sourced from Eco-Movement, which
   also feeds the French consolidation — meaning much of it arrives through data we would already have.
   Wallonia has no equivalent publication.
@@ -372,6 +373,38 @@ one released it and fail once (the old owner's write then frees it). The owner i
 order, so this needs a publisher to change a station id. Making `replaceInventory` release an id held by
 another station of the same source would remove it, and was left out as unneeded until it shows in a run.
 
+## Italy skipped on 2026-10-01
+
+The roadmap's third gap filler (L3) was the Italian register, PUN (Piattaforma Unica Nazionale, GSE on behalf
+of MASE, ~67.000–70.000 EVSEs). The decision is to **skip Italy and leave it to OCM**; `IT` is already in the
+default `OCM_COUNTRY_CODES`.
+
+What was found on 2026-09-30 (desk research; the PUN API was not called):
+
+- **No open bulk export any more.** PUN used to publish a signed national CSV on S3, daily at 04:30 UTC. AgID's
+  `cruscotto-italia` ETL (`etl/sources/pun.py`) records that GSE disabled the "Esporta dati" button and the S3
+  endpoint in June 2026.
+- **What remains is the portal's own API** (`api.pun.piattaformaunicanazionale.it`): anonymous AWS Cognito guest
+  credentials, whose identity pool id is published in the portal's `config.json`, then a paged map search for
+  the EVSE-IDs and `chargepoints/group` in batches of 100 for the details, about 700 calls per run. It is
+  undocumented and is the web portal's interface, not a published data service.
+- **Licence is an assumption.** CC BY 4.0 with attribution to GSE is what AgID derives from "open data by
+  default" (Art. 52(2) CAD, AgID guidelines, Determinazione 183/2023). GSE states no licence on the data itself.
+- **Owner finding, 2026-10-01: access to PUN is limited to Italians with an Italian identity document.**
+  That ends the question for a service run from outside Italy, whatever the guest-credential route in AgID's
+  code suggests. Not verified independently.
+- Italy's AFIR National Access Point was not found as an open dataset; no other open Italian source turned up.
+  `carburanti.mise.gov.it` is the fuel-price portal, not a charge point source.
+
+An adapter against the portal API was considered and rejected: undocumented, GSE has just closed the official
+export, the licence is unconfirmed, and the access itself is restricted.
+
+**What would reopen it:** an official, documented export or API of PUN open to foreign users with a stated
+licence that allows storing, normalizing and relaying, or an open dataset (CC BY 4.0) via Italy's National
+Access Point (AFIR). It would come back as an ordinary adapter: `sync.it`, source token `PUN`, `ITA: PUN`
+in `evmap.sync.authority` (without the entry OCM would overwrite its EVSE-IDs), and an extended
+`SourceAdapterRegistrationTests`. No 👤 step is open for this.
+
 ## Open points
 
 4. **OpenStreetMap / ODbL.** Options: (a) leave OSM out entirely and accept blank countries; (b) ingest it,
@@ -420,6 +453,10 @@ another station of the same source would remove it, and was left out as unneeded
   — data `https://data.geo.admin.ch/ch.bfe.ladestellen-elektromobilitaet/data/oicp/ch.bfe.ladestellen-elektromobilitaet.json`,
   status `.../status/oicp/...`
 - [SFOE/ichtankestrom_Documentation](https://github.com/SFOE/ichtankestrom_Documentation) — Swiss feed docs
+- [Piattaforma Unica Nazionale (PUN)](https://www.piattaformaunicanazionale.it/) and
+  [GSE: PUN](https://www.gse.it/servizi-per-te/rinnovabili-per-i-trasporti/pun) — the Italian register
+- [AgID/cruscotto-italia, `etl/sources/pun.py`](https://github.com/AgID/cruscotto-italia) — documents the
+  June 2026 shutdown of the export and the remaining portal API
 - [E-Control Ladestellenverzeichnis API — data.gv.at](https://www.data.gv.at/katalog/en/dataset/ef680c5f-fa70-4719-8253-e3a5fe5f9355),
   registration at `https://admin.ladestellen.at/#/api/registrieren`
 - [DOT-NL / Laadpunten API — NDW](https://docs.ndw.nu/data-uitwisseling/interface-beschrijvingen/dafne-api/)

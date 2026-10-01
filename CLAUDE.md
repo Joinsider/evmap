@@ -107,7 +107,8 @@ token `DIEMO`, ~5k stations from ~14k EVSEs). The feed lists EVSEs, not stations
 them by position within 35 m — deliberately more than the ingestion's 30 m match, so two of its stations
 can never replace each other's charge points — and it reads only the static feed, never the live `status/`
 one (ADR 0015). Austria has no adapter: the E-Control terms forbid storing and relaying the data (ADR 0012,
-"Austria skipped"). `sync.ocm` crawls Open Charge Map per country with keyset paging, throttled and page-capped because
+"Austria skipped"); nor has Italy, whose PUN register has no open export any more and whose portal API is not
+open to foreign users (ADR 0012, "Italy skipped"). `sync.ocm` crawls Open Charge Map per country with keyset paging, throttled and page-capped because
 their fair usage policy allows automated banning; it needs `OCM_API_KEY` and skips itself with a warning
 without one — see ADR 0006, and fetches incrementally via `modifiedsince` with a weekly full refresh.
 All normalize connector labels through `sync.ConnectorTypes` and service state through
