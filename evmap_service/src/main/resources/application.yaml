@@ -103,6 +103,33 @@ evmap:
       max-age: PT72H
       stale-after: PT10M
       timeout: PT15S
+  # Ad-hoc prices at the station (ADR 0022). Like availability, a different axis from evmap.sync: German
+  # OCPI tariffs are read on demand and never written to master data; register prices (France) come from
+  # master.charge_point_price. A price is shown only where its gross amount is established.
+  pricing:
+    enabled: ${PRICING_ENABLED:true}
+    ttl: PT15M
+    max-cache-entries: 500
+    station-radius: 300
+
+    # MobiData BW's OCPDB tariffs (dl-de/by-2.0), the German AFIR feeds of ecoMovement, chargecloud and EnBW.
+    mobidata:
+      enabled: ${MOBIDATA_PRICING_ENABLED:true}
+      base-url: https://api.mobidata-bw.de/ocpdb/api/ocpi/3.0
+      country-codes: DE
+      page-size: 200
+      max-pages: 5
+      tariff-page-size: 1000
+      max-tariff-pages: 10
+      tariff-ttl: PT15M
+      timeout: PT10S
+      # OCPDB drops DATEX II's taxIncluded flag (binary-butterfly/ocpdb#278), so where a tariff's net or
+      # gross basis is not evident from its arithmetic, it is shown only for operators checked by hand
+      # against their own price pages. Names as OCPDB writes them on the location. Phase 5r fills these.
+      net-price-operators:
+        - Allego   # 0,64 net → 0,76 €/kWh, checked by the product owner on 2026-10-01
+      gross-price-operators: []
+
   security:
     jwt-secret: ${JWT_SECRET:change-this-development-secret-to-a-long-random-value}
     jwt-ttl: PT12H

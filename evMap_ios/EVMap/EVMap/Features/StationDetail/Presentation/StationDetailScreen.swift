@@ -33,10 +33,11 @@ struct StationDetailScreen: View {
     var body: some View {
         NavigationStack {
             List {
-                StationInformationSection(station: station)
+                StationInformationSection(station: station, fromPrice: viewModel.prices.flatMap { PriceFormatter.from($0) })
                 StationRouteSection(hasRoute: hasRoute, routeAction: routeAction)
                 // Above the infrastructure: "can I charge here now" outranks "what is installed here".
                 if let live = viewModel.liveAvailability { StationLiveAvailabilitySection(availability: live) }
+                if let prices = viewModel.prices { StationPriceSection(prices: prices, stationOperator: station.operatorName) }
                 if let detail = viewModel.detail { StationInfrastructureSections(detail: detail) }
                 CommentListSection(comments: viewModel.comments, canModerate: authSession.accessToken != nil, edit: { editingComment = $0 },
                                    delete: { comment in Task { await delete(comment) } }, moderate: { moderatingComment = $0 })

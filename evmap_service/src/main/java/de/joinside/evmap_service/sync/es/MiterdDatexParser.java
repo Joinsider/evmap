@@ -49,7 +49,7 @@ import static de.joinside.evmap_service.sync.support.SourceText.mostFrequent;
  *       overwrite each other on every run. The parser therefore bundles sites by position, across
  *       operators, in a way the ingestion's 30 m match can never undo: see
  *       {@link #CLUSTER_RADIUS_METRES}. The operator that owns most of the charge points names the
- *       station; the others are not shown, because {@code master.charge_point} has no operator.</li>
+ *       station; every charge point carries its own site's operator (ADR 0022).</li>
  *   <li><strong>The EVSE-ID is the charge point's {@code fac:name}</strong>, not its {@code id}, and 449 of
  *       the 35.546 names are no EVSE-ID at all ({@code ES*INC*E JAUME I - RRCC}). Only the shape
  *       {@code ES*XXX*E…} is kept; the others keep their plug without an id.</li>
@@ -428,7 +428,8 @@ final class MiterdDatexParser {
         Map<String, Integer> operators = new LinkedHashMap<>();
         for (RawSite site : bundle.sites) {
             for (RawPoint point : site.points) {
-                SourceStation.SourceChargePoint chargePoint = chargePoint(point, seenPointIds, seenEvseIds, counters);
+                SourceStation.SourceChargePoint chargePoint =
+                        chargePoint(point, site.operator, seenPointIds, seenEvseIds, counters);
                 if (chargePoint == null) continue;
                 chargePoints.add(chargePoint);
                 if (site.operator != null) operators.merge(site.operator, 1, Integer::sum);
@@ -472,7 +473,7 @@ final class MiterdDatexParser {
         return latest == null ? fallback : latest;
     }
 
-    private static SourceStation.SourceChargePoint chargePoint(RawPoint point, Set<String> seenPointIds,
+    private static SourceStation.SourceChargePoint chargePoint(RawPoint point, String operator, Set<String> seenPointIds,
                                                                 Set<String> seenEvseIds, Counters counters) {
         if (point.id == null) {
             counters.pointsWithoutId++;
@@ -482,8 +483,9 @@ final class MiterdDatexParser {
             counters.repeatedPointIds++;
             return null;
         }
+        // The register has no price: ad-hoc prices are in its separate dynamic publication (ADR 0022).
         return new SourceStation.SourceChargePoint(point.id, evseId(point, seenEvseIds, counters),
-                connectors(point, counters));
+                connectors(point, counters), operator, null);
     }
 
     /** @return the EVSE-ID, or {@code null} for a name that is none or one another charge point already has */

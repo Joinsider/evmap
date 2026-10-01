@@ -112,8 +112,8 @@ XML, CC-BY, no key, source token `MITERD`, ~10k stations from ~12k sites). The r
 operator*, so the parser bundles sites by position within 35 m across operators (`sync.support.PositionClusters`,
 shared with `sync.ch`), for the same reason: the ingestion treats 30 m as "the same place" and replaces that station's charge points, so two sites
 of one source inside it would overwrite each other on every run. The bundled station is named after the operator
-with most charge points; `master.charge_point` has no operator, so the others are not shown — an operator per
-charge point is a prerequisite of phase 5 (ADR 0012, "Spain (L4)"). The EVSE-ID is the charge point's name, kept
+with most charge points; every other operator stays on its own charge points (`master.charge_point.operator_name`,
+ADR 0022). The EVSE-ID is the charge point's name, kept
 only where it has the shape `ES*XXX*E…`. Austria has no adapter: the E-Control terms forbid storing and relaying the data (ADR 0012,
 "Austria skipped"); nor has Italy, whose PUN register has no open export any more and whose portal API is not
 open to foreign users (ADR 0012, "Italy skipped"). `sync.ocm` crawls Open Charge Map per country with keyset paging, throttled and page-capped because
@@ -161,6 +161,22 @@ honestly `UNKNOWN`. `master.charge_point` holds the EVSE-IDs; `charging_connecto
 **nullable** because sources that report only totals (OCM) still hang connectors off the station.
 Sources that describe charge points individually now emit one connector row per charge point, and
 `StationService.aggregate` rebuilds the station totals on read, so the API payload is unchanged.
+
+**`pricing` is the third axis: ad-hoc prices (ADR 0022).** Shaped like `availability` — `PriceProvider`
+(`pricing.mobidata`: MobiData BW's OCPI tariffs, Germany), `PriceProviderRegistrationTests`, an in-process cache, an
+exact EVSE-ID join, nothing written to `master.*` — plus the register prices `sync` stores in
+`master.charge_point_price` (France: `sync.irve.IrvePriceText` reads the free-text `tarification` only where the
+price is certain). `GET /api/v1/stations/{id}/charge-points` merges both, the live tariff first. **The product owner's
+rule: a price shown wrongly is worse than none.** Every price is gross; an amount whose VAT basis is not established
+is dropped, not guessed. OCPDB drops DATEX's `taxIncluded` (binary-butterfly/ocpdb#278), so a German tariff is shown
+only when its net price × (1 + VAT) lands on whole cents, or its operator is in
+`evmap.pricing.mobidata.net-price-operators` / `gross-price-operators` (checked by hand against official price
+pages); an explicit `tax_included` will win once OCPDB delivers it. OCPDB also maps DATEX per-minute prices into
+OCPI `TIME` unconverted, so the time unit is detected per feed from the median on every refresh and a change is
+logged at WARN — never hard-code "per minute". Open Charge Map's `UsageCost` is deliberately not read.
+`master.charge_point.operator_name` is the operator of a charge point where it differs from the station's (bundled
+Spanish and Swiss sites); the ingestion stores it only then, so `NULL` means "the station's operator". Operator
+filters and the directory (ADR 0014) match a station by any of its operators and hide it only when all are hidden.
 
 Data separation: master/station data (sync-owned, read-only from the API) vs. user data (comments,
 accounts — API-owned). Everything user-owned references **`user_data.account`** by its uuid; the
@@ -269,7 +285,7 @@ code — never call networking APIs directly from a ViewModel or View.
 
 Structure follows a feature-module layout under `Features/`, each split into `Domain` (models),
 `Data` (repository implementations), and `Presentation` (SwiftUI views + view models): `Auth`, `Comments`,
-`Map`, `Search`, `Settings`, `StationDetail`, `Stations`, `Favorites` (ADR 0021), `Routing` (ADR 0017), and `Account` (deletion,
+`Map`, `Search`, `Settings`, `StationDetail` (with the ad-hoc price section, ADR 0022), `Stations`, `Favorites` (ADR 0021), `Routing` (ADR 0017), and `Account` (deletion,
 export, contributions, blocks; ADR 0020). Shared networking primitives live in
 `Core/Networking` (`APIClient`, `APIError`).
 

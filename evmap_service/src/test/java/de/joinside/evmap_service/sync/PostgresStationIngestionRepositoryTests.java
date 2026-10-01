@@ -66,6 +66,32 @@ class PostgresStationIngestionRepositoryTests {
     }
 
     @Test
+    @DisplayName("stores the operator and the price of a charge point, and replaces both with the inventory")
+    void storesOperatorAndPricePerChargePoint() {
+        var price = new SourceStation.SourcePrice("EUR", new BigDecimal("0.371"), new BigDecimal("1.5"), null,
+                false, true, Instant.parse("2026-09-01T00:00:00Z"));
+        var priced = new SourceStation.SourceChargePoint("FRS01E1", "FRS01E1", List.of(type2(1)), "Izivia", price);
+        var unpriced = new SourceStation.SourceChargePoint("FRS01E2", "FRS01E2", List.of(type2(1)));
+        var stationsOwn = new SourceStation.SourceChargePoint("FRS01E3", "FRS01E3", List.of(type2(1)), " enbw", null);
+        repository.upsert(Stream.of(station("IRVE", "FRS01", "FR", 48.8566, 2.3522, "Paris", List.of(),
+                List.of(priced, unpriced, stationsOwn))));
+
+        // Stored only where it differs from the station's operator ("EnBW"), so the column stays sparse.
+        assertThat(jdbc.sql("SELECT operator_name FROM master.charge_point ORDER BY evse_id").query(String.class).list())
+                .containsExactly("Izivia", null, null);
+        Map<String, Object> stored = jdbc.sql("SELECT currency, energy_per_kwh, session_fee, time_fee_per_minute, free, "
+                + "further_fees FROM master.charge_point_price").query().singleRow();
+        assertThat(stored).containsEntry("currency", "EUR").containsEntry("free", false)
+                .containsEntry("further_fees", true).containsEntry("time_fee_per_minute", null);
+        assertThat((BigDecimal) stored.get("energy_per_kwh")).isEqualByComparingTo("0.371");
+        assertThat((BigDecimal) stored.get("session_fee")).isEqualByComparingTo("1.5");
+
+        repository.upsert(Stream.of(station("IRVE", "FRS01", "FR", 48.8566, 2.3522, "Paris", List.of(),
+                List.of(unpriced))));
+        assertThat(count("master.charge_point_price")).isZero();
+    }
+
+    @Test
     @DisplayName("re-ingesting a source's station updates it in place and replaces its inventory")
     void updatesBySourceId() {
         repository.upsert(Stream.of(station("BNetzA", "1", "DE", 48.0, 9.0, "Old name", List.of(type2(2)), List.of())));

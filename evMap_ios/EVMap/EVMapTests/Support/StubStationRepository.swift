@@ -17,6 +17,7 @@ final class StubStationRepository: ChargingStationRepository {
     var stationDetail: Result<StationDetail, Error> = .failure(Failure(message: "no detail"))
     var liveStation: Result<StationLiveAvailability, Error> = .failure(Failure(message: "no live data"))
     var liveViewport: Result<[StationLiveAvailability], Error> = .success([])
+    var stationChargePoints: Result<StationChargePoints, Error> = .failure(Failure(message: "no prices"))
     var providerList: Result<[ChargingProvider], Error> = .success([])
     var commentList: Result<[StationComment], Error> = .success([])
     var commentWrite: Result<StationComment, Error> = .failure(Failure(message: "no comment"))
@@ -66,6 +67,7 @@ final class StubStationRepository: ChargingStationRepository {
 
     func detail(id _: UUID) async throws -> StationDetail { try stationDetail.get() }
     func liveAvailability(stationID _: UUID) async throws -> StationLiveAvailability { try liveStation.get() }
+    func chargePoints(stationID _: UUID) async throws -> StationChargePoints { try stationChargePoints.get() }
     func liveAvailability(latMin _: Double, lonMin _: Double, latMax _: Double, lonMax _: Double) async throws -> [StationLiveAvailability] {
         try liveViewport.get()
     }

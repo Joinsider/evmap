@@ -310,7 +310,9 @@ Mobilithek, France's transport.data.gouv.fr) and in which format.
    owner when turn-by-turn is scoped.
 
 Resolved 2026-09-29: live vehicle data → optional v3; handoff → see *Handoff to navigation apps*.
-Points 1 and 2 have a first research note above (2026-10-01) and stay open for phases 6 and 5.
+Points 1 and 2 have a first research note above (2026-10-01) and stay open for phases 6 and 5. Point 2 was
+answered for ad-hoc prices by the source check in ADR 0022 (German OCPI tariffs via MobiData BW, French register
+free text); charging-card tariffs still have no open source and remain with phase 5b.
 
 4. **Selecting an arbitrary spot on the map.** The info card opens for a search hit and for a tapped town,
    place of interest or station. A free spot without a map feature can not be chosen. Options: (a) a long

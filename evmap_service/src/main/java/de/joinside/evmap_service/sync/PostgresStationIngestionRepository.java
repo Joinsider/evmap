@@ -27,6 +27,7 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
     private static final Logger log = LoggerFactory.getLogger(PostgresStationIngestionRepository.class);
 
     // Named parameters shared by several statements; the SQL refers to them as :source, :sourceId, ….
+    private static final String PARAM_OPERATOR = "operator";
     private static final String PARAM_SOURCE = "source";
     private static final String PARAM_SOURCE_ID = "sourceId";
     private static final String PARAM_STATION_ID = "stationId";
@@ -162,7 +163,7 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
                     .param("city", clip(source.city(), 200))
                     .param("postal", clip(source.postalCode(), 32))
                     .param(PARAM_COUNTRY, clip(source.countryCode(), 2))
-                    .param("operator", clip(source.operatorName(), 500))
+                    .param(PARAM_OPERATOR, clip(source.operatorName(), 500))
                     .param(PARAM_LATITUDE, source.latitude())
                     .param(PARAM_LONGITUDE, source.longitude())
                     .param("availability", clip(source.availabilityStatus(), 32))
@@ -181,7 +182,7 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
                     .param("city", clip(source.city(), 200))
                     .param("postal", clip(source.postalCode(), 32))
                     .param(PARAM_COUNTRY, clip(source.countryCode(), 2))
-                    .param("operator", clip(source.operatorName(), 500))
+                    .param(PARAM_OPERATOR, clip(source.operatorName(), 500))
                     .param(PARAM_LATITUDE, source.latitude())
                     .param(PARAM_LONGITUDE, source.longitude())
                     .param("availability", clip(source.availabilityStatus(), 32))
@@ -234,15 +235,17 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
         for (SourceStation.SourceChargePoint chargePoint : source.chargePoints()) {
             UUID chargePointId = UUID.randomUUID();
             jdbc.sql("INSERT INTO master.charge_point " +
-                            "(id, station_id, source, source_charge_point_id, evse_id, evse_id_normalized) " +
-                            "VALUES (:id,:stationId,:source,:sourceId,:evseId,:evseNormalized)")
+                            "(id, station_id, source, source_charge_point_id, evse_id, evse_id_normalized, operator_name) " +
+                            "VALUES (:id,:stationId,:source,:sourceId,:evseId,:evseNormalized,:operator)")
                     .param("id", chargePointId)
                     .param(PARAM_STATION_ID, stationId)
                     .param(PARAM_SOURCE, clip(source.source(), 32))
                     .param(PARAM_SOURCE_ID, clip(chargePoint.sourceChargePointId(), 255))
                     .param("evseId", clip(chargePoint.evseId(), 64))
                     .param("evseNormalized", EvseIds.normalize(chargePoint.evseId()))
+                    .param(PARAM_OPERATOR, clip(ownOperator(chargePoint, source), 500))
                     .update();
+            if (chargePoint.price() != null) insertPrice(chargePointId, chargePoint.price());
             for (SourceStation.SourceConnector connector : chargePoint.connectors()) {
                 insertConnector(stationId, chargePointId, connector);
             }
@@ -251,6 +254,35 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
         for (SourceStation.SourceConnector connector : source.connectors()) {
             insertConnector(stationId, null, connector);
         }
+    }
+
+    /**
+     * The charge point's operator where it differs from the station's, else {@code null}. Kept sparse on purpose:
+     * {@code NULL} means "the station's operator", the operator directory and filters only have to look at the
+     * few charge points of bundled stations, and a station's own operator is not stored a thousand times over.
+     */
+    private static String ownOperator(SourceStation.SourceChargePoint chargePoint, SourceStation station) {
+        String own = chargePoint.operatorName();
+        if (own == null || own.isBlank()) return null;
+        String stations = station.operatorName() == null ? "" : station.operatorName().trim();
+        return own.trim().equalsIgnoreCase(stations) ? null : own.trim();
+    }
+
+    /** Removed with its charge point by the cascade, so replacing the inventory replaces the price. */
+    private void insertPrice(UUID chargePointId, SourceStation.SourcePrice price) {
+        jdbc.sql("INSERT INTO master.charge_point_price " +
+                        "(charge_point_id, currency, energy_per_kwh, session_fee, time_fee_per_minute, free, " +
+                        "further_fees, observed_at) " +
+                        "VALUES (:id,:currency,:energy,:session,:time,:free,:further,:observed)")
+                .param("id", chargePointId)
+                .param("currency", price.currency())
+                .param("energy", price.energyPerKwh())
+                .param("session", price.sessionFee())
+                .param("time", price.timeFeePerMinute())
+                .param("free", price.free())
+                .param("further", price.furtherFees())
+                .param("observed", timestamp(price.observedAt()))
+                .update();
     }
 
     private void insertConnector(UUID stationId, UUID chargePointId, SourceStation.SourceConnector connector) {

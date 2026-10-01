@@ -8,6 +8,9 @@ final class StationDetailViewModel: ObservableObject {
     /// Live occupancy, `nil` until it arrives and after it failed. Never an error the user sees:
     /// a live source being down means the screen shows no live section, not a broken station.
     @Published private(set) var liveAvailability: StationLiveAvailability?
+    /// Charge points with operator and ad-hoc price (ADR 0022), `nil` until they arrive, after they failed and
+    /// when none has a price. Like live availability, never an error the user sees.
+    @Published private(set) var prices: StationChargePoints?
     @Published private(set) var isLoading = true
     /// Set once a station report was accepted, so the screen can thank the person for it.
     @Published var reportAccepted = false
@@ -35,7 +38,22 @@ final class StationDetailViewModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
         }
-        await loadLiveAvailability()
+        async let live: Void = loadLiveAvailability()
+        async let priced: Void = loadPrices()
+        _ = await (live, priced)
+    }
+
+    /// Fetched after the station and failing silently, for the same reason as live availability: a tariff
+    /// source that is down costs the price section, not the screen.
+    func loadPrices() async {
+        do {
+            let fetched = try await repository.chargePoints(stationID: stationID)
+            prices = fetched.hasPrices ? fetched : nil
+            AppLogger.stations.debug("Prices for \(self.stationID): \(fetched.chargePoints.count - fetched.unpricedCount)/\(fetched.chargePoints.count) charge point(s) priced")
+        } catch {
+            prices = nil
+            AppLogger.stations.debug("No prices for \(self.stationID) — \(AppLogger.describe(error))")
+        }
     }
 
     /// Fetched after the station rather than alongside it, and failing silently.

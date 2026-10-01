@@ -49,6 +49,7 @@ private final class StubProviderRepository: ChargingStationRepository {
 
     func detail(id _: UUID) async throws -> StationDetail { fatalError("unused") }
     func liveAvailability(stationID _: UUID) async throws -> StationLiveAvailability { fatalError("unused") }
+    func chargePoints(stationID _: UUID) async throws -> StationChargePoints { fatalError("unused") }
     func liveAvailability(latMin _: Double, lonMin _: Double, latMax _: Double, lonMax _: Double) async throws -> [StationLiveAvailability] { fatalError("unused") }
     func comments(stationID _: UUID, accessToken _: String?) async throws -> [StationComment] { fatalError("unused") }
     func createComment(stationID _: UUID, payload _: CommentPayload, accessToken _: String) async throws -> StationComment { fatalError("unused") }

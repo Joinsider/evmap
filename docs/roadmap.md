@@ -24,7 +24,9 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | 2 | Konto-Bereich und App-Store-Pflichten | fertig ³ | [#13](https://github.com/Joinsider/evmap/pull/13) | [0020](adr/0020-account-area-and-app-store-obligations.md) |
 | 3 | Favoriten und Fehler melden | fertig ⁶ | [#20](https://github.com/Joinsider/evmap/pull/20) | [0021](adr/0021-favorites-and-station-reports.md) |
 | 4 | Routenplaner Stufe 1 | fertig ⁹ | [#23](https://github.com/Joinsider/evmap/pull/23) | [0017](adr/0017-route-planning-with-charging-stops.md) |
-| 5 | Preise an der Station | offen | | 0017 + neu |
+| 5a | Preise an der Station: Betreiber pro Ladepunkt, Ad-hoc-Preise | fertig ¹⁰ | [#26](https://github.com/Joinsider/evmap/pull/26) | [0022](adr/0022-prices-at-the-station.md) |
+| 5r | Netto/Brutto-Prüfung pro Betreiber (direkt nach 5a) | offen | | [0022](adr/0022-prices-at-the-station.md) |
+| 5b | Ladekarten und Preis mit eigenen Karten | offen | | [0022](adr/0022-prices-at-the-station.md) |
 | 6 | Routenplaner Stufe 2 | offen | | 0017 |
 | 7 | Routenplaner Stufe 3 | offen | | 0017 |
 | 8 | Nutzer-Web-App | offen | | 0018 + neu |
@@ -74,6 +76,11 @@ aus ADR 0017, „Steps for the product owner“: Web-Container neu ausrollen (AA
 `/route`), App einmal neu installieren, Gerätetest unter iOS 26 (Apple Karten etappenweise, Google Maps ganze Route,
 Teilen-Link, Offline-Stand, Stationen entlang einer echten Route). Die Recherche zu Fahrzeugdaten (Open EV Data,
 CDLA-Permissive-2.0) und Tarifquellen steht als Notiz im ADR und fließt in Phase 6 und 5 ein.
+
+¹⁰ Im Repository fertig (Backend 525 Tests, iOS-Unit-Tests grün, im Simulator gegen echte MobiData-Tarife geprüft),
+keine neuen 👤-Schritte. Offen ist der Gerätetest nach dem Ausrollen (deutsche Station mit Live-Tarif, französische mit
+Registerpreis, spanische Station mit zwei Betreibern). Deutsche Tarife erscheinen bisher nur, wo der Bruttopreis belegt
+ist oder der Betreiber geprüft wurde (nur Allego); die übrigen Betreiber prüft Phase 5r.
 
 Separat angestoßen (Teil von Phase 0): `permitAll` für `/api/v1/stations/**` auf GET beschränken.
 Erledigt mit PR #8 (Commit `3d40492`), vor Beginn von Phase 0 auf `master` geprüft.
@@ -167,9 +174,10 @@ Kleine Features, im Alltag sofort nützlich.
 - **Parallel dazu recherchieren:** Wie lassen sich Tarife automatisch beziehen (ADR 0017,
   offener Punkt 2)? Welche Fahrzeugparameter braucht es, und reicht Open EV Data (offener Punkt 1)?
 
-### Phase 5 — Preise an der Station · L
+### Phase 5 — Preise an der Station · L · [ADR 0022](adr/0022-prices-at-the-station.md)
 
-Baut auf der Tarif-Recherche aus Phase 4 auf.
+Baut auf der Tarif-Recherche aus Phase 4 auf. Aufgeteilt in **5a** (Betreiber pro Ladepunkt, Ad-hoc-Preise),
+**5r** (Netto/Brutto-Prüfung pro Betreiber anhand offizieller Preisseiten, direkt nach 5a) und **5b** (Ladekarten).
 
 - **Voraussetzung: Betreiber pro Ladepunkt** (entschieden 2026-10-01, ADR 0012 „Spain (L4)“). Heute steht der
   Betreiber nur an der Station (`master.charging_station.operator_name`); Stationen mehrerer Betreiber am selben
@@ -220,7 +228,7 @@ Reihenfolge: **Österreich → Schweiz → Italien → Spanien**. Vor jedem Adap
 Daten offen verfügbar sind und unter welcher Lizenz; ein Land ohne offene Daten wird übersprungen
 und im ADR 0012 vermerkt. Österreich wurde so übersprungen (Stand 2026-09-30), Schweiz ist umgesetzt, Italien wurde
 übersprungen (Stand 2026-10-01), Spanien ist umgesetzt (Stand 2026-10-01). Damit sind alle vier Lückenfüller
-erledigt; danach folgte **Phase 4**. Als Nächstes ist **Phase 5** dran.
+erledigt; danach folgte **Phase 4**, jetzt **Phase 5** (5a → 5r → 5b).
 
 ### Skalierung / Variante C · bei Bedarf
 
@@ -311,6 +319,24 @@ Lückenfüller Spanien (2026-10-01, Details in ADR 0012, Abschnitt „Spain (L4)
   jedem Lauf. Nur gleiche Betreiber zu bündeln ließe 441 Stationen kollidieren.
 - „Betreiber pro Ladepunkt“ wird Voraussetzung von Phase 5, kein Teil von L4.
 - Spanien ist nicht in der OCM-Standardliste; vor diesem Adapter war es nicht abgedeckt.
+
+Phase 5 (2026-10-01, Details in ADR 0022):
+
+- Phase 5 wird geteilt: 5a (Betreiber pro Ladepunkt + Ad-hoc-Preise), 5r (Netto/Brutto-Prüfung pro Betreiber,
+  eigene Phase direkt nach 5a), 5b (Ladekarten).
+- Betreiber pro Ladepunkt als Spalte `operator_name` an `master.charge_point`; leer heißt: Betreiber der Station.
+- Deutsche Ad-hoc-Preise (MobiData BW, OCPI-Tarife) werden wie der Live-Status bei Bedarf gelesen, nur bei exakt
+  gleicher EVSE-ID, nie in die Stammdaten.
+- Freitext-Preise (Frankreich) nur bei eindeutigen Mustern, sonst kein Preis; vorher Analyse aller Datensätze.
+  Ohne MwSt-Angabe = brutto, „HT“ wird × 1,2 umgerechnet, das OCPI-artige Format von EASYCHARGE/Citeos nur dort,
+  wo × 1,2 nachweislich auf ganze Cent aufgeht.
+- Open Charge Map liefert keine Preise.
+- Deutsche Tarife nur, wenn brutto belegt ist (ganze Cent nach MwSt) oder der Betreiber in einer gepflegten
+  Tabelle steht (Start: Allego netto, vom Product Owner geprüft); die Tabelle zu füllen ist Phase 5r.
+- Zeitgebühren als €/min anzeigen (OCPDB rechnet `pricePerMinute` nicht um); die Einheit wird je Quelle
+  automatisch erkannt und ein Wechsel geloggt.
+- Anzeige auf der Stationsseite je Ladepunkt-Gruppe und als „ab“-Preis oben auf der Stationsseite (nicht in der
+  Infokarte: die öffnet sich für Stationen nicht, Frage korrigiert und neu beantwortet); keine Preise an den Pins.
 
 Phase 4 (2026-10-01, Details in ADR 0017, Abschnitt „Phase 4 decisions“):
 
