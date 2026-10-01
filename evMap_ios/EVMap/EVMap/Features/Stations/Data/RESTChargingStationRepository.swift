@@ -39,6 +39,23 @@ struct RESTChargingStationRepository: ChargingStationRepository {
         return try await client.send(components.url!)
     }
 
+    func stationsAlongRoute(route: [RouteCoordinate], corridorKm: Double, limit: Int, filter: StationFilter) async throws -> [RouteStation] {
+        guard !filter.matchesNothing else {
+            AppLogger.stations.info("Every provider is switched off — along-route query skipped")
+            return []
+        }
+        let request = AlongRouteRequest(
+            route: route.map { .init(latitude: $0.latitude, longitude: $0.longitude) },
+            corridorKm: corridorKm,
+            connectorType: filter.connectorTypes.isEmpty ? nil : filter.connectorTypes.map(\.rawValue).sorted(),
+            minPowerKw: filter.minimumPower,
+            excludeOperator: filter.excludedProviders.isEmpty ? nil : filter.excludedProviders.sorted(),
+            includeOperator: filter.includedProviders.flatMap { $0.isEmpty ? nil : $0.sorted() },
+            limit: limit)
+        // The body, not the URL: a route does not fit a query string, and the client never logs a body.
+        return try await client.send(client.endpoint("stations", "along-route"), method: "POST", body: request)
+    }
+
     func detail(id: UUID) async throws -> StationDetail {
         try await client.send(client.endpoint("stations", id.uuidString))
     }
@@ -155,3 +172,19 @@ private struct MergeFavoritesRequest: Encodable { let stationIds: [UUID] }
 private struct StationReportRequest: Encodable { let reason: String; let note: String? }
 private struct CodeLoginRequest: Encodable { let code: String; let codeVerifier: String? }
 private struct AccessTokenResponse: Decodable { let accessToken: String }
+
+/// The body of `POST /api/v1/stations/along-route`; the filters are named as on the map query.
+private struct AlongRouteRequest: Encodable {
+    struct Point: Encodable {
+        let latitude: Double
+        let longitude: Double
+    }
+
+    let route: [Point]
+    let corridorKm: Double
+    let connectorType: [String]?
+    let minPowerKw: Double?
+    let excludeOperator: [String]?
+    let includeOperator: [String]?
+    let limit: Int
+}

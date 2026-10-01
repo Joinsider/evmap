@@ -48,12 +48,20 @@ final class StubStationRepository: ChargingStationRepository {
     private(set) var liftedBlocks: [UUID] = []
     private(set) var accountDeleted = false
 
+    var alongRoute: Result<[RouteStation], Error> = .success([])
+    private(set) var alongRouteQueries: [(route: [RouteCoordinate], corridorKm: Double, limit: Int, filter: StationFilter)] = []
+
     private(set) var nearbyFilters: [StationFilter] = []
     private(set) var deletedComments: [UUID] = []
 
     func nearby(latitude _: Double, longitude _: Double, radiusKm _: Double, limit _: Int, filter: StationFilter) async throws -> [Station] {
         nearbyFilters.append(filter)
         return try stations.get()
+    }
+
+    func stationsAlongRoute(route: [RouteCoordinate], corridorKm: Double, limit: Int, filter: StationFilter) async throws -> [RouteStation] {
+        alongRouteQueries.append((route, corridorKm, limit, filter))
+        return try alongRoute.get()
     }
 
     func detail(id _: UUID) async throws -> StationDetail { try stationDetail.get() }

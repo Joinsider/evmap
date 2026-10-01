@@ -50,4 +50,10 @@ protocol ChargingStationRepository {
     func mergeFavorites(stationIDs: [UUID], accessToken: String) async throws -> [Station]
     /// Tells the operators what is wrong with a station. Needs a sign-in; the station's data does not change by it.
     func reportStation(id: UUID, reason: StationReportReason, note: String?, accessToken: String) async throws
+
+    // MARK: Route planning (ADR 0017)
+
+    /// Stations in a corridor around `route`, in driving order. `route` is the simplified polyline; it is
+    /// where somebody is going, so it is sent in the request body and never logged above `.debug`.
+    func stationsAlongRoute(route: [RouteCoordinate], corridorKm: Double, limit: Int, filter: StationFilter) async throws -> [RouteStation]
 }

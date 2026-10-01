@@ -306,3 +306,61 @@ struct NetworkingTests {
         await #expect(throws: DecodingError.self) { try await repository.detail(id: UUID()) }
     }
 }
+
+/// `POST /api/v1/stations/along-route` (ADR 0017): the route goes in the body, never in the URL.
+@Suite("Along-route request", .serialized)
+@MainActor
+struct AlongRouteRequestTests {
+    private func repository() -> RESTChargingStationRepository {
+        RESTChargingStationRepository(client: APIClient(baseURL: URL(string: "https://api.example.test")!, session: StubURLProtocol.session()))
+    }
+
+    private let route = [RouteCoordinate(latitude: 48.1234, longitude: 9.5678), RouteCoordinate(latitude: 49.5, longitude: 10.25)]
+
+    @Test("the body carries the route, the corridor and the filters, and the URL carries nothing")
+    func requestShape() async throws {
+        StubURLProtocol.reset { _ in .init(status: 200, body: Data("[]".utf8)) }
+        var filter = StationFilter()
+        filter.connectorTypes = [.ccs]
+        filter.minimumPower = 100
+        filter.excludedProviders = ["Tesla"]
+
+        _ = try await repository().stationsAlongRoute(route: route, corridorKm: 5, limit: 200, filter: filter)
+
+        let request = try #require(StubURLProtocol.requests.last)
+        #expect(request.httpMethod == "POST" && request.url?.path() == "/api/v1/stations/along-route")
+        #expect(request.url?.query() == nil)
+        let body = try #require(request.httpBody.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] })
+        let points = try #require(body["route"] as? [[String: Double]])
+        #expect(points == [["latitude": 48.1234, "longitude": 9.5678], ["latitude": 49.5, "longitude": 10.25]])
+        #expect(body["corridorKm"] as? Double == 5 && body["limit"] as? Int == 200)
+        #expect(body["connectorType"] as? [String] == ["CCS"] && body["excludeOperator"] as? [String] == ["Tesla"])
+        #expect(body["minPowerKw"] as? Double == 100)
+        #expect(body["includeOperator"] == nil)
+    }
+
+    @Test("it decodes the stations with their position along and distance from the route")
+    func response() async throws {
+        let id = UUID()
+        StubURLProtocol.reset { _ in .init(status: 200, body: Data("""
+            [{"station":{"id":"\(id.uuidString)","displayName":"EnBW Mitte","latitude":48.2,"longitude":9.6,"maxPowerKw":150.0},
+              "distanceAlongRouteKm":42.5,"distanceToRouteKm":1.25}]
+            """.utf8)) }
+
+        let found = try await repository().stationsAlongRoute(route: route, corridorKm: 5, limit: 200, filter: StationFilter())
+
+        #expect(found.count == 1 && found[0].station.id == id)
+        #expect(found[0].distanceAlongRouteKm == 42.5 && found[0].distanceToRouteKm == 1.25)
+    }
+
+    @Test("with every provider switched off nothing is sent, as an empty allowlist would mean everything")
+    func nothingToAsk() async throws {
+        StubURLProtocol.reset { _ in .init(status: 200, body: Data("[]".utf8)) }
+        var filter = StationFilter()
+        filter.includedProviders = []
+
+        let found = try await repository().stationsAlongRoute(route: route, corridorKm: 5, limit: 200, filter: filter)
+
+        #expect(found.isEmpty && StubURLProtocol.requests.isEmpty)
+    }
+}
