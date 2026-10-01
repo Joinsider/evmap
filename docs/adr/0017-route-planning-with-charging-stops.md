@@ -1,6 +1,6 @@
 # 17. Route planning with charging stops (v2)
 
-- Status: Accepted 2026-09-29 — nothing implemented yet; stages scheduled in `docs/roadmap.md`
+- Status: Accepted 2026-09-29 — stage 1 (manual planner) in progress in roadmap phase 4 (`feature/phase-4-manual-route-planner`); stages 2–4 not started; stages scheduled in `docs/roadmap.md`
 - Date: 2026-09-29
 - Deciders: Johannes Popp
 
@@ -144,6 +144,64 @@ data once stage 2 exists.
 - A curated tariff list goes stale unless someone maintains it.
 - An own vehicle database with user submissions needs a moderation step, or wrong values reach
   every user planning with that model.
+
+## Phase 4 decisions (2026-10-01): the manual planner
+
+Answers of the product owner when phase 4 started; the rest of this ADR is unchanged.
+
+### A route starts from a place info card, not from a toolbar button
+
+There is no planner button in the map toolbar. A route begins where a person already is in the app:
+they search for something, or tap any place on the map (a town, a POI, a charging station). That opens
+an **info card** in the manner of Apple Maps: name, address, category, distance, and the actions
+**route from here**, **route to here** and **add as waypoint** (the latter once a route exists). The planner
+sheet appears only after one of these actions and is then filled from the same card, so there is one way in
+and one planner state. Charging stations get the same actions in `StationDetailScreen`.
+
+Consequence for ADR 0011: the address search no longer "moves the camera and nothing else". Picking a
+suggestion still moves the camera, and now also selects the place and shows the card. The viewport
+loading path stays the only fetch trigger.
+
+### Saved places are a free, named list on the device
+
+Any place from the search can be saved under a name of the person's choosing (home, office, holiday flat)
+and is then offered in the waypoint picker next to recent searches and favorites. Device-only, never
+sent to the backend, no part of the account export (there is nothing server-side to export), and not
+cleared by "reset settings" (like recent searches, ADR 0014). Favorite stations (ADR 0021) are also
+selectable as waypoints. Rejected: only home/work (too narrow) and favorites only (no way to remember
+a non-station place).
+
+### The current route and a list of saved routes are kept on the device
+
+The route being planned, including its stops and the station details it needs, is cached so it stays
+readable without a network (Lastenheft §11). In addition a person can name and save routes ("Gardasee").
+Both are device-only (ADR 0017 *Persistence, sharing, offline*). Planning again needs a network.
+
+### Share link: a universal link on the web domain
+
+`https://evmap.joinside.de/route?…` carries the waypoints (coordinates, names, dwell times, route options)
+in its query string; nothing is stored on the server. The app opens it through the Associated Domain
+that phase 1 already set up for the sign-in callback. Without the app the link reaches the web container,
+which shows a plain notice until the web app (phase 8) can open the route itself. 👤 The
+`apple-app-site-association` file has to list the `/route` path (to be named exactly in
+`docs/operations/sign-in-providers.md` when it is built). No custom URL scheme.
+
+### Defaults chosen without a question
+
+- "Route to here" starts at the device location; if it is unknown or denied, the start stays empty and is
+  filled in the planner. "Route from here" leaves the destination empty.
+- At most 8 waypoints between start and destination, which stays inside Google Maps' URL limit for the
+  whole-route handoff.
+- `POST /api/v1/stations/along-route` is public like the `GET` station endpoints and is bounded by the request:
+  at most 500 polyline points, a corridor of at most 25 km, at most 200 stations back. It needs an explicit
+  `permitAll` for that one POST (`SecurityConfiguration` only opens `GET /api/v1/stations/**`), and stays
+  exempt from CSRF as an anonymous call (ADR 0018). The polyline is never logged above `.debug` and never stored.
+- Stations are pre-filtered in a corridor of 5 km by default; exact detour minutes are computed for the
+  ten best candidates and for a station when it is selected (MapKit throttling, see above).
+- Break suggestions use MapKit POI categories restaurant, café, bakery, restroom and hotel, searched at several
+  points along the route.
+- The research of open point 1 (vehicle data, Open EV Data) and point 2 (tariff sources) runs next to the
+  implementation and ends as dated sections in this ADR. It produces no code in phase 4.
 
 ## Open points
 
