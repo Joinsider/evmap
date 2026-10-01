@@ -80,6 +80,9 @@ class SecurityConfiguration {
                         // The operator directory is master data like the stations themselves: the
                         // filter UI it feeds has to work before anybody signs in.
                         .requestMatchers(HttpMethod.GET, "/api/v1/stations/**", "/api/v1/operators").permitAll()
+                        // The one read that has to carry a body: a route does not fit a query string, and
+                        // it must not end up in the access logs of a proxy. It writes nothing (ADR 0017).
+                        .requestMatchers(HttpMethod.POST, "/api/v1/stations/along-route").permitAll()
                         .anyRequest().authenticated())
                 // No form login or HTTP basic is configured, so Spring would otherwise answer a
                 // missing token with 403; the client treats 401 as "sign in again".

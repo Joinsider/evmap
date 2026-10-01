@@ -9,6 +9,8 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/stations")
 public class StationController {
+    private static final double DEFAULT_CORRIDOR_KM = 5;
+
     private final StationService stations;
 
     StationController(StationService stations) {
@@ -33,6 +35,24 @@ public class StationController {
                 excludeOperator, includeOperator, limit));
     }
 
+    /**
+     * Stations in a corridor around a planned route, in driving order (ADR 0017). A POST because the
+     * route is a body, not because it writes anything: it is public like the GET queries above, and its
+     * body, being where somebody is going, is never logged.
+     *
+     * @param route      the route simplified on the client, at least two points
+     * @param corridorKm how far off the route a station may be, default 5
+     * @param limit      most stations returned, default 200; past it the strongest chargers are kept
+     *                   (the other fields are those of {@link #nearby})
+     */
+    @PostMapping("/along-route")
+    List<RouteStation> alongRoute(@RequestBody AlongRouteRequest request) {
+        return stations.alongRoute(new AlongRouteQuery(request.route(),
+                request.corridorKm() == null ? DEFAULT_CORRIDOR_KM : request.corridorKm(), request.connectorType(),
+                request.minPowerKw(), request.excludeOperator(), request.includeOperator(),
+                request.limit() == null ? StationService.MAX_ALONG_ROUTE_LIMIT : request.limit()));
+    }
+
     @GetMapping("/{id}")
     StationDetail detail(@PathVariable UUID id) {
         return stations.detail(id);
@@ -46,6 +66,22 @@ public class StationController {
     record StationSummary(UUID id, String displayName, String street, String city, String postalCode,
                           String countryCode, String operatorName, double latitude, double longitude,
                           String availabilityStatus, BigDecimal maxPowerKw) {
+    }
+
+    record RoutePoint(double latitude, double longitude) {
+    }
+
+    record AlongRouteRequest(List<RoutePoint> route, Double corridorKm, List<String> connectorType,
+                             BigDecimal minPowerKw, List<String> excludeOperator, List<String> includeOperator,
+                             Integer limit) {
+    }
+
+    /**
+     * @param distanceAlongRouteKm kilometres from the start to the point of the route nearest the station
+     * @param distanceToRouteKm    straight-line distance from the route, the pre-filter the client ranks
+     *                             by until it has computed the real detour
+     */
+    record RouteStation(StationSummary station, double distanceAlongRouteKm, double distanceToRouteKm) {
     }
 
     record Connector(String connectorType, BigDecimal powerKw, int quantity) {

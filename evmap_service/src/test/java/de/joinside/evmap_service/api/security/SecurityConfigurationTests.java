@@ -70,6 +70,15 @@ class SecurityConfigurationTests {
     }
 
     @Test
+    @DisplayName("stations along a route can be asked for without signing in, while no other POST under stations opens")
+    void alongRouteIsPublic() throws Exception {
+        mockMvc.perform(post("/api/v1/stations/along-route").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/stations/{id}/reports", UUID.randomUUID()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     @DisplayName("the station list stays readable without signing in")
     void stationListIsPublic() throws Exception {
         mockMvc.perform(get("/api/v1/stations").param("latitude", "48.77").param("longitude", "9.18"))
@@ -233,6 +242,11 @@ class SecurityConfigurationTests {
 
     @RestController
     static class Routes {
+        @PostMapping("/api/v1/stations/along-route")
+        List<String> alongRoute() {
+            return List.of();
+        }
+
         @GetMapping("/api/v1/auth/providers")
         List<String> providers() {
             return List.of();
