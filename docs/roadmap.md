@@ -330,7 +330,8 @@ Phase 5 (2026-10-01, Details in ADR 0022):
   Tabelle steht (Start: Allego netto, vom Product Owner geprüft); die Tabelle zu füllen ist Phase 5r.
 - Zeitgebühren als €/min anzeigen (OCPDB rechnet `pricePerMinute` nicht um); die Einheit wird je Quelle
   automatisch erkannt und ein Wechsel geloggt.
-- Anzeige auf der Stationsseite je Ladepunkt-Gruppe und als „ab“-Preis in der Infokarte; keine Preise an den Pins.
+- Anzeige auf der Stationsseite je Ladepunkt-Gruppe und als „ab“-Preis oben auf der Stationsseite (nicht in der
+  Infokarte: die öffnet sich für Stationen nicht, Frage korrigiert und neu beantwortet); keine Preise an den Pins.
 
 Phase 4 (2026-10-01, Details in ADR 0017, Abschnitt „Phase 4 decisions“):
 

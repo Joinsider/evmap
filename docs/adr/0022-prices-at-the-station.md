@@ -113,13 +113,20 @@ prices of that source decides. Real per-minute fees lie between 0,01 and 1 €/m
 minute X" without an amount. A change of the detected unit for a source is logged at WARN. A single time fee
 outside the band of its source's unit loses its amount the same way.
 
-### Display: station screen per charge point group, plus the info card
+### Display: station screen per charge point group, and a "from" price at its top
 
 The station screen lists the ad-hoc price per group of charge points with the same operator, connector and
 power ("0,59 €/kWh · Startgebühr 1,50 € · ab Min. 240: 0,10 €/min"), with "Ad-hoc-Preis laut Betreiber", the
-source and its age; the operator is shown per group where it differs from the station's. The info card
-(`PlaceInfoCard`) shows the lowest energy price of a station ("ab 0,49 €/kWh"), one extra request per tapped
-station. No prices on the map pins and no price filter in 5a; both belong with charging cards (5b).
+source and its age; the operator is shown per group where it differs from the station's. The lowest energy
+price of the station ("ab 0,49 €/kWh") sits at the top of the screen, under name and address, so it is the first
+thing seen after tapping a station, even at the sheet's medium height. No prices on the map pins and no price
+filter in 5a; both belong with charging cards (5b).
+
+The owner first chose the info card (`PlaceInfoCard`) for the "from" price; that choice rested on a wrong
+description in the question — a tapped station opens the station screen directly, the info card is only for
+search hits, towns and places of interest. Asked again on 2026-10-01, the owner chose the top of the station
+screen. Rejected: the route planner's station list (one request per station or a new batch endpoint) and an info
+card in front of the station screen (changes the phase 4 flow and adds a tap).
 
 ## Design (5a)
 
@@ -136,8 +143,8 @@ station. No prices on the map pins and no price filter in 5a; both belong with c
 - **API** `GET /api/v1/stations/{id}/charge-points` (public, like availability): every charge point with
   EVSE-ID, operator, connectors and its price (live tariff first, else the register's), the cheapest energy price
   of the station, and the sources to credit. The station payload itself is unchanged.
-- **iOS**: `ChargingStationRepository.chargePoints(stationID:)`, a price section on the station screen, the
-  "from" price on the info card; all strings German and English.
+- **iOS**: `ChargingStationRepository.chargePoints(stationID:)`, a price section on the station screen and the
+  "from" price at its top; all strings German and English.
 
 ## Consequences
 

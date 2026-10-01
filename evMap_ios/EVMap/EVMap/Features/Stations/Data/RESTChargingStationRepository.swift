@@ -64,6 +64,10 @@ struct RESTChargingStationRepository: ChargingStationRepository {
         try await client.send(client.endpoint("stations", stationID.uuidString, "availability"))
     }
 
+    func chargePoints(stationID: UUID) async throws -> StationChargePoints {
+        try await client.send(client.endpoint("stations", stationID.uuidString, "charge-points"))
+    }
+
     func liveAvailability(latMin: Double, lonMin: Double, latMax: Double, lonMax: Double) async throws -> [StationLiveAvailability] {
         var components = URLComponents(url: client.endpoint("stations", "availability"), resolvingAgainstBaseURL: false)!
         components.queryItems = [

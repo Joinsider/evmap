@@ -77,6 +77,25 @@ struct ViewRenderingTests {
         try await render(List { StationLiveAvailabilitySection(availability: bare) })
     }
 
+    @Test("the price section renders with live and register prices, groups, operators and unpriced charge points")
+    func priceSection() async throws {
+        let ccs = [Connector(connectorType: "CCS", powerKw: 150, quantity: 1)]
+        let prices = StationChargePoints(
+            stationID: UUID(), cheapestEnergyPerKwh: Decimal(string: "0.371"), currency: "EUR",
+            chargePoints: [
+                .init(operatorName: "Endesa", connectors: ccs,
+                      price: AdHocPrice(energyPerKwh: 0.59, sessionFee: 1.5,
+                                        timeFees: [.init(fromMinute: 240, perMinute: 0.1), .init(fromMinute: 300, perMinute: nil)],
+                                        furtherFees: true, observedAt: .now, source: "MobiData BW")),
+                .init(operatorName: "Iberdrola", connectors: [], price: AdHocPrice(energyPerKwh: Decimal(string: "0.371"), source: "IRVE")),
+                .init(operatorName: "Endesa", connectors: ccs, price: AdHocPrice(free: true, source: "IRVE")),
+                .init(operatorName: "Endesa", connectors: ccs, price: nil)
+            ],
+            sources: [Fixtures.mobiData])
+        try await render(List { StationPriceSection(prices: prices, stationOperator: "Endesa") })
+        try await render(List { StationInformationSection(station: Fixtures.station(), fromPrice: PriceFormatter.from(prices)) })
+    }
+
     @Test("the station screen renders signed out and signed in, with detail, comments and live status")
     func stationScreen() async throws {
         let station = Fixtures.station()
@@ -84,6 +103,9 @@ struct ViewRenderingTests {
         repository.stationDetail = .success(Fixtures.detail(for: station))
         repository.commentList = .success([Fixtures.comment(), Fixtures.comment(ownedByCurrentUser: false)])
         repository.liveStation = .success(Fixtures.live(stationID: station.id))
+        repository.stationChargePoints = .success(StationChargePoints(
+            stationID: station.id, cheapestEnergyPerKwh: 0.49, currency: "EUR",
+            chargePoints: [.init(operatorName: nil, connectors: [], price: AdHocPrice(energyPerKwh: 0.49))]))
 
         let signedOut = AuthSession(repository: repository)
         try await render(StationDetailScreen(station: station, repository: repository, authSession: signedOut,

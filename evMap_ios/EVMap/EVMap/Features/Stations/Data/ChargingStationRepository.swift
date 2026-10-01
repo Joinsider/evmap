@@ -12,6 +12,9 @@ protocol ChargingStationRepository {
     /// Live occupancy for a viewport, for the map. Answers only the stations that have one, so the
     /// response scales with live coverage rather than with how far the user zoomed out.
     func liveAvailability(latMin: Double, lonMin: Double, latMax: Double, lonMax: Double) async throws -> [StationLiveAvailability]
+    /// The charge points of one station with their operator and ad-hoc price (ADR 0022). Like live availability,
+    /// separate from ``detail(id:)``, so a tariff source that is down costs the prices and nothing else.
+    func chargePoints(stationID: UUID) async throws -> StationChargePoints
     /// Charging networks whose name contains `query`, most stations first. An empty query returns
     /// the largest networks, which is what a freshly opened picker should show.
     func providers(matching query: String, limit: Int) async throws -> [ChargingProvider]
