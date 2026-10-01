@@ -1,6 +1,6 @@
 # 22. Prices at the station
 
-- Status: Accepted 2026-10-01 — part 5a (operator per charge point, ad-hoc prices) in progress on
+- Status: Accepted 2026-10-01 — part 5a (operator per charge point, ad-hoc prices) implemented on
   `feature/phase-5a-prices-at-station`; 5r (net/gross check per operator) and 5b (charging cards) open
 - Date: 2026-10-01
 - Deciders: Johannes Popp
@@ -154,6 +154,50 @@ card in front of the station screen (changes the phase 4 flow and adds a tap).
 - Prices are only as fresh as the cache (15 minutes) and as complete as the EVSE-ID join (ADR 0015 measured
   14,5 % of live EVSEs resolved); coverage in Germany is therefore partial.
 - Adds one public read endpoint and no personal data (`docs/privacy/data-processing.md` unchanged).
+
+## What phase 5a built (2026-10-01)
+
+**Schema.** `011-charge-point-operator-and-price.sql`: `master.charge_point.operator_name` (with a partial index on
+the rows that have one) and `master.charge_point_price` (gross energy price, session fee, time fee per minute,
+free, further fees, `observed_at`; cascades with its charge point). Both are master data, written only by `sync`.
+
+**sync.** `SourceChargePoint` carries `operatorName` and a `SourcePrice`. IRVE, MITERD and DIEMO set the operator per
+charge point; the ingestion stores it only where it differs from the station's, so the column stays sparse (on the
+2026-10-01 IRVE file 817 charge points differ). `sync.irve.IrvePriceText` reads `tarification`/`gratuit`: on the
+live file **20.516 of 166.499 emitted charge points get a price and 363 are free**; every one of the 257 distinct
+accepted texts was read back by hand. A per-minute fee above 0,50 € is rejected (0,79 €/min would be 47 € an hour).
+
+**pricing.** `PriceProvider`, `PricingService`, `ChargePointInventory`, `PriceCache`, and `pricing.mobidata`
+(`MobiDataBwPriceProvider`, `OcpiTariffs`, `MobiDataPricingProperties`). Checked against the live API: 1.026
+tariffs, all three feeds detected as per-minute, 454 charge points priced in the Stuttgart area.
+
+**API.** `GET /api/v1/stations/{id}/charge-points` (public): charge points with EVSE-ID, operator (falling back
+to the station's), connectors and price, the cheapest energy price and the live sources to credit. Operator
+filters (`operator`, `excludeOperator`, `includeOperator`) and `GET /operators` count the operators of a bundled
+station's charge points: a station matches any of its operators and is hidden only when all of them are.
+
+**iOS.** `ChargingStationRepository.chargePoints(stationID:)`, `StationChargePoints`/`AdHocPrice`/`PriceGroup`/
+`PriceFormatter` in `Features/Stations/Domain`, `StationPriceSection` (one row per operator, plugs and price, each
+with its own "Stand" date; "further fees possible"; charging-card disclaimer; credits) and the "ab … €/kWh" line in
+`StationInformationSection`. Verified end to end in the simulator against a local API with live MobiData tariffs
+(EnBW Korntal 0,70 €/kWh + 0,12 €/min from minute 120; Allego via the operator table 0,76 €/kWh).
+
+**Tests.** Backend 525 (`IrvePriceTextTests`, `OcpiTariffsTests`, `MobiDataBwPriceProviderTests`,
+`PricingServiceTests`, `PriceProviderRegistrationTests`, `ChargePointControllerTests`, bundled-operator filters in
+`StationQueryTests`, ingestion of operator and price); iOS `PriceTests`, `StationDetailPriceTests`, render tests.
+
+### Deviations from the plan
+
+- The "from" price sits at the top of the station screen, not on the info card (question corrected and asked again,
+  see the display decision above).
+- The station's own operator is not repeated on its charge points; `NULL` means "the station's operator".
+- The price age moved from the section footer to each row, because one station's prices can be months apart
+  (Allego's tariff dates from April, a register price from September).
+
+### 👤 Steps for the product owner
+
+None to deploy: no key, no account. Device test after the rollout: a German station with live tariff (EnBW or Lidl),
+a French one with a register price, and a Spanish bundled station with two operators.
 
 ## Open points
 

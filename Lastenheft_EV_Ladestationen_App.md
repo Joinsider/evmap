@@ -139,6 +139,10 @@ Für v2 werden folgende Abgrenzungen aus §10 aufgehoben: Routenplanung und exte
 - Keine eigene Turn-by-Turn-Navigation in v2 (Kandidat für v3)
 
 ### Ladekarten und Preise
+- Ad-hoc-Preis je Ladepunkt (ohne Ladekarte), soweit eine offene Quelle ihn sicher liefert: deutsche
+  AFIR-Tarife über MobiData BW, Preisangaben des französischen Registers; im Zweifel wird kein Preis
+  angezeigt (ADR 0022)
+- Betreiber je Ladepunkt, damit gebündelte Stationen mehrerer Betreiber richtig angezeigt und gefiltert werden
 - Ladekarten mit Tarifen (gepflegte Liste, möglichst automatisch aktualisiert, plus eigene
   Tarife); Preisanzeige je Ladestation
 
