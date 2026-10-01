@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -77,8 +78,8 @@ final class IrvePriceText {
     private static final Pattern PARTS = Pattern.compile(" ?\\+ ?|, (?=\\d)| et (?=\\d)");
 
     private static final Pattern GENERATED = Pattern.compile("par kwh de charge");
-    private static final Pattern GENERATED_ENERGY = Pattern.compile("(\\d++(?:\\.\\d++)?+) ?+[^\\d\\s]?+ ?+par kwh de charge");
-    private static final Pattern GENERATED_TIME = Pattern.compile("(\\d++(?:\\.\\d++)?+) ?+[^\\d\\s]?+ ?+par heure");
+    private static final String GENERATED_ENERGY = "par kwh de charge";
+    private static final String GENERATED_TIME = "par heure";
     private static final Pattern GENERATED_START = Pattern.compile("prix de d[^ ]+part (\\d+(?:\\.\\d+)?)");
 
     private static final ObjectMapper JSON = new ObjectMapper();
@@ -215,19 +216,48 @@ final class IrvePriceText {
     // --- generated format -----------------------------------------------------------------------------
 
     private static SourcePrice parseGenerated(String text, Instant observedAt) {
-        Set<String> energies = new LinkedHashSet<>();
-        Matcher m = GENERATED_ENERGY.matcher(text);
-        while (m.find()) energies.add(m.group(1));
+        Set<BigDecimal> energies = new LinkedHashSet<>(amountsBefore(text, GENERATED_ENERGY));
         if (energies.size() != 1) return null;
 
-        BigDecimal gross = provenNet(new BigDecimal(energies.iterator().next()));
+        BigDecimal gross = provenNet(energies.iterator().next());
         if (gross == null) return null;
 
-        boolean furtherFees = anyPositive(GENERATED_TIME.matcher(text)) || anyPositive(GENERATED_START.matcher(text));
+        boolean furtherFees = amountsBefore(text, GENERATED_TIME).stream().anyMatch(fee -> fee.signum() > 0)
+                || anyPositive(GENERATED_START.matcher(text));
         return plausible(gross, null, null, furtherFees, observedAt);
     }
 
     /** Whether any amount the matcher finds is above zero ("prix de départ 0.0€" is no fee). */
+    /**
+     * The amounts written right before each occurrence of {@code marker}: "0.30916667€ par kwh de charge" gives
+     * 0.30916667. Read backwards from the marker over at most one space, one currency sign and one space, then
+     * the digits and dot of the number — a linear scan where a regular expression searched with {@code find()}
+     * would retry from every digit. An occurrence without a number before it is skipped.
+     */
+    static List<BigDecimal> amountsBefore(String text, String marker) {
+        List<BigDecimal> amounts = new ArrayList<>();
+        for (int at = text.indexOf(marker); at >= 0; at = text.indexOf(marker, at + marker.length())) {
+            int end = skipBack(text, at, ' ');
+            if (end > 0 && !Character.isDigit(text.charAt(end - 1)) && !Character.isWhitespace(text.charAt(end - 1))) end--;
+            end = skipBack(text, end, ' ');
+            int start = end;
+            while (start > 0 && (Character.isDigit(text.charAt(start - 1)) || text.charAt(start - 1) == '.')) start--;
+            if (start < end && Character.isDigit(text.charAt(start))) {
+                try {
+                    amounts.add(new BigDecimal(text.substring(start, end)));
+                } catch (NumberFormatException _) {
+                    // "1.2.3" is no amount; the occurrence is skipped.
+                }
+            }
+        }
+        return amounts;
+    }
+
+    /** The index before at most one {@code skipped} character that ends at {@code end}. */
+    private static int skipBack(String text, int end, char skipped) {
+        return end > 0 && text.charAt(end - 1) == skipped ? end - 1 : end;
+    }
+
     private static boolean anyPositive(Matcher amounts) {
         while (amounts.find())
             if (new BigDecimal(amounts.group(1)).signum() > 0) return true;

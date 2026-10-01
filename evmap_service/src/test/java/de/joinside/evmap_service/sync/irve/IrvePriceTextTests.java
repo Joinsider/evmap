@@ -156,6 +156,15 @@ class IrvePriceTextTests {
         assertThat(IrvePriceText.parse(null, false, WHEN)).isNull();
     }
 
+    @Test
+    @DisplayName("reads the amount before each marker, skipping one space and one currency sign either side")
+    void readsAmountsBeforeAMarker() {
+        assertThat(IrvePriceText.amountsBefore("a : 0.333€ par kwh de charge, 0.4 € par kwh de charge, x par kwh de charge,"
+                + " 1.2.3€ par kwh de charge, 12ć par kwh de charge", "par kwh de charge"))
+                .extracting(BigDecimal::toPlainString)
+                .containsExactly("0.333", "0.4", "12");
+    }
+
     @ParameterizedTest(name = "{0} is net → {1}")
     @CsvSource({"0.3333,0.40", "0.4667,0.56", "0.325,0.39", "0.30916667,0.371", "0.45833,0.55"})
     void provesNetAmounts(String net, String gross) {
