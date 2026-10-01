@@ -37,7 +37,8 @@ struct RouteCoordinate: Hashable, Codable {
     /// over every vertex of a route, and allocating two `CLLocation`s per step is the slow part of it.
     func meters(to other: RouteCoordinate) -> Double {
         let radius = 6_371_000.0
-        let lat1 = latitude * .pi / 180, lat2 = other.latitude * .pi / 180
+        let lat1 = latitude * .pi / 180
+        let lat2 = other.latitude * .pi / 180
         let dLat = lat2 - lat1
         let dLon = (other.longitude - longitude) * .pi / 180
         let a = sin(dLat / 2) * sin(dLat / 2) + cos(lat1) * cos(lat2) * sin(dLon / 2) * sin(dLon / 2)

@@ -129,7 +129,6 @@
 "route.handoff.apple" = "Start → destination in Apple Maps";
 "route.handoff.footer" = "EVMap plans, the other app navigates. Apple Maps reliably takes only a start and a destination, so with waypoints it goes leg by leg.";
 "route.handoff.google" = "Whole route in Google Maps";
-"route.handoff.google.tooMany" = "That is too many waypoints for Google Maps. Use Apple Maps leg by leg.";
 "route.handoff.leg" = "Leg %1$lld: %2$@ → %3$@";
 "route.hasTolls" = "Includes toll roads";
 "route.keep.footer" = "Planned and saved routes stay on this device. The link contains the route itself; nothing is stored on the server.";

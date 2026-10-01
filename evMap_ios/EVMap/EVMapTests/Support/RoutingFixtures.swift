@@ -29,10 +29,12 @@ final class FakeRouteProvider: RouteProviding {
 @MainActor
 final class FakePlaces: NearbyPlacesProviding {
     var found: [BreakSuggestion] = []
+    var failure: Error?
     private(set) var centers: [CLLocationCoordinate2D] = []
 
     func places(near center: CLLocationCoordinate2D, radiusMeters _: Double, categories _: [BreakSuggestion.Category]) async throws -> [BreakSuggestion] {
         centers.append(center)
+        if let failure { throw failure }
         return found
     }
 }
@@ -64,5 +66,35 @@ enum RoutingFixtures {
     static func routeStation(_ name: String, along: Double, off: Double = 1, id: UUID = UUID()) -> RouteStation {
         RouteStation(station: Fixtures.station(id: id, name: name, latitude: 48, longitude: 8 + along / 74.5),
                      distanceAlongRouteKm: along, distanceToRouteKm: off)
+    }
+}
+
+/// MapKit's directions, answered by the test.
+@MainActor
+final class FakeDirections: DirectionsServing {
+    var routes: [(start: CLLocationCoordinate2D, end: CLLocationCoordinate2D, alternatives: Bool, options: RouteOptions)] = []
+    /// What each call answers, in order; the last answer repeats.
+    var answers: [Result<[DirectionsRoute], Error>] = []
+    var eta: Result<TimeInterval, Error> = .success(120)
+    private(set) var etaRequests = 0
+
+    func directions(from start: CLLocationCoordinate2D, to end: CLLocationCoordinate2D, options: RouteOptions,
+                    alternatives: Bool) async throws -> [DirectionsRoute] {
+        routes.append((start, end, alternatives, options))
+        let index = min(routes.count, answers.count) - 1
+        return try answers[index].get()
+    }
+
+    func travelTime(from _: CLLocationCoordinate2D, to _: CLLocationCoordinate2D, options _: RouteOptions) async throws -> TimeInterval {
+        etaRequests += 1
+        return try eta.get()
+    }
+
+    /// A drivable leg from `from` to `to` in longitude, one vertex at each end and one between.
+    static func leg(_ from: Double, _ to: Double, name: String = "A8", tolls: Bool = false) -> DirectionsRoute {
+        DirectionsRoute(name: name,
+                        coordinates: [RouteCoordinate(latitude: 48, longitude: from), RouteCoordinate(latitude: 48, longitude: (from + to) / 2),
+                                      RouteCoordinate(latitude: 48, longitude: to)],
+                        distance: (to - from) * 74_500, travelTime: (to - from) * 3_600, hasTolls: tolls)
     }
 }

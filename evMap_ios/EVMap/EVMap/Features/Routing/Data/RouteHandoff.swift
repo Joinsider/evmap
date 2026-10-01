@@ -8,6 +8,10 @@ import MapKit
 /// time. Google Maps takes the whole route through the `waypoints` parameter of its directions URL, as
 /// far as its limit allows, and longer routes fall back to leg by leg.
 enum RouteHandoff {
+    static let googleMapsHost = "www.google.com"
+    /// The path of Google Maps' directions URL, as segments.
+    static let googleMapsDirections = ["maps", "dir"]
+
     /// Google Maps' directions URL accepts nine waypoints between origin and destination.
     static let googleMapsWaypointLimit = 9
 
@@ -25,7 +29,10 @@ enum RouteHandoff {
         items.append(URLQueryItem(name: "travelmode", value: "driving"))
         let avoided = [options.avoidTolls ? "tolls" : nil, options.avoidMotorways ? "highways" : nil].compactMap { $0 }
         if !avoided.isEmpty { items.append(URLQueryItem(name: "avoid", value: avoided.joined(separator: "|"))) }
-        var components = URLComponents(string: "https://www.google.com/maps/dir/")!
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = googleMapsHost
+        components.path = "/" + googleMapsDirections.joined(separator: "/") + "/"
         components.queryItems = items
         return components.url
     }

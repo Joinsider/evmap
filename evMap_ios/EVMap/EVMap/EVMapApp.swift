@@ -39,11 +39,7 @@ struct EVMapApp: App {
         WindowGroup {
             MapScreen(repository: repository, authSession: authSession, settings: settings, favorites: favorites, planner: planner)
                 // A route somebody shared (ADR 0017); anything else that arrives as a link is not ours to open.
-                .onOpenURL { url in
-                    guard let shared = RouteShareLink.parse(url) else { return }
-                    AppLogger.routing.notice("Opening a shared route with \(shared.waypoints.count) stops")
-                    planner.open(shared)
-                }
+                .onOpenURL { planner.openShareLink($0) }
         }
     }
 }

@@ -79,6 +79,16 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         recluster()
     }
 
+    /// Follows the planner: the stations along its route while it has one, the viewport's otherwise. A
+    /// route that is being planned again keeps the map as it was, instead of flickering through the viewport.
+    func follow(_ planner: RoutePlannerViewModel) {
+        if planner.route != nil {
+            showRoute(stations: planner.candidates.map(\.station))
+        } else if planner.phase != .planning {
+            clearRoute()
+        }
+    }
+
     /// Back to the viewport: what was drawn belonged to the route, so the area on screen is fetched anew.
     func clearRoute() {
         guard mode == .route else { return }

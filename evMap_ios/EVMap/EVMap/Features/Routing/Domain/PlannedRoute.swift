@@ -58,13 +58,15 @@ struct PlannedRoute: Codable, Equatable, Identifiable {
         if meters <= 0 { return first }
         if meters >= polylineMeters { return last }
         // First vertex at or beyond the target; the point lies on the segment before it.
-        var low = 0, high = cumulativeMeters.count - 1
+        var low = 0
+        var high = cumulativeMeters.count - 1
         while low < high {
             let middle = (low + high) / 2
             if cumulativeMeters[middle] < meters { low = middle + 1 } else { high = middle }
         }
         let next = max(low, 1)
-        let start = coordinates[next - 1], end = coordinates[next]
+        let start = coordinates[next - 1]
+        let end = coordinates[next]
         let span = cumulativeMeters[next] - cumulativeMeters[next - 1]
         let fraction = span > 0 ? (meters - cumulativeMeters[next - 1]) / span : 0
         return RouteCoordinate(latitude: start.latitude + (end.latitude - start.latitude) * fraction,
@@ -76,7 +78,8 @@ struct PlannedRoute: Codable, Equatable, Identifiable {
     /// from a detour, which is a difference of two nearby times.
     func travelTime(fromMeters start: Double, toMeters end: Double) -> TimeInterval {
         guard polylineMeters > 0 else { return 0 }
-        let from = min(max(start, 0), polylineMeters), to = min(max(end, 0), polylineMeters)
+        let from = min(max(start, 0), polylineMeters)
+        let to = min(max(end, 0), polylineMeters)
         return travelTime * abs(to - from) / polylineMeters
     }
 

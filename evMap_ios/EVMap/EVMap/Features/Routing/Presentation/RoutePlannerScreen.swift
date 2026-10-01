@@ -78,7 +78,7 @@ private struct RouteStopsSection: View {
     var body: some View {
         Section {
             ForEach(Array(planner.slots.enumerated()), id: \.element.id) { index, slot in
-                RouteStopRow(role: role(index), slot: slot, arrival: planner.arrivalOffset(atSlot: index),
+                RouteStopRow(role: RouteStopRole(index: index, count: planner.slots.count), slot: slot, arrival: planner.arrivalOffset(atSlot: index),
                              pick: { pick(slot.id) }, setDwell: { planner.setDwell($0, forSlot: slot.id) })
                     .swipeActions { Button("action.delete", role: .destructive) { planner.remove(slot: slot.id) } }
             }
@@ -98,45 +98,13 @@ private struct RouteStopsSection: View {
         }
     }
 
-    private func role(_ index: Int) -> RouteStopRow.Role {
-        if index == 0 { return .start }
-        return index == planner.slots.count - 1 ? .destination : .waypoint
-    }
 }
 
 private struct RouteStopRow: View {
-    enum Role {
-        case start, waypoint, destination
-
-        var title: LocalizedStringKey {
-            switch self {
-            case .start: "route.role.start"
-            case .waypoint: "route.role.waypoint"
-            case .destination: "route.role.destination"
-            }
-        }
-
-        var symbol: String {
-            switch self {
-            case .start: "circle.fill"
-            case .waypoint: "circle"
-            case .destination: "mappin.circle.fill"
-            }
-        }
-
-        var color: Color {
-            switch self {
-            case .start: .green
-            case .waypoint: .blue
-            case .destination: .red
-            }
-        }
-    }
-
     /// Stays offered for a stop: a coffee, a charge, a meal, a night.
     private static let dwellChoices = [0, 15, 30, 45, 60, 90, 120, 180, 240, 480, 720, 1_440]
 
-    let role: Role
+    let role: RouteStopRole
     let slot: RouteSlot
     let arrival: TimeInterval?
     let pick: () -> Void
@@ -389,10 +357,10 @@ private struct RouteHandoffSection: View {
 
     var body: some View {
         Section {
+            // A plan has at most ten stops, which is inside Google Maps' limit of nine waypoints; the URL builder
+            // still refuses more, so this is where a longer plan would lose the button.
             if let url = planner.googleMapsURL {
                 Button { openURL(url) } label: { Label("route.handoff.google", systemImage: "arrow.up.forward.app") }
-            } else if planner.isPlannable {
-                Text("route.handoff.google.tooMany").font(.caption).foregroundStyle(.secondary)
             }
             if planner.isPlannable, planner.stops.count >= 2 {
                 if planner.stops.count == 2, let items = RouteHandoff.appleMapsItems(for: planner.stops, leg: 0) {
@@ -437,6 +405,33 @@ private struct RouteKeepSection: View {
             Button(role: .destructive, action: clear) { Label("route.clear", systemImage: "trash") }
         } footer: {
             Text("route.keep.footer")
+        }
+    }
+}
+
+extension RouteStopRole {
+    var title: LocalizedStringKey {
+        switch self {
+        case .start: "route.role.start"
+        case .waypoint: "route.role.waypoint"
+        case .destination: "route.role.destination"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .start: "circle.fill"
+        case .waypoint: "circle"
+        case .destination: "mappin.circle.fill"
+        }
+    }
+
+    /// Green to go, red to stop, blue in between: the row's dot and the marker on the map.
+    var color: Color {
+        switch self {
+        case .start: .green
+        case .waypoint: .blue
+        case .destination: .red
         }
     }
 }

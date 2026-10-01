@@ -60,7 +60,8 @@ enum PolylineSimplifier {
 
     private static func distanceToSegment(_ point: (x: Double, y: Double), _ start: (x: Double, y: Double),
                                           _ end: (x: Double, y: Double)) -> Double {
-        let dx = end.x - start.x, dy = end.y - start.y
+        let dx = end.x - start.x
+        let dy = end.y - start.y
         let lengthSquared = dx * dx + dy * dy
         guard lengthSquared > 0 else { return hypot(point.x - start.x, point.y - start.y) }
         let t = max(0, min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared))

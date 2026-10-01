@@ -13,7 +13,9 @@ import Foundation
 /// A link arrives from outside the app, so everything read from it is bounded and range-checked.
 enum RouteShareLink {
     static let host = "evmap.joinside.de"
-    static let path = "/route"
+    /// The one path segment of the link; the path is `/` plus it, so the link is built, not spelled out.
+    static let pathSegment = "route"
+    static var path: String { "/" + pathSegment }
     static let maximumStops = 10
     private static let maximumNameLength = 80
 

@@ -12,7 +12,7 @@ import java.util.UUID;
 class StationService {
     private static final Logger log = LoggerFactory.getLogger(StationService.class);
     /** A spatial lookup slower than this points at a missing/unused index — worth a warning. */
-    private static final long SLOW_QUERY_MS = 1_000;
+    static final long SLOW_QUERY_MS = 1_000;
     /**
      * Widest query the map may ask for. A viewport zoomed out to a continent turns into a radius of
      * this order; beyond it the circle stops describing anything the user can act on, and the cost
@@ -107,11 +107,12 @@ class StationService {
             throw new IllegalArgumentException("route must have between 2 and " + MAX_ROUTE_POINTS + " points");
         }
         for (var point : query.route())
-            if (point == null || !(Math.abs(point.latitude()) <= 90) || !(Math.abs(point.longitude()) <= 180)) {
+            if (!isCoordinate(point)) {
                 log.warn("Rejected along-route query with a point outside the coordinate range");
                 throw new IllegalArgumentException("route points must be valid latitudes and longitudes");
             }
-        if (!(query.corridorKm() >= MIN_CORRIDOR_KM && query.corridorKm() <= MAX_CORRIDOR_KM)) {
+        // NaN is no corridor either, which a plain "< min || > max" would let through.
+        if (Double.isNaN(query.corridorKm()) || query.corridorKm() < MIN_CORRIDOR_KM || query.corridorKm() > MAX_CORRIDOR_KM) {
             log.warn("Rejected along-route query with corridorKm={}", query.corridorKm());
             throw new IllegalArgumentException("corridorKm must be between " + MIN_CORRIDOR_KM + " and " + MAX_CORRIDOR_KM);
         }
@@ -127,6 +128,11 @@ class StationService {
             log.warn("Rejected along-route query restricted to {} operators", NearbyQuery.sizeOf(query.includeOperators()));
             throw new IllegalArgumentException("includeOperator must name at most " + MAX_INCLUDED_OPERATORS + " operators");
         }
+    }
+
+    private static boolean isCoordinate(StationController.RoutePoint point) {
+        return point != null && Double.isFinite(point.latitude()) && Double.isFinite(point.longitude())
+                && Math.abs(point.latitude()) <= 90 && Math.abs(point.longitude()) <= 180;
     }
 
     /** Rejects a query outside the bounds the API promises, before it costs a database round trip. */

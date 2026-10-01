@@ -136,6 +136,26 @@ struct RoutePlannerViewModelTests {
         #expect(h.planner.errorMessage != nil)
     }
 
+    @Test("a stop added to an empty plan makes it the destination, with the device position as start")
+    func addStopToNothing() {
+        let h = harness()
+        h.planner.apply(.addStop, to: munich)
+        #expect(names(h.planner) == ["here", "München"])
+    }
+
+    @Test("an empty row can be added before the destination, up to the limit")
+    func emptyRows() {
+        let h = harness()
+        h.planner.addEmptyStop()
+        #expect(!h.planner.hasPlan)
+
+        h.planner.apply(.routeTo, to: munich)
+        h.planner.addEmptyStop()
+        #expect(names(h.planner) == ["here", nil, "München"] && !h.planner.isPlannable)
+        for _ in 0..<20 { h.planner.addEmptyStop() }
+        #expect(h.planner.slots.count == RouteShareLink.maximumStops && !h.planner.canAddStop)
+    }
+
     // MARK: Changing the plan
 
     @Test("rows can be reordered, reversed and removed, down to two and then to gaps")
@@ -305,6 +325,38 @@ struct RoutePlannerViewModelTests {
         #expect(h.planner.phase == .planned && h.planner.route != nil && h.planner.candidates.isEmpty)
     }
 
+    // MARK: Interrupted work
+
+    @Test("a plan that is replaced while MapKit is answering leaves no failure behind")
+    func planningSuperseded() async {
+        let h = harness()
+        h.routes.result = .failure(CancellationError())
+        h.planner.apply(.routeTo, to: munich)
+        await settle { h.routes.routeRequests.count == 1 }
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(h.planner.phase == .planning)
+    }
+
+    @Test("a station query that is cancelled is not a failure")
+    func stationsSuperseded() async {
+        let h = harness()
+        h.repository.alongRoute = .failure(CancellationError())
+        h.planner.apply(.routeTo, to: munich)
+        await settle { h.repository.alongRouteQueries.count == 1 }
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(h.planner.stationsFailure == nil && h.planner.phase == .planned)
+    }
+
+    @Test("a detour MapKit cannot answer leaves that station with its estimate and is not reported as throttling")
+    func detourFailure() async {
+        let h = harness(found: [RoutingFixtures.routeStation("S", along: 50, off: 2)])
+        h.routes.travelTimes = .failure(StubStationRepository.Failure(message: "no route"))
+        h.planner.apply(.routeTo, to: munich)
+        await settle { h.routes.travelTimeRequests >= 2 }
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(!h.planner.detoursThrottled && h.planner.candidates.count == 1 && !h.planner.candidates[0].isDetourExact)
+    }
+
     // MARK: Breaks
 
     @Test("break suggestions are searched at intervals of driving time, only on request, and listed in driving order")
@@ -321,6 +373,31 @@ struct RoutePlannerViewModelTests {
         // Five hours at one search per two: two searches, one place each, the same place deduplicated.
         #expect(h.places.centers.count == 2)
         #expect(h.planner.breaks.count == 1)
+    }
+
+    @Test("a failing break search costs its stretch only, and a station's surroundings are searched on request")
+    func breakFailures() async {
+        let h = harness()
+        h.routes.result = .success([RoutingFixtures.route(hours: 5)])
+        h.places.failure = StubStationRepository.Failure(message: "offline")
+        h.planner.apply(.routeTo, to: munich)
+        await settle { h.planner.phase == .planned }
+        h.planner.loadBreaks()
+        await settle { !h.planner.isLoadingBreaks && h.places.centers.count == 2 }
+        #expect(h.planner.breaks.isEmpty)
+
+        h.places.failure = nil
+        h.places.found = [BreakSuggestion(id: "cafe|A", name: "A", category: .cafe, latitude: 48, longitude: 9, distanceAlongRouteKm: 0)]
+        #expect(await h.planner.amenities(near: Fixtures.station()).count == 1)
+        h.places.failure = StubStationRepository.Failure(message: "offline")
+        #expect(await h.planner.amenities(near: Fixtures.station()).isEmpty)
+    }
+
+    @Test("breaks on a route without driving time are not searched")
+    func breaksWithoutRoute() {
+        let h = harness()
+        h.planner.loadBreaks()
+        #expect(h.places.centers.isEmpty && h.planner.breaks.isEmpty)
     }
 
     // MARK: Saved places and routes, links
@@ -358,6 +435,19 @@ struct RoutePlannerViewModelTests {
         await settle { h.planner.phase == .planned }
         h.planner.deleteRoute(h.planner.savedRoutes[0])
         #expect(h.planner.savedRoutes.isEmpty)
+    }
+
+    @Test("a link of ours opens as the plan, and any other link is left alone")
+    func openingLinks() async throws {
+        let h = harness()
+        #expect(!h.planner.openShareLink(URL(string: "https://example.com/route?w=48.1,9.1,0,,A&w=49.1,10.1,0,,B")!))
+        #expect(!h.planner.openShareLink(URL(string: "https://evmap.joinside.de/other")!))
+        #expect(!h.planner.hasPlan)
+
+        let link = try #require(RouteShareLink.url(for: [RoutingFixtures.place("A"), munich], options: RouteOptions(avoidTolls: true, avoidMotorways: false)))
+        #expect(h.planner.openShareLink(link))
+        #expect(names(h.planner) == ["A", "München"] && h.planner.options.avoidTolls && h.planner.isPlannerPresented)
+        await settle { h.planner.phase == .planned }
     }
 
     @Test("a shared route opens as the plan, and its 'where I am' becomes this device's position")

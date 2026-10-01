@@ -175,7 +175,7 @@ final class RoutePlannerViewModel: ObservableObject {
     }
 
     func addEmptyStop() {
-        guard canAddStop else { return }
+        guard hasPlan, canAddStop else { return }
         slots.insert(RouteSlot(), at: max(slots.count - 1, 0))
         changed()
     }
@@ -291,6 +291,15 @@ final class RoutePlannerViewModel: ObservableObject {
     /// Opens the route of a share link. The link is untrusted input; `RouteShareLink` has bounded it.
     func open(_ shared: RouteShareLink.Route) {
         load(waypoints: shared.waypoints, options: shared.options)
+    }
+
+    /// Opens whatever link the app was opened with if it is a route of ours; anything else is not ours to open.
+    @discardableResult
+    func openShareLink(_ url: URL) -> Bool {
+        guard let shared = RouteShareLink.parse(url) else { return false }
+        AppLogger.routing.notice("Opening a shared route with \(shared.waypoints.count) stops")
+        open(shared)
+        return true
     }
 
     private func load(waypoints: [RouteWaypoint], options: RouteOptions) {

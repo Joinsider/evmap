@@ -20,7 +20,8 @@ enum DetourEstimator {
 
     static func frame(for candidate: RouteStation, on route: PlannedRoute) -> Frame? {
         let along = candidate.distanceAlongRouteKm * 1_000
-        let start = max(along - marginMeters, 0), end = min(along + marginMeters, route.polylineMeters)
+        let start = max(along - marginMeters, 0)
+        let end = min(along + marginMeters, route.polylineMeters)
         guard let leave = route.coordinate(atMeters: start), let rejoin = route.coordinate(atMeters: end) else { return nil }
         return Frame(leave: leave, rejoin: rejoin, routeTime: route.travelTime(fromMeters: start, toMeters: end))
     }

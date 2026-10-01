@@ -25,9 +25,9 @@ struct RouteWaypoint: Identifiable, Hashable, Codable {
     /// Longest stay that can be entered: a night, which is what a hotel waypoint means.
     static let maximumDwellMinutes = 24 * 60
 
-    init(id: UUID = UUID(), kind: Kind = .place, name: String, subtitle: String = "", latitude: Double,
+    init(kind: Kind = .place, name: String, subtitle: String = "", latitude: Double,
          longitude: Double, stationID: UUID? = nil, dwellMinutes: Int = 0) {
-        self.id = id
+        self.id = UUID()
         self.kind = kind
         self.name = name
         self.subtitle = subtitle

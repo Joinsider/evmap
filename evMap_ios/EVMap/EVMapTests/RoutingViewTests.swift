@@ -32,6 +32,7 @@ struct RoutingViewTests {
     private struct Harness {
         let planner: RoutePlannerViewModel
         let routes: FakeRouteProvider
+        let places: FakePlaces
         let favorites: FavoritesViewModel
     }
 
@@ -39,11 +40,12 @@ struct RoutingViewTests {
         let repository = StubStationRepository()
         repository.alongRoute = .success(found)
         let routes = FakeRouteProvider()
-        let planner = RoutePlannerViewModel(repository: repository, routes: routes, places: FakePlaces(), store: store,
+        let places = FakePlaces()
+        let planner = RoutePlannerViewModel(repository: repository, routes: routes, places: places, store: store,
                                             filter: { StationFilter() },
                                             currentLocation: { CLLocationCoordinate2D(latitude: 48.7758, longitude: 9.1829) })
         let favorites = FavoritesViewModel(repository: repository, authSession: AuthSession(repository: repository), store: MemoryFavorites())
-        return Harness(planner: planner, routes: routes, favorites: favorites)
+        return Harness(planner: planner, routes: routes, places: places, favorites: favorites)
     }
 
     private func screen(_ h: Harness) -> some View {
@@ -64,12 +66,18 @@ struct RoutingViewTests {
     func plannerPlanned() async throws {
         let stations = (0..<6).map { RoutingFixtures.routeStation("Station \($0)", along: Double($0) * 20 + 5, off: Double($0) + 0.5) }
         let h = harness(found: stations)
-        h.routes.result = .success([RoutingFixtures.route(hours: 3), RoutingFixtures.route(hours: 4)])
+        h.routes.result = .success([RoutingFixtures.route(legs: 2, hours: 3), RoutingFixtures.route(legs: 2, hours: 4)])
+        h.places.found = [BreakSuggestion(id: "cafe|Café", name: "Café", category: .cafe, latitude: 48, longitude: 9, distanceAlongRouteKm: 0),
+                          BreakSuggestion(id: "hotel|Hotel", name: "Hotel", category: .hotel, latitude: 48, longitude: 10, distanceAlongRouteKm: 0)]
         h.planner.apply(.routeTo, to: munich)
         h.planner.addChargingStop(Fixtures.station(name: "Fastned Ulm"))
+        h.planner.setDwell(45, forSlot: h.planner.slots[1].id)
+        try await render(screen(h), settle: .milliseconds(500))
+        // Loading, then listed.
         h.planner.loadBreaks()
-        try await render(screen(h), settle: .milliseconds(800))
-        #expect(h.planner.phase == .planned)
+        try await render(screen(h), settle: .milliseconds(50))
+        try await render(screen(h), settle: .milliseconds(600))
+        #expect(h.planner.phase == .planned && !h.planner.breaks.isEmpty)
     }
 
     @Test("the planner renders a route that failed and a station query that failed")
@@ -130,4 +138,56 @@ struct RoutingViewTests {
         #expect(h.planner.phase == .planned && h.routes.routeRequests.isEmpty)
         try await render(screen(h))
     }
+
+    // MARK: The map with a plan
+
+    private func map(_ h: Harness, flow: MapPlaceFlow? = nil) -> MapScreen {
+        let repository = StubStationRepository()
+        return MapScreen(repository: repository, authSession: AuthSession(repository: repository),
+                         settings: SettingsViewModel(store: MemorySettings(.factoryDefaults)), favorites: h.favorites, planner: h.planner, flow: flow)
+    }
+
+    private final class MemorySettings: AppSettingsStoring {
+        var stored: AppSettings
+        init(_ stored: AppSettings) { self.stored = stored }
+        func load() -> AppSettings { stored }
+        func save(_ settings: AppSettings) { stored = settings }
+        func reset() { stored = .factoryDefaults }
+    }
+
+    private func storeWithPlan(stops: Int = 3) -> MemoryRoutingStore {
+        let store = MemoryRoutingStore()
+        let slots = (0..<stops).map { RouteSlot(waypoint: RoutingFixtures.place("Stopp \($0)", longitude: 8 + Double($0))) }
+        store.plan = StoredRoutePlan(slots: slots, options: RouteOptions(), route: RoutingFixtures.route(legs: stops - 1),
+                                     candidates: [RouteStopCandidate(routeStation: RoutingFixtures.routeStation("S", along: 50), detourMinutes: 3)],
+                                     savedAt: Date())
+        return store
+    }
+
+    @Test("the map draws a restored route with its stops and the summary bar, and follows a new one")
+    func mapWithRoute() async throws {
+        let h = harness(found: [RoutingFixtures.routeStation("Neu", along: 20)], store: storeWithPlan())
+        try await render(map(h), height: 932, settle: .milliseconds(800))
+        h.planner.reverse()
+        try await render(map(h), height: 932, settle: .milliseconds(800))
+        h.planner.clear()
+        try await render(map(h), height: 932, settle: .milliseconds(400))
+    }
+
+    @Test("the map presents the planner, the info card and the station screen over itself")
+    func mapSheets() async throws {
+        let h = harness(store: storeWithPlan())
+        h.planner.isPlannerPresented = true
+        try await render(map(h), height: 932, settle: .milliseconds(1_200))
+        h.planner.isPlannerPresented = false
+
+        let flow = MapPlaceFlow(planner: h.planner)
+        flow.place = PlaceSelection(title: "München", subtitle: "Bayern", coordinate: CLLocationCoordinate2D(latitude: 48.1, longitude: 11.5))
+        try await render(map(h, flow: flow), height: 932, settle: .milliseconds(1_200))
+
+        let stationFlow = MapPlaceFlow(planner: h.planner)
+        stationFlow.station = Fixtures.station(name: "Fastned Ulm")
+        try await render(map(h, flow: stationFlow), height: 932, settle: .milliseconds(1_200))
+    }
 }
+

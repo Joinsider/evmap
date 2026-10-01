@@ -15,8 +15,13 @@ struct StationDetailScreen: View {
     /// The comment somebody else wrote that the reader is about to report or block the author of.
     @State private var moderatingComment: StationComment?
 
+    /// The default for screens opened without a map behind them (tests, previews): the route actions do nothing.
+    static func ignoreRouteAction(_: RouteIntent) {
+        // Deliberately empty: there is no planner to hand the intent to.
+    }
+
     init(station: Station, repository: any ChargingStationRepository, authSession: AuthSession, favorites: FavoritesViewModel,
-         hasRoute: Bool = false, routeAction: @escaping (RouteIntent) -> Void = { _ in }) {
+         hasRoute: Bool = false, routeAction: @escaping (RouteIntent) -> Void = StationDetailScreen.ignoreRouteAction) {
         self.station = station
         self.authSession = authSession
         self.favorites = favorites

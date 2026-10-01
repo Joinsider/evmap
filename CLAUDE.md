@@ -311,6 +311,11 @@ saved routes and the open plan are device-only and never logged; "Mein Standort"
 (`RouteShareLink`, universal link `https://evmap.joinside.de/route?…`, the web container's `apple-app-site-association`
 carries `applinks` for `/route`). Apple Maps takes only start → destination reliably, hence leg by leg
 (`RouteHandoff`).
+The map's sheets (info card, station screen, planner) are orchestrated by `MapPlaceFlow`, not by `MapScreen`:
+SwiftUI cannot swap one sheet for another in a single step, so a choice made on a card is parked and carried out in
+the card's `onDismiss`. Logic that does not need SwiftUI belongs in such testable types (`MapPlaceFlow`,
+`MapCamera`, `RouteFraming`, `RouteStopRole`), because the view bodies and their tap closures are the part the unit
+tests cannot reach; MapKit itself sits behind `DirectionsServing` and `NearbyPlacesProviding`.
 
 ## Constraints worth knowing before changing scope
 
