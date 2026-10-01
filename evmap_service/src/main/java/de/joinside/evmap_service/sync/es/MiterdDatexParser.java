@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import java.io.IOException;
@@ -66,6 +67,14 @@ final class MiterdDatexParser {
 
     static final String SOURCE = "MITERD";
     private static final String COUNTRY = "ES";
+
+    /** Local names of the DATEX II elements the walk keys on. */
+    private static final String SITE = "energyInfrastructureSite";
+    private static final String REFILL_POINT = "refillPoint";
+    private static final String CONNECTOR = "connector";
+    private static final String NAME = "name";
+    private static final String VALUES = "values";
+    private static final String VALUE = "value";
 
     /**
      * Rough envelope of Spain with the Balearic and Canary Islands. Deliberately generous — it exists
@@ -171,7 +180,7 @@ final class MiterdDatexParser {
     static Stream<SourceStation> parse(Reader reader, Instant fetchedAt) throws IOException {
         List<RawSite> sites = read(reader);
         if (sites.isEmpty())
-            throw new IOException("No 'energyInfrastructureSite' found in the Spanish register — the format changed");
+            throw new IOException("No '" + SITE + "' found in the Spanish register — the format changed");
 
         Counters counters = new Counters();
         counters.sites = sites.size();
@@ -205,52 +214,16 @@ final class MiterdDatexParser {
      * the site, the operator and every charge point.
      */
     private static List<RawSite> read(Reader reader) throws IOException {
-        List<RawSite> sites = new ArrayList<>();
-        List<String> path = new ArrayList<>();
-        StringBuilder text = new StringBuilder();
-        RawSite site = null;
-        RawPoint point = null;
-        RawConnector connector = null;
-
+        Walk walk = new Walk();
         XMLStreamReader xml = null;
         try {
             xml = factory().createXMLStreamReader(reader);
             while (xml.hasNext()) {
                 switch (xml.next()) {
-                    case XMLStreamReader.START_ELEMENT -> {
-                        String name = xml.getLocalName();
-                        path.add(name);
-                        text.setLength(0);
-                        switch (name) {
-                            case "energyInfrastructureSite" -> site = new RawSite(blankToNull(xml.getAttributeValue(null, "id")));
-                            case "refillPoint" -> point = site == null ? null : new RawPoint(blankToNull(xml.getAttributeValue(null, "id")));
-                            case "connector" -> connector = point == null ? null : new RawConnector();
-                            default -> {
-                                // Everything else is read when it ends, from its text.
-                            }
-                        }
-                    }
-                    case XMLStreamReader.CHARACTERS, XMLStreamReader.CDATA -> text.append(xml.getText());
-                    case XMLStreamReader.END_ELEMENT -> {
-                        String name = path.get(path.size() - 1);
-                        switch (name) {
-                            case "connector" -> {
-                                if (point != null && connector != null) point.connectors.add(connector);
-                                connector = null;
-                            }
-                            case "refillPoint" -> {
-                                if (site != null && point != null) site.points.add(point);
-                                point = null;
-                            }
-                            case "energyInfrastructureSite" -> {
-                                if (site != null) sites.add(site);
-                                site = null;
-                            }
-                            default -> leaf(path, blankToNull(text.toString()), site, point, connector);
-                        }
-                        path.remove(path.size() - 1);
-                        text.setLength(0);
-                    }
+                    case XMLStreamConstants.START_ELEMENT ->
+                            walk.start(xml.getLocalName(), blankToNull(xml.getAttributeValue(null, "id")));
+                    case XMLStreamConstants.CHARACTERS, XMLStreamConstants.CDATA -> walk.text.append(xml.getText());
+                    case XMLStreamConstants.END_ELEMENT -> walk.end();
                     default -> {
                         // Comments, processing instructions and whitespace carry nothing.
                     }
@@ -261,35 +234,84 @@ final class MiterdDatexParser {
         } finally {
             closeQuietly(xml);
         }
-        return sites;
+        return walk.sites;
     }
 
-    private static void leaf(List<String> path, String value, RawSite site, RawPoint point, RawConnector connector) {
-        if (value == null || site == null) return;
+    /** The state of one pass over the document: where it is, what it has read so far, and the open entities. */
+    private static final class Walk {
+        final List<RawSite> sites = new ArrayList<>();
+        final StringBuilder text = new StringBuilder();
+        private final List<String> path = new ArrayList<>();
+        private RawSite site;
+        private RawPoint point;
+        private RawConnector connector;
 
-        if (endsWith(path, "refillPoint", "name", "values", "value")) {
-            if (point != null && point.evseName == null) point.evseName = value;
-        } else if (endsWith(path, "connector", "connectorType")) {
-            if (connector != null) connector.type = value;
-        } else if (endsWith(path, "connector", "maxPowerAtSocket")) {
-            if (connector != null) connector.watts = value;
-        } else if (point != null) {
-            // Inside a charge point nothing else is read: its other fields are voltage, current, mode.
-            return;
-        } else if (endsWith(path, "energyInfrastructureSite", "name", "values", "value")) {
-            if (site.name == null) site.name = value;
-        } else if (endsWith(path, "energyInfrastructureSite", "lastUpdated")) {
-            site.updated = value;
-        } else if (endsWith(path, "energyInfrastructureSite", "operator", "name", "values", "value")) {
-            if (site.operator == null) site.operator = value;
-        } else if (endsWith(path, "coordinatesForDisplay", "latitude")) {
-            site.latitude = number(value);
-        } else if (endsWith(path, "coordinatesForDisplay", "longitude")) {
-            site.longitude = number(value);
-        } else if (endsWith(path, "address", "postcode")) {
-            site.postalCode = postalCode(value);
-        } else if (endsWith(path, "addressLine", "text", "values", "value")) {
-            addressLine(site, value);
+        void start(String name, String id) {
+            path.add(name);
+            text.setLength(0);
+            switch (name) {
+                case SITE -> site = new RawSite(id);
+                case REFILL_POINT -> point = site == null ? null : new RawPoint(id);
+                case CONNECTOR -> connector = point == null ? null : new RawConnector();
+                default -> {
+                    // Everything else is read when it ends, from its text.
+                }
+            }
+        }
+
+        void end() {
+            switch (path.get(path.size() - 1)) {
+                case CONNECTOR -> {
+                    if (point != null && connector != null) point.connectors.add(connector);
+                    connector = null;
+                }
+                case REFILL_POINT -> {
+                    if (site != null && point != null) site.points.add(point);
+                    point = null;
+                }
+                case SITE -> {
+                    if (site != null) sites.add(site);
+                    site = null;
+                }
+                default -> leaf(blankToNull(text.toString()));
+            }
+            path.remove(path.size() - 1);
+            text.setLength(0);
+        }
+
+        private void leaf(String value) {
+            if (value == null || site == null) return;
+            if (point != null) pointLeaf(value);
+            else siteLeaf(value);
+        }
+
+        /** Inside a charge point only its name and its connectors' type and rating are read; voltage, current and mode are not. */
+        private void pointLeaf(String value) {
+            if (endsWith(path, REFILL_POINT, NAME, VALUES, VALUE)) {
+                if (point.evseName == null) point.evseName = value;
+            } else if (connector != null && endsWith(path, CONNECTOR, "connectorType")) {
+                connector.type = value;
+            } else if (connector != null && endsWith(path, CONNECTOR, "maxPowerAtSocket")) {
+                connector.watts = value;
+            }
+        }
+
+        private void siteLeaf(String value) {
+            if (endsWith(path, SITE, NAME, VALUES, VALUE)) {
+                if (site.name == null) site.name = value;
+            } else if (endsWith(path, SITE, "lastUpdated")) {
+                site.updated = value;
+            } else if (endsWith(path, SITE, "operator", NAME, VALUES, VALUE)) {
+                if (site.operator == null) site.operator = value;
+            } else if (endsWith(path, "coordinatesForDisplay", "latitude")) {
+                site.latitude = number(value);
+            } else if (endsWith(path, "coordinatesForDisplay", "longitude")) {
+                site.longitude = number(value);
+            } else if (endsWith(path, "address", "postcode")) {
+                site.postalCode = postalCode(value);
+            } else if (endsWith(path, "addressLine", "text", VALUES, VALUE)) {
+                addressLine(site, value);
+            }
         }
     }
 
@@ -393,28 +415,32 @@ final class MiterdDatexParser {
 
         List<SourceStation> stations = new ArrayList<>(bundles.size());
         for (Bundle bundle : bundles) {
-            List<SourceStation.SourceChargePoint> chargePoints = new ArrayList<>();
-            Map<String, Integer> operators = new LinkedHashMap<>();
-            for (RawSite site : bundle.sites) {
-                for (RawPoint point : site.points) {
-                    SourceStation.SourceChargePoint chargePoint = chargePoint(point, seenPointIds, seenEvseIds, counters);
-                    if (chargePoint == null) continue;
-                    chargePoints.add(chargePoint);
-                    if (site.operator != null) operators.merge(site.operator, 1, Integer::sum);
-                }
-            }
-            if (chargePoints.isEmpty()) {
-                counters.withoutChargePoints++;
-                continue;
-            }
-            stations.add(station(bundle, chargePoints, mostFrequent(operators), fetchedAt));
+            SourceStation station = station(bundle, seenPointIds, seenEvseIds, fetchedAt, counters);
+            if (station != null) stations.add(station);
         }
         return stations;
     }
 
-    private static SourceStation station(Bundle bundle, List<SourceStation.SourceChargePoint> chargePoints,
-                                         String operator, Instant fetchedAt) {
+    /** @return the station of a bundle, or {@code null} when none of its charge points is usable */
+    private static SourceStation station(Bundle bundle, Set<String> seenPointIds, Set<String> seenEvseIds,
+                                         Instant fetchedAt, Counters counters) {
+        List<SourceStation.SourceChargePoint> chargePoints = new ArrayList<>();
+        Map<String, Integer> operators = new LinkedHashMap<>();
+        for (RawSite site : bundle.sites) {
+            for (RawPoint point : site.points) {
+                SourceStation.SourceChargePoint chargePoint = chargePoint(point, seenPointIds, seenEvseIds, counters);
+                if (chargePoint == null) continue;
+                chargePoints.add(chargePoint);
+                if (site.operator != null) operators.merge(site.operator, 1, Integer::sum);
+            }
+        }
+        if (chargePoints.isEmpty()) {
+            counters.withoutChargePoints++;
+            return null;
+        }
+
         RawSite anchor = bundle.anchor;
+        String operator = mostFrequent(operators);
         String street = firstOfBundle(bundle, site -> site.street);
         String name = firstPresent(firstOfBundle(bundle, site -> site.name), street, operator);
         return new SourceStation(SOURCE, anchor.id, name, street, firstOfBundle(bundle, site -> site.city),

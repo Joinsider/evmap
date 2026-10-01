@@ -53,17 +53,17 @@ public final class PositionClusters {
         List<Cluster<T>> clusters = new ArrayList<>();
         Map<Long, List<Cluster<T>>> grid = new HashMap<>();
 
-        for (T record : ordered) {
-            double recordLatitude = latitude.applyAsDouble(record);
-            double recordLongitude = longitude.applyAsDouble(record);
+        for (T item : ordered) {
+            double recordLatitude = latitude.applyAsDouble(item);
+            double recordLongitude = longitude.applyAsDouble(item);
             Cluster<T> cluster = nearest(grid, latitude, longitude, recordLatitude, recordLongitude, radiusMetres);
             if (cluster == null) {
-                cluster = new Cluster<>(record, new ArrayList<>());
+                cluster = new Cluster<>(item, new ArrayList<>());
                 clusters.add(cluster);
                 grid.computeIfAbsent(key(cellIndex(recordLatitude), cellIndex(recordLongitude)), k -> new ArrayList<>())
                         .add(cluster);
             }
-            cluster.members().add(record);
+            cluster.members().add(item);
         }
         return clusters;
     }
