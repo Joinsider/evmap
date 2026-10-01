@@ -24,7 +24,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | 2 | Konto-Bereich und App-Store-Pflichten | fertig ³ | [#13](https://github.com/Joinsider/evmap/pull/13) | [0020](adr/0020-account-area-and-app-store-obligations.md) |
 | 3 | Favoriten und Fehler melden | fertig ⁶ | [#20](https://github.com/Joinsider/evmap/pull/20) | [0021](adr/0021-favorites-and-station-reports.md) |
 | 4 | Routenplaner Stufe 1 | fertig ⁹ | [#23](https://github.com/Joinsider/evmap/pull/23) | [0017](adr/0017-route-planning-with-charging-stops.md) |
-| 5a | Preise an der Station: Betreiber pro Ladepunkt, Ad-hoc-Preise | in Arbeit | `feature/phase-5a-prices-at-station` | [0022](adr/0022-prices-at-the-station.md) |
+| 5a | Preise an der Station: Betreiber pro Ladepunkt, Ad-hoc-Preise | fertig ¹⁰ | [#26](https://github.com/Joinsider/evmap/pull/26) | [0022](adr/0022-prices-at-the-station.md) |
 | 5r | Netto/Brutto-Prüfung pro Betreiber (direkt nach 5a) | offen | | [0022](adr/0022-prices-at-the-station.md) |
 | 5b | Ladekarten und Preis mit eigenen Karten | offen | | [0022](adr/0022-prices-at-the-station.md) |
 | 6 | Routenplaner Stufe 2 | offen | | 0017 |
@@ -76,6 +76,11 @@ aus ADR 0017, „Steps for the product owner“: Web-Container neu ausrollen (AA
 `/route`), App einmal neu installieren, Gerätetest unter iOS 26 (Apple Karten etappenweise, Google Maps ganze Route,
 Teilen-Link, Offline-Stand, Stationen entlang einer echten Route). Die Recherche zu Fahrzeugdaten (Open EV Data,
 CDLA-Permissive-2.0) und Tarifquellen steht als Notiz im ADR und fließt in Phase 6 und 5 ein.
+
+¹⁰ Im Repository fertig (Backend 525 Tests, iOS-Unit-Tests grün, im Simulator gegen echte MobiData-Tarife geprüft),
+keine neuen 👤-Schritte. Offen ist der Gerätetest nach dem Ausrollen (deutsche Station mit Live-Tarif, französische mit
+Registerpreis, spanische Station mit zwei Betreibern). Deutsche Tarife erscheinen bisher nur, wo der Bruttopreis belegt
+ist oder der Betreiber geprüft wurde (nur Allego); die übrigen Betreiber prüft Phase 5r.
 
 Separat angestoßen (Teil von Phase 0): `permitAll` für `/api/v1/stations/**` auf GET beschränken.
 Erledigt mit PR #8 (Commit `3d40492`), vor Beginn von Phase 0 auf `master` geprüft.
