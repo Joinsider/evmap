@@ -307,6 +307,7 @@ final class IrveCsvParser {
          */
         private void mergeConnectors(CSVRecord row, CsvColumns columns) {
             ChargePoint chargePoint = chargePointOf(row, columns);
+            chargePoint.describe(row, columns);
             BigDecimal power = powerKw(columns.get(row, "puissance_nominale"));
             // The column already states the standard, so the canonical type is taken directly rather
             // than round-tripped through ConnectorTypes.normalize(), which parses free-text labels.
@@ -461,17 +462,40 @@ final class IrveCsvParser {
         private final String key;
         private final String itineranceId;
         private final Map<Plug, Integer> plugs = new LinkedHashMap<>();
+        /** First non-blank per charge point, like the station's own fields; see {@link Station}. */
+        private String operator = "";
+        private SourceStation.SourcePrice price;
+        private boolean described;
 
         private ChargePoint(String key, String itineranceId) {
             this.key = key;
             this.itineranceId = itineranceId;
         }
 
+        /**
+         * Takes operator and price from the first row that describes this charge point. A repeated charge
+         * point (several publishers) keeps its first description, for the same stability reason as the
+         * station's name: file order is stable across editions.
+         */
+        private void describe(CSVRecord row, CsvColumns columns) {
+            if (operator.isEmpty())
+                operator = firstNonBlank(columns.get(row, "nom_operateur"), columns.get(row, "nom_amenageur"));
+            if (described) return;
+            described = true;
+            price = IrvePriceText.parse(columns.get(row, "tarification"),
+                    Station.flag(columns.get(row, "gratuit")),
+                    Station.lastUpdated(columns.get(row, "date_maj"), columns.get(row, "last_modified")));
+        }
+
         private SourceStation.SourceChargePoint toSourceChargePoint() {
             List<SourceStation.SourceConnector> connectors = new ArrayList<>(plugs.size());
             plugs.forEach((plug, quantity) ->
                     connectors.add(new SourceStation.SourceConnector(plug.type(), plug.powerKw(), quantity)));
-            return new SourceStation.SourceChargePoint(key, itineranceId, connectors);
+            return new SourceStation.SourceChargePoint(key, itineranceId, connectors, operatorOrNull(), price);
+        }
+
+        private String operatorOrNull() {
+            return operator.isEmpty() ? null : operator;
         }
 
         /**
@@ -484,7 +508,8 @@ final class IrveCsvParser {
             List<SourceStation.SourceConnector> connectors = new ArrayList<>(plugs.size());
             plugs.forEach((plug, quantity) ->
                     connectors.add(new SourceStation.SourceConnector(plug.type(), plug.powerKw(), quantity)));
-            return new SourceStation.SourceChargePoint(stationId + "*shared*" + key, null, connectors);
+            return new SourceStation.SourceChargePoint(stationId + "*shared*" + key, null, connectors,
+                    operatorOrNull(), price);
         }
     }
 

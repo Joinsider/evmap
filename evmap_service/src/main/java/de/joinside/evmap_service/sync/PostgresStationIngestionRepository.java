@@ -234,15 +234,17 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
         for (SourceStation.SourceChargePoint chargePoint : source.chargePoints()) {
             UUID chargePointId = UUID.randomUUID();
             jdbc.sql("INSERT INTO master.charge_point " +
-                            "(id, station_id, source, source_charge_point_id, evse_id, evse_id_normalized) " +
-                            "VALUES (:id,:stationId,:source,:sourceId,:evseId,:evseNormalized)")
+                            "(id, station_id, source, source_charge_point_id, evse_id, evse_id_normalized, operator_name) " +
+                            "VALUES (:id,:stationId,:source,:sourceId,:evseId,:evseNormalized,:operator)")
                     .param("id", chargePointId)
                     .param(PARAM_STATION_ID, stationId)
                     .param(PARAM_SOURCE, clip(source.source(), 32))
                     .param(PARAM_SOURCE_ID, clip(chargePoint.sourceChargePointId(), 255))
                     .param("evseId", clip(chargePoint.evseId(), 64))
                     .param("evseNormalized", EvseIds.normalize(chargePoint.evseId()))
+                    .param("operator", clip(chargePoint.operatorName(), 500))
                     .update();
+            if (chargePoint.price() != null) insertPrice(chargePointId, chargePoint.price());
             for (SourceStation.SourceConnector connector : chargePoint.connectors()) {
                 insertConnector(stationId, chargePointId, connector);
             }
@@ -251,6 +253,23 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
         for (SourceStation.SourceConnector connector : source.connectors()) {
             insertConnector(stationId, null, connector);
         }
+    }
+
+    /** Removed with its charge point by the cascade, so replacing the inventory replaces the price. */
+    private void insertPrice(UUID chargePointId, SourceStation.SourcePrice price) {
+        jdbc.sql("INSERT INTO master.charge_point_price " +
+                        "(charge_point_id, currency, energy_per_kwh, session_fee, time_fee_per_minute, free, " +
+                        "further_fees, observed_at) " +
+                        "VALUES (:id,:currency,:energy,:session,:time,:free,:further,:observed)")
+                .param("id", chargePointId)
+                .param("currency", price.currency())
+                .param("energy", price.energyPerKwh())
+                .param("session", price.sessionFee())
+                .param("time", price.timeFeePerMinute())
+                .param("free", price.free())
+                .param("further", price.furtherFees())
+                .param("observed", timestamp(price.observedAt()))
+                .update();
     }
 
     private void insertConnector(UUID stationId, UUID chargePointId, SourceStation.SourceConnector connector) {

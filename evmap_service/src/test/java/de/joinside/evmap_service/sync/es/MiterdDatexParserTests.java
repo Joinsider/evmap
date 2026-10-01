@@ -273,7 +273,8 @@ class MiterdDatexParserTests {
     // ── bundling ───────────────────────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("bundles sites of different operators on one parking lot into one station, none of them lost")
+    @DisplayName("bundles sites of different operators on one parking lot into one station, none of them lost, "
+            + "each charge point keeping its own operator")
     void bundlesAcrossOperators() throws IOException {
         Site first = new Site().id("1").at(40.41600, -3.70300).operator("Endesa").points(new Point("E1"), new Point("E2"));
         Site second = new Site().id("2").at(40.41605, -3.70300).operator("Iberdrola").points(new Point("I1"));
@@ -288,6 +289,8 @@ class MiterdDatexParserTests {
             assertThat(station.operatorName()).isEqualTo("Endesa");
             assertThat(station.chargePoints()).extracting(SourceStation.SourceChargePoint::sourceChargePointId)
                     .containsExactly("E1", "E2", "I1", "E3");
+            assertThat(station.chargePoints()).extracting(SourceStation.SourceChargePoint::operatorName)
+                    .containsExactly("Endesa", "Endesa", "Iberdrola", "Endesa");
         });
     }
 

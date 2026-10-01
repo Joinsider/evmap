@@ -163,6 +163,10 @@ class DiemoOicpParserTests {
         // The most frequent operator names the site.
         assertThat(stations).filteredOn(s -> s.chargePoints().size() == 3).singleElement()
                 .extracting(SourceStation::operatorName).isEqualTo("Move");
+        // Each charge point keeps its own operator, so the minority one is not lost (ADR 0022).
+        assertThat(stations).filteredOn(s -> s.chargePoints().size() == 3).singleElement()
+                .satisfies(s -> assertThat(s.chargePoints()).extracting(SourceStation.SourceChargePoint::operatorName)
+                        .containsExactlyInAnyOrder("Move", "Move", "swisscharge.ch AG"));
     }
 
     @Test

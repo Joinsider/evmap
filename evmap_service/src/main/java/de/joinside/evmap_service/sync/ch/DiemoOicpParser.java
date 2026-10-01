@@ -291,7 +291,9 @@ final class DiemoOicpParser {
         }
 
         String evseId = evse.evseId().trim();
-        site.chargePoints.add(new SourceStation.SourceChargePoint(evseId, evseId, connectors(evse, counters)));
+        // A cluster can join several operators' EVSEs; each keeps its own (ADR 0022). The static feed has no price.
+        site.chargePoints.add(new SourceStation.SourceChargePoint(evseId, evseId, connectors(evse, counters),
+                candidate.operator(), null));
     }
 
     /** Liechtenstein is the only other country the feed legitimately covers. */
