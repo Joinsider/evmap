@@ -94,9 +94,17 @@ class StationSpatialRepository {
     private static void appendFilters(StringBuilder sql, List<String> connectorTypes, java.math.BigDecimal minPowerKw, String operator, List<String> excludeOperators, List<String> includeOperators) {
         if (connectorTypes != null) sql.append(" AND lower(c.connector_type) IN (:connectorTypes)");
         if (minPowerKw != null) sql.append(" AND c.power_kw >= :minPowerKw");
-        if (operator != null) sql.append(" AND lower(s.operator_name) = lower(:operator)");
-        if (excludeOperators != null) sql.append(" AND (s.operator_name IS NULL OR lower(s.operator_name) NOT IN (:excludeOperators))");
-        if (includeOperators != null) sql.append(" AND lower(s.operator_name) IN (:includeOperators)");
+        // A station bundled from several operators' sites (Spain, Switzerland) has the majority operator on the
+        // station and the others on their charge points (ADR 0022): it matches an operator if any of them does,
+        // and is hidden only when every one of them is hidden.
+        if (operator != null) sql.append(" AND (lower(s.operator_name) = lower(:operator) OR EXISTS (SELECT 1 FROM master.charge_point cp "
+                + "WHERE cp.station_id = s.id AND cp.operator_name IS NOT NULL AND lower(cp.operator_name) = lower(:operator)))");
+        if (excludeOperators != null) sql.append(" AND (s.operator_name IS NULL OR lower(s.operator_name) NOT IN (:excludeOperators) "
+                + "OR EXISTS (SELECT 1 FROM master.charge_point cp WHERE cp.station_id = s.id AND cp.operator_name IS NOT NULL "
+                + "AND lower(cp.operator_name) NOT IN (:excludeOperators)))");
+        if (includeOperators != null) sql.append(" AND (lower(s.operator_name) IN (:includeOperators) OR EXISTS (SELECT 1 "
+                + "FROM master.charge_point cp WHERE cp.station_id = s.id AND cp.operator_name IS NOT NULL "
+                + "AND lower(cp.operator_name) IN (:includeOperators)))");
     }
 
     private static void bindFilters(JdbcClient.StatementSpec query, List<String> connectorTypes, java.math.BigDecimal minPowerKw, String operator, List<String> excludeOperators, List<String> includeOperators) {

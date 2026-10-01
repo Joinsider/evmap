@@ -158,6 +158,26 @@ class StationQueryTests {
     }
 
     @Test
+    @DisplayName("a station bundled from several operators matches any of them and is hidden only when all are")
+    void bundledStationsMatchEveryOperator() {
+        // An IONITY station that also holds a charge point of Partner AG, as bundled Spanish and Swiss sites do.
+        UUID partnerPoint = PostgisDatabase.insertChargePoint(ionity, "p1", null);
+        PostgisDatabase.jdbc().sql("UPDATE master.charge_point SET operator_name='Partner AG' WHERE id=:id")
+                .param("id", partnerPoint).update();
+
+        assertThat(ids(new NearbyQuery(STUTTGART_LAT, STUTTGART_LON, 5, null, null, null, null, List.of("partner ag"), 100)))
+                .containsExactly(ionity);
+        assertThat(ids(new NearbyQuery(STUTTGART_LAT, STUTTGART_LON, 5, null, null, "Partner AG", null, null, 100)))
+                .containsExactly(ionity);
+        assertThat(ids(new NearbyQuery(STUTTGART_LAT, STUTTGART_LON, 5, null, null, null, List.of("IONITY"), null, 100)))
+                .contains(ionity);
+        assertThat(ids(new NearbyQuery(STUTTGART_LAT, STUTTGART_LON, 5, null, null, null, List.of("IONITY", "Partner AG"), null, 100)))
+                .doesNotContain(ionity);
+        assertThat(operators.search("partner", 10)).containsExactly(new OperatorController.Operator("Partner AG", 1));
+        assertThat(operators.search("ionity", 10)).containsExactly(new OperatorController.Operator("IONITY", 1));
+    }
+
+    @Test
     @DisplayName("the operator directory counts stations per network, largest first, and escapes LIKE wildcards")
     void searchesOperators() {
         assertThat(operators.search("", 10)).containsExactly(

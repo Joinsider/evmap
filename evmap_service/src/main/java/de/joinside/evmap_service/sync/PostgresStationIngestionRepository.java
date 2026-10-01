@@ -242,7 +242,7 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
                     .param(PARAM_SOURCE_ID, clip(chargePoint.sourceChargePointId(), 255))
                     .param("evseId", clip(chargePoint.evseId(), 64))
                     .param("evseNormalized", EvseIds.normalize(chargePoint.evseId()))
-                    .param("operator", clip(chargePoint.operatorName(), 500))
+                    .param("operator", clip(ownOperator(chargePoint, source), 500))
                     .update();
             if (chargePoint.price() != null) insertPrice(chargePointId, chargePoint.price());
             for (SourceStation.SourceConnector connector : chargePoint.connectors()) {
@@ -253,6 +253,17 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
         for (SourceStation.SourceConnector connector : source.connectors()) {
             insertConnector(stationId, null, connector);
         }
+    }
+
+    /**
+     * The charge point's operator where it differs from the station's, else {@code null}. Kept sparse on purpose:
+     * {@code NULL} means "the station's operator", the operator directory and filters only have to look at the
+     * few charge points of bundled stations, and a station's own operator is not stored a thousand times over.
+     */
+    private static String ownOperator(SourceStation.SourceChargePoint chargePoint, SourceStation station) {
+        String own = chargePoint.operatorName();
+        if (own == null || own.isBlank()) return null;
+        return own.trim().equalsIgnoreCase(station.operatorName() == null ? "" : station.operatorName().trim()) ? null : own.trim();
     }
 
     /** Removed with its charge point by the cascade, so replacing the inventory replaces the price. */

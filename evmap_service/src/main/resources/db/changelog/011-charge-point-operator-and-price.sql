@@ -6,9 +6,12 @@
 -- operator_name: the operator of this charge point where a source knows it per charge point. A station
 -- bundled from several operators' sites (Spain, Switzerland) carries the majority operator on
 -- master.charging_station; the others were lost until now (ADR 0012, "Spain (L4)"). NULL means "the
--- station's operator", which is what every source that knows only one operator per station leaves.
+-- station's operator": the ingestion writes the column only where it differs, so it stays sparse and the
+-- operator directory and filters (ADR 0014) can afford to look at it.
 ALTER TABLE master.charge_point
     ADD COLUMN operator_name VARCHAR(500);
+CREATE INDEX charge_point_operator_idx ON master.charge_point (station_id)
+    WHERE operator_name IS NOT NULL;
 
 -- The ad-hoc price a register publishes for a charge point, already normalized to a gross amount.
 -- Only prices the recognizer is certain about get a row; everything else has none, which the client
@@ -33,4 +36,5 @@ CREATE TABLE master.charge_point_price
 );
 
 --rollback DROP TABLE master.charge_point_price;
+--rollback DROP INDEX master.charge_point_operator_idx;
 --rollback ALTER TABLE master.charge_point DROP COLUMN operator_name;

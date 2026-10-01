@@ -72,11 +72,13 @@ class PostgresStationIngestionRepositoryTests {
                 false, true, Instant.parse("2026-09-01T00:00:00Z"));
         var priced = new SourceStation.SourceChargePoint("FRS01E1", "FRS01E1", List.of(type2(1)), "Izivia", price);
         var unpriced = new SourceStation.SourceChargePoint("FRS01E2", "FRS01E2", List.of(type2(1)));
+        var stationsOwn = new SourceStation.SourceChargePoint("FRS01E3", "FRS01E3", List.of(type2(1)), " enbw", null);
         repository.upsert(Stream.of(station("IRVE", "FRS01", "FR", 48.8566, 2.3522, "Paris", List.of(),
-                List.of(priced, unpriced))));
+                List.of(priced, unpriced, stationsOwn))));
 
+        // Stored only where it differs from the station's operator ("EnBW"), so the column stays sparse.
         assertThat(jdbc.sql("SELECT operator_name FROM master.charge_point ORDER BY evse_id").query(String.class).list())
-                .containsExactly("Izivia", null);
+                .containsExactly("Izivia", null, null);
         Map<String, Object> stored = jdbc.sql("SELECT currency, energy_per_kwh, session_fee, time_fee_per_minute, free, "
                 + "further_fees FROM master.charge_point_price").query().singleRow();
         assertThat(stored).containsEntry("currency", "EUR").containsEntry("free", false)

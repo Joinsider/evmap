@@ -17,6 +17,8 @@ evmap:
   # their cache are never registered at all, rather than registered and idle.
   availability:
     enabled: false
+  pricing:
+    enabled: false
 
   sync:
     enabled: true
