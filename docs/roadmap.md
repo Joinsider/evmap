@@ -23,7 +23,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | 1 | Login mit Google/GitHub, Web-Gerüst | fertig ² | [#11](https://github.com/Joinsider/evmap/pull/11) | [0018](adr/0018-additional-identity-providers-and-web-client.md) |
 | 2 | Konto-Bereich und App-Store-Pflichten | fertig ³ | [#13](https://github.com/Joinsider/evmap/pull/13) | [0020](adr/0020-account-area-and-app-store-obligations.md) |
 | 3 | Favoriten und Fehler melden | fertig ⁶ | [#20](https://github.com/Joinsider/evmap/pull/20) | [0021](adr/0021-favorites-and-station-reports.md) |
-| 4 | Routenplaner Stufe 1 | offen | | 0017 |
+| 4 | Routenplaner Stufe 1 | in Arbeit | `feature/phase-4-manual-route-planner` | [0017](adr/0017-route-planning-with-charging-stops.md) |
 | 5 | Preise an der Station | offen | | 0017 + neu |
 | 6 | Routenplaner Stufe 2 | offen | | 0017 |
 | 7 | Routenplaner Stufe 3 | offen | | 0017 |
@@ -214,7 +214,7 @@ Reihenfolge: **Österreich → Schweiz → Italien → Spanien**. Vor jedem Adap
 Daten offen verfügbar sind und unter welcher Lizenz; ein Land ohne offene Daten wird übersprungen
 und im ADR 0012 vermerkt. Österreich wurde so übersprungen (Stand 2026-09-30), Schweiz ist umgesetzt, Italien wurde
 übersprungen (Stand 2026-10-01), Spanien ist umgesetzt (Stand 2026-10-01). Damit sind alle vier Lückenfüller
-erledigt; als Nächstes ist **Phase 4** dran.
+erledigt; danach folgte **Phase 4** (in Arbeit seit 2026-10-01).
 
 ### Skalierung / Variante C · bei Bedarf
 
@@ -305,6 +305,16 @@ Lückenfüller Spanien (2026-10-01, Details in ADR 0012, Abschnitt „Spain (L4)
   jedem Lauf. Nur gleiche Betreiber zu bündeln ließe 441 Stationen kollidieren.
 - „Betreiber pro Ladepunkt“ wird Voraussetzung von Phase 5, kein Teil von L4.
 - Spanien ist nicht in der OCM-Standardliste; vor diesem Adapter war es nicht abgedeckt.
+
+Phase 4 (2026-10-01, Details in ADR 0017, Abschnitt „Phase 4 decisions“):
+
+- Gespeicherte Orte: freie Liste mit eigenen Namen, nur auf dem Gerät; Favoriten-Stationen sind zusätzlich als
+  Wegpunkt wählbar.
+- Teilen-Link: Universal Link auf `evmap.joinside.de/route?…` (Wegpunkte im Link, nichts auf dem Server).
+- Lokal gespeichert werden die aktuelle Route (offline lesbar) und eine Liste benannter, gespeicherter Routen.
+- Einstieg: kein Toolbar-Button. Man sucht einen Ort oder tippt auf einen beliebigen Ort (auch Ortschaft, POI) oder
+  eine Ladestation; es erscheint eine Infokarte wie in Apple Maps mit „Route von hier“ / „Route hierhin“ /
+  „Wegpunkt hinzufügen“. Damit zeigt die Suche nicht mehr nur die Kartenposition (ADR 0011, wird angepasst).
 
 Roadmap allgemein:
 
