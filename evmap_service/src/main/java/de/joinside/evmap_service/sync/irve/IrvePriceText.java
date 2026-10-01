@@ -77,7 +77,6 @@ final class IrvePriceText {
     /** {@link #normalize} has collapsed whitespace to single spaces, so single optional spaces suffice. */
     private static final Pattern PARTS = Pattern.compile(" ?\\+ ?|, (?=\\d)| et (?=\\d)");
 
-    private static final Pattern GENERATED = Pattern.compile("par kwh de charge");
     private static final String GENERATED_ENERGY = "par kwh de charge";
     private static final String GENERATED_TIME = "par heure";
     private static final Pattern GENERATED_START = Pattern.compile("prix de d[^ ]+part (\\d+(?:\\.\\d+)?)");
@@ -108,7 +107,7 @@ final class IrvePriceText {
     private static SourcePrice parseText(String raw, String text, Instant observedAt) {
         if (text.equals("gratuit") || text.equals("gratuite")) return SourcePrice.freeOfCharge(observedAt);
         if (raw.startsWith("{")) return parseDriveco(raw, observedAt);
-        if (GENERATED.matcher(text).find()) return parseGenerated(text, observedAt);
+        if (text.contains(GENERATED_ENERGY)) return parseGenerated(text, observedAt);
         return parsePlain(text, observedAt);
     }
 
@@ -227,7 +226,6 @@ final class IrvePriceText {
         return plausible(gross, null, null, furtherFees, observedAt);
     }
 
-    /** Whether any amount the matcher finds is above zero ("prix de départ 0.0€" is no fee). */
     /**
      * The amounts written right before each occurrence of {@code marker}: "0.30916667€ par kwh de charge" gives
      * 0.30916667. Read backwards from the marker over at most one space, one currency sign and one space, then
@@ -258,6 +256,7 @@ final class IrvePriceText {
         return end > 0 && text.charAt(end - 1) == skipped ? end - 1 : end;
     }
 
+    /** Whether any amount the matcher finds is above zero ("prix de départ 0.0€" is no fee). */
     private static boolean anyPositive(Matcher amounts) {
         while (amounts.find())
             if (new BigDecimal(amounts.group(1)).signum() > 0) return true;
