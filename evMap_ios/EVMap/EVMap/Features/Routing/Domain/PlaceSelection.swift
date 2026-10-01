@@ -8,27 +8,21 @@ struct PlaceSelection: Identifiable, Hashable {
     var subtitle: String
     var latitude: Double
     var longitude: Double
-    /// Set when the place is a charging station of ours, which then has the station screen as well.
-    var station: Station?
 
     var coordinate: CLLocationCoordinate2D { .init(latitude: latitude, longitude: longitude) }
 
-    init(title: String, subtitle: String = "", coordinate: CLLocationCoordinate2D, station: Station? = nil) {
+    init(title: String, subtitle: String = "", coordinate: CLLocationCoordinate2D) {
         self.title = title
         self.subtitle = subtitle
         self.latitude = coordinate.latitude
         self.longitude = coordinate.longitude
-        self.station = station
     }
 
     init(place: SearchedPlace) {
         self.init(title: place.title, subtitle: place.subtitle, coordinate: place.coordinate)
     }
 
-    var waypoint: RouteWaypoint {
-        if let station { return RouteWaypoint(station: station) }
-        return RouteWaypoint(name: title, subtitle: subtitle, latitude: latitude, longitude: longitude)
-    }
+    var waypoint: RouteWaypoint { RouteWaypoint(name: title, subtitle: subtitle, latitude: latitude, longitude: longitude) }
 }
 
 /// Somewhere to take a break near the route that is not a charger: food, a toilet, a bed (ADR 0017).

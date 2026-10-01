@@ -3,6 +3,13 @@ import CoreLocation
 import Foundation
 import SwiftUI
 
+/// One route as the map draws it. The chosen one is on top and in colour; alternatives sit behind it.
+struct RouteLine: Identifiable {
+    let id: UUID
+    let coordinates: [CLLocationCoordinate2D]
+    let isSelected: Bool
+}
+
 /// The manual route planner (ADR 0017, stage 1): stops, options, the route MapKit computes through them,
 /// and the charging stations along it ranked by detour.
 ///
@@ -45,6 +52,9 @@ final class RoutePlannerViewModel: ObservableObject {
     @Published private(set) var detoursThrottled = false
     @Published private(set) var breaks: [BreakSuggestion] = []
     @Published private(set) var isLoadingBreaks = false
+    /// What the map draws of the routes, as coordinates ready for `MapPolyline`: converting a route of
+    /// twenty thousand vertices on every render of the map would be most of its cost.
+    @Published private(set) var lines: [RouteLine] = []
     @Published private(set) var savedPlaces: [SavedPlace]
     @Published private(set) var savedRoutes: [SavedRoute]
     @Published var stationSort: StationSort = .detour
@@ -60,10 +70,14 @@ final class RoutePlannerViewModel: ObservableObject {
     private let places: any NearbyPlacesProviding
     private let store: any RoutingStoring
     private let filter: () -> StationFilter
-    private let currentLocation: () -> CLLocationCoordinate2D?
+    /// Where the device is, if known. Set by the map screen, which owns the location manager.
+    var currentLocation: () -> CLLocationCoordinate2D?
     private var planTask: Task<Void, Never>?
     private var stationsTask: Task<Void, Never>?
     private var breaksTask: Task<Void, Never>?
+    /// The filter the stations along the route were last asked for, so closing the settings without
+    /// changing anything does not ask again.
+    private var lastQueriedFilter: StationFilter?
 
     init(repository: any ChargingStationRepository, routes: any RouteProviding, places: any NearbyPlacesProviding,
          store: any RoutingStoring, filter: @escaping () -> StationFilter,
@@ -83,6 +97,7 @@ final class RoutePlannerViewModel: ObservableObject {
             alternatives = plan.route.map { [$0] } ?? []
             candidates = plan.candidates
             phase = alternatives.isEmpty ? .idle : .planned
+            rebuildLines()
             mapRevision += 1
         }
     }
@@ -202,6 +217,7 @@ final class RoutePlannerViewModel: ObservableObject {
         selectedIndex = index
         candidates = []
         breaks = []
+        rebuildLines()
         mapRevision += 1
         persist()
         loadStations()
@@ -220,13 +236,14 @@ final class RoutePlannerViewModel: ObservableObject {
         stationsFailure = nil
         detoursThrottled = false
         isPlannerPresented = false
+        lines = []
         store.savePlan(nil)
         mapRevision += 1
     }
 
     /// The map's filter changed (the settings sheet was closed): the stations along the route follow it.
     func filterChanged() {
-        guard route != nil else { return }
+        guard route != nil, filter() != lastQueriedFilter else { return }
         loadStations()
     }
 
@@ -305,6 +322,7 @@ final class RoutePlannerViewModel: ObservableObject {
         breaks = []
         stationsFailure = nil
         detoursThrottled = false
+        lines = []
         refreshCurrentLocation()
         guard isPlannable else {
             phase = .idle
@@ -328,6 +346,7 @@ final class RoutePlannerViewModel: ObservableObject {
             alternatives = found
             selectedIndex = 0
             phase = .planned
+            rebuildLines()
             fitRevision += 1
             mapRevision += 1
             persist()
@@ -358,8 +377,10 @@ final class RoutePlannerViewModel: ObservableObject {
         do {
             // The count only: what the polyline says is where somebody is going (ADR 0002).
             AppLogger.routing.debug("Stations along a route of \(simplified.count) points")
+            let queried = filter()
+            lastQueriedFilter = queried
             let found = try await repository.stationsAlongRoute(route: simplified, corridorKm: Self.corridorKm,
-                                                                limit: Self.candidateLimit, filter: filter())
+                                                                limit: Self.candidateLimit, filter: queried)
             guard !Task.isCancelled else { return }
             candidates = found.map { RouteStopCandidate(routeStation: $0, detourMinutes: nil) }
             mapRevision += 1
@@ -386,7 +407,7 @@ final class RoutePlannerViewModel: ObservableObject {
             let group = Array(nearest[batch..<min(batch + Self.detourBatchSize, nearest.count)])
             let results = await withTaskGroup(of: (UUID, Result<Double, Error>)?.self) { tasks in
                 for candidate in group {
-                    tasks.addTask { [self] in
+                    tasks.addTask { @MainActor [self] in
                         guard let frame = DetourEstimator.frame(for: candidate, on: route) else { return nil }
                         return (candidate.id, await detour(of: candidate, frame: frame))
                     }
@@ -491,6 +512,14 @@ final class RoutePlannerViewModel: ObservableObject {
             slots[index].waypoint?.latitude = here.latitude
             slots[index].waypoint?.longitude = here.longitude
         }
+    }
+
+    private func rebuildLines() {
+        lines = alternatives.enumerated().map { index, route in
+            RouteLine(id: route.id, coordinates: route.coordinates.map(\.coordinate), isSelected: index == selectedIndex)
+        }
+        // The chosen route last, so it is drawn over the others.
+        lines.sort { !$0.isSelected && $1.isSelected }
     }
 
     // MARK: Persistence

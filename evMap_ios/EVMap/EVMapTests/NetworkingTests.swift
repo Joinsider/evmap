@@ -308,14 +308,8 @@ struct NetworkingTests {
 }
 
 /// `POST /api/v1/stations/along-route` (ADR 0017): the route goes in the body, never in the URL.
-@Suite("Along-route request", .serialized)
-@MainActor
-struct AlongRouteRequestTests {
-    private func repository() -> RESTChargingStationRepository {
-        RESTChargingStationRepository(client: APIClient(baseURL: URL(string: "https://api.example.test")!, session: StubURLProtocol.session()))
-    }
-
-    private let route = [RouteCoordinate(latitude: 48.1234, longitude: 9.5678), RouteCoordinate(latitude: 49.5, longitude: 10.25)]
+extension NetworkingTests {
+    private var route: [RouteCoordinate] { [RouteCoordinate(latitude: 48.1234, longitude: 9.5678), RouteCoordinate(latitude: 49.5, longitude: 10.25)] }
 
     @Test("the body carries the route, the corridor and the filters, and the URL carries nothing")
     func requestShape() async throws {

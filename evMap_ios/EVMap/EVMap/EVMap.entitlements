@@ -7,10 +7,13 @@
         <string>Default</string>
     </array>
     <!-- The web sign-in's HTTPS callback (ADR 0018): ASWebAuthenticationSession hands the redirect
-         to the app only for a domain whose apple-app-site-association lists it under webcredentials. -->
+         to the app only for a domain whose apple-app-site-association lists it under webcredentials.
+         applinks is the share link of a route (ADR 0017): https://evmap.joinside.de/route opens the app
+         once the apple-app-site-association lists /route under applinks. -->
     <key>com.apple.developer.associated-domains</key>
     <array>
         <string>webcredentials:evmap.joinside.de</string>
+        <string>applinks:evmap.joinside.de</string>
     </array>
 </dict>
 </plist>

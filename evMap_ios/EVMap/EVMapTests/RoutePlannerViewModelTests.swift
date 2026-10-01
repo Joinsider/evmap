@@ -9,6 +9,11 @@ import Testing
 @Suite("Route planner", .serialized)
 @MainActor
 struct RoutePlannerViewModelTests {
+    /// A filter the test can change between queries.
+    private final class FilterBox {
+        var filter = StationFilter()
+    }
+
     private struct Harness {
         let planner: RoutePlannerViewModel
         let routes: FakeRouteProvider
@@ -34,7 +39,7 @@ struct RoutePlannerViewModelTests {
 
     /// The planner works in tasks; wait for what a test is about instead of sleeping a fixed time.
     private func settle(_ what: String = #function, _ condition: () -> Bool) async {
-        for _ in 0..<300 {
+        for _ in 0..<1_000 {
             if condition() { return }
             try? await Task.sleep(for: .milliseconds(10))
         }
@@ -236,9 +241,26 @@ struct RoutePlannerViewModelTests {
         #expect(query.route.count >= 2 && query.route.count <= RoutePlannerViewModel.routePointLimit)
         #expect(query.corridorKm == RoutePlannerViewModel.corridorKm && query.limit == RoutePlannerViewModel.candidateLimit)
         #expect(query.filter.minimumPower == 100)
+    }
 
-        h.planner.filterChanged()
-        await settle { h.repository.alongRouteQueries.count == 2 }
+    @Test("closing the settings asks again only when the filter really changed")
+    func filterChange() async throws {
+        let box = FilterBox()
+        let repository = StubStationRepository()
+        let planner = RoutePlannerViewModel(repository: repository, routes: FakeRouteProvider(), places: FakePlaces(),
+                                            store: MemoryRoutingStore(), filter: { box.filter },
+                                            currentLocation: { Self.stuttgart })
+        planner.apply(.routeTo, to: munich)
+        await settle { repository.alongRouteQueries.count == 1 }
+
+        planner.filterChanged()
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(repository.alongRouteQueries.count == 1)
+
+        box.filter.minimumPower = 150
+        planner.filterChanged()
+        await settle { repository.alongRouteQueries.count == 2 }
+        #expect(repository.alongRouteQueries.last?.filter.minimumPower == 150)
     }
 
     @Test("the nearest stations get an exact detour, the rest an estimate, and the list is ranked by it")

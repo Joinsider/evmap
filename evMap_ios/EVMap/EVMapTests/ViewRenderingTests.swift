@@ -196,7 +196,9 @@ struct ViewRenderingTests {
         repository.liveViewport = .success([Fixtures.live(stationID: stations[0].id)])
 
         try await render(MapScreen(repository: repository, authSession: AuthSession(repository: repository),
-                                   settings: settingsModel(), favorites: favoritesModel(repository, stations: [stations[0]])),
+                                   settings: settingsModel(), favorites: favoritesModel(repository, stations: [stations[0]]),
+                                   planner: RoutePlannerViewModel(repository: repository, routes: FakeRouteProvider(), places: FakePlaces(),
+                                                                  store: MemoryRoutingStore(), filter: { StationFilter() })),
                          height: 932, settle: .milliseconds(800))
     }
 }

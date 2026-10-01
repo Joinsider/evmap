@@ -11,6 +11,9 @@ struct MapScreen: View {
     @ObservedObject var settings: SettingsViewModel
     /// Owned by the app too: the stars on the pins and the favorite list outlive any one screen.
     @ObservedObject var favorites: FavoritesViewModel
+    /// Owned by the app too: a share link can open a route before this screen exists, and the plan has
+    /// to outlive it (ADR 0017).
+    @ObservedObject var planner: RoutePlannerViewModel
     /// Launch view: Germany at overview scale, which loads the highpower backbone straight away and
     /// gives `onMapCameraChange` a defined starting region instead of whatever `.automatic` picks.
     private static let initialRegion = MKCoordinateRegion(
@@ -20,8 +23,14 @@ struct MapScreen: View {
 
     @State private var position: MapCameraPosition = .region(MapScreen.initialRegion)
     @State private var visibleSpan: MKCoordinateSpan?
-    @State private var selectedAnnotation: StationAnnotation?
+    @State private var selection: MapSelection<StationAnnotation>?
     @State private var selectedStation: Station?
+    /// The place on the info card: a search hit, a tapped town or POI, a station.
+    @State private var placeSelection: PlaceSelection?
+    /// What to do with a place once its sheet has gone: two sheets cannot swap in one go.
+    @State private var pendingRoute: (intent: RouteIntent, waypoint: RouteWaypoint)?
+    /// A station picked in the planner, opened once the planner is gone.
+    @State private var pendingStation: Station?
     @State private var showSettings = false
     @State private var showFavorites = false
     /// The favorite the person picked, opened once the list sheet is gone: two sheets cannot swap in one go.
@@ -31,18 +40,32 @@ struct MapScreen: View {
     /// on a place the search bar no longer names. Dropping focus only closes the keyboard.
     @FocusState private var isSearchFieldFocused: Bool
 
-    init(repository: any ChargingStationRepository, authSession: AuthSession, settings: SettingsViewModel, favorites: FavoritesViewModel) {
+    init(repository: any ChargingStationRepository, authSession: AuthSession, settings: SettingsViewModel, favorites: FavoritesViewModel,
+         planner: RoutePlannerViewModel) {
         self.repository = repository
         self.authSession = authSession
         self.settings = settings
         self.favorites = favorites
+        self.planner = planner
         _viewModel = StateObject(wrappedValue: MapViewModel(repository: repository, filter: settings.settings.stationFilter))
     }
 
     var body: some View {
         NavigationStack {
-            Map(position: $position, selection: $selectedAnnotation) {
+            Map(position: $position, selection: $selection) {
                 UserAnnotation()
+                // Alternatives first, the chosen route over them, then the stops over the line.
+                ForEach(planner.lines) { line in
+                    MapPolyline(coordinates: line.coordinates)
+                        .stroke(line.isSelected ? Color.blue : Color.gray.opacity(0.6), lineWidth: line.isSelected ? 6 : 4)
+                }
+                ForEach(Array(planner.slots.enumerated()), id: \.element.id) { index, slot in
+                    if let waypoint = slot.waypoint {
+                        Marker(waypoint.kind == .currentLocation ? String(localized: "route.currentLocation") : waypoint.name,
+                               monogram: Text(index == 0 ? "A" : String(index)), coordinate: waypoint.coordinate)
+                            .tint(index == 0 ? .green : (index == planner.slots.count - 1 ? .red : .blue))
+                    }
+                }
                 // Drawn before the station pins so a searched address never hides one.
                 if let place = search.result {
                     Marker(place.displayName, systemImage: "mappin", coordinate: place.coordinate)
@@ -52,7 +75,7 @@ struct MapScreen: View {
                     Annotation(annotation.station?.displayName ?? "", coordinate: annotation.coordinate) {
                         StationAnnotationView(annotation: annotation,
                                               isFavorite: annotation.stations.contains { favorites.ids.contains($0.id) })
-                    }.tag(annotation)
+                    }.tag(MapSelection(annotation))
                 }
             }
             .mapControls { MapCompass(); MapScaleView() }
@@ -71,6 +94,8 @@ struct MapScreen: View {
                 withAnimation {
                     position = .region(MKCoordinateRegion(center: place.coordinate, latitudinalMeters: 4_000, longitudinalMeters: 4_000))
                 }
+                // A hit is not only somewhere to look at: the card offers the route there (ADR 0017).
+                placeSelection = PlaceSelection(place: place)
             }
             // `.onEnd` rather than `.continuous`: the camera settles once per gesture, which is the
             // natural debounce for a network query. The view model decides whether to actually fetch.
@@ -83,13 +108,20 @@ struct MapScreen: View {
             .onChange(of: viewModel.locationFixCount) {
                 position = .region(MKCoordinateRegion(center: viewModel.location, latitudinalMeters: 20_000, longitudinalMeters: 20_000))
             }
-            .onChange(of: selectedAnnotation) { _, annotation in
-                guard let annotation else { return }
-                // A pin either opens a station or resolves the group it stands for; either way the
-                // selection is consumed, so MapKit does not keep it highlighted behind the sheet.
-                if let station = annotation.station { selectedStation = station } else { zoom(into: annotation) }
-                selectedAnnotation = nil
+            .onChange(of: selection) { _, selected in
+                guard let selected else { return }
+                // A pin either opens a station or resolves the group it stands for; a map feature — a town,
+                // a place of interest — opens the info card. Either way the selection is consumed, so
+                // MapKit does not keep it highlighted behind the sheet.
+                if let annotation = selected.value {
+                    if let station = annotation.station { selectedStation = station } else { zoom(into: annotation) }
+                } else if let feature = selected.feature {
+                    select(feature)
+                }
+                selection = nil
             }
+            .onChange(of: planner.mapRevision) { syncRoute() }
+            .onChange(of: planner.fitRevision) { fitRoute() }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button { viewModel.requestLocation() } label: { Label("map.locate", systemImage: "location.fill") } }
                 ToolbarItem(placement: .topBarTrailing) { Button { showFavorites = true } label: { Label("favorites.title", systemImage: "star") } }
@@ -105,7 +137,29 @@ struct MapScreen: View {
                     .animation(.default, value: search.isResolving)
             }
             .overlay(alignment: .bottomTrailing) { ChargingPowerLegend().padding(12) }
-            .sheet(item: $selectedStation) { StationDetailScreen(station: $0, repository: repository, authSession: authSession, favorites: favorites) }
+            .overlay(alignment: .bottom) {
+                // Above the search field of the bottom bar; the plan itself is in the planner sheet.
+                if planner.hasPlan && !planner.isPlannerPresented {
+                    RouteSummaryBar(planner: planner) { planner.isPlannerPresented = true }
+                        .padding(.bottom, 76)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .animation(.default, value: planner.hasPlan)
+            .sheet(item: $selectedStation, onDismiss: startPendingRoute) {
+                StationDetailScreen(station: $0, repository: repository, authSession: authSession, favorites: favorites,
+                                    hasRoute: planner.hasPlan) { [station = $0] intent in choose(intent, for: RouteWaypoint(station: station)) }
+            }
+            .sheet(item: $placeSelection, onDismiss: startPendingRoute) { place in
+                PlaceInfoCard(place: place, hasPlan: planner.hasPlan, choose: { choose($0, for: place.waypoint) },
+                              save: { planner.savePlace(place.waypoint, named: $0) })
+            }
+            .sheet(isPresented: $planner.isPlannerPresented, onDismiss: openPendingStation) {
+                RoutePlannerScreen(planner: planner, favorites: favorites, currentLocation: knownLocation) { station in
+                    pendingStation = station
+                    planner.isPlannerPresented = false
+                }
+            }
             .sheet(isPresented: $showFavorites, onDismiss: openPendingFavorite) {
                 FavoritesScreen(model: favorites, authSession: authSession) { station in
                     pendingFavorite = station
@@ -114,7 +168,10 @@ struct MapScreen: View {
             }
             // Applied on dismiss, not on change: the settings persist themselves keystroke by
             // keystroke, but dragging the power slider must not be one network request per step.
-            .sheet(isPresented: $showSettings, onDismiss: { viewModel.apply(settings.settings.stationFilter) }) {
+            .sheet(isPresented: $showSettings, onDismiss: {
+                viewModel.apply(settings.settings.stationFilter)
+                planner.filterChanged()
+            }) {
                 SettingsScreen(model: settings, repository: repository, authSession: authSession)
             }
             // One alert for both sources: SwiftUI presents a single alert per view, and a failed
@@ -129,11 +186,83 @@ struct MapScreen: View {
             } message: { Text(viewModel.errorMessage ?? search.errorMessage ?? "") }
             // Seeds the first query from the known starting region rather than waiting for MapKit to
             // report a camera; the coverage check keeps its subsequent report from refetching.
-            .task { viewModel.cameraChanged(to: Self.initialRegion); viewModel.requestLocation() }
+            .task {
+                viewModel.cameraChanged(to: Self.initialRegion)
+                viewModel.requestLocation()
+                // The planner starts from where the device is; only this screen knows.
+                planner.currentLocation = { [viewModel] in viewModel.locationFixCount > 0 ? viewModel.location : nil }
+                // A plan restored from the device (or opened by a link) is on the map from the start.
+                syncRoute()
+                fitRoute()
+            }
             // Merges the device's favorites into the account on sign-in (also at launch with a restored
             // session) and empties the device copy on sign-out (ADR 0021).
             .task(id: authSession.accessToken) { await favorites.sessionChanged(to: authSession.accessToken) }
         }
+    }
+
+    /// Where the device is, once there has been a fix; the initial value of the view model is only a
+    /// starting view of Germany, not a position.
+    private var knownLocation: CLLocationCoordinate2D? { viewModel.locationFixCount > 0 ? viewModel.location : nil }
+
+    /// A place was chosen on its card or in the station screen: close the sheet, then act (ADR 0017).
+    private func choose(_ intent: RouteIntent, for waypoint: RouteWaypoint) {
+        pendingRoute = (intent, waypoint)
+        placeSelection = nil
+        selectedStation = nil
+    }
+
+    private func startPendingRoute() {
+        guard let pending = pendingRoute else { return }
+        pendingRoute = nil
+        planner.apply(pending.intent, to: pending.waypoint)
+    }
+
+    private func openPendingStation() {
+        guard let station = pendingStation else { return }
+        pendingStation = nil
+        withAnimation {
+            position = .region(MKCoordinateRegion(center: station.coordinate, latitudinalMeters: 4_000, longitudinalMeters: 4_000))
+        }
+        selectedStation = station
+    }
+
+    /// A tapped town or place of interest becomes a card at once, and learns its address a moment later.
+    private func select(_ feature: MapFeature) {
+        let place = PlaceSelection(title: feature.title ?? String(localized: "route.place.unnamed"), coordinate: feature.coordinate)
+        placeSelection = place
+        Task {
+            guard let item = try? await MKMapItemRequest(feature: feature).mapItem, placeSelection?.id == place.id else { return }
+            placeSelection?.subtitle = item.address?.shortAddress ?? ""
+        }
+    }
+
+    /// The map shows the stations along a route while there is one, the viewport's otherwise. A route that
+    /// is being planned again keeps the map as it was, instead of flickering through the viewport.
+    private func syncRoute() {
+        if planner.route != nil {
+            viewModel.showRoute(stations: planner.candidates.map(\.station))
+        } else if planner.phase != .planning {
+            viewModel.clearRoute()
+        }
+    }
+
+    /// Frames the whole route, a little south of the middle so it stays above the planner sheet.
+    private func fitRoute() {
+        guard let route = planner.route, let region = Self.region(fitting: route.coordinates) else { return }
+        withAnimation { position = .region(region) }
+    }
+
+    private static func region(fitting coordinates: [RouteCoordinate]) -> MKCoordinateRegion? {
+        guard let first = coordinates.first else { return nil }
+        var minLat = first.latitude, maxLat = first.latitude, minLon = first.longitude, maxLon = first.longitude
+        for coordinate in coordinates {
+            minLat = min(minLat, coordinate.latitude); maxLat = max(maxLat, coordinate.latitude)
+            minLon = min(minLon, coordinate.longitude); maxLon = max(maxLon, coordinate.longitude)
+        }
+        let latSpan = max((maxLat - minLat) * 1.5, 0.02), lonSpan = max((maxLon - minLon) * 1.3, 0.02)
+        return MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2 - latSpan * 0.15, longitude: (minLon + maxLon) / 2),
+                                  span: MKCoordinateSpan(latitudeDelta: latSpan, longitudeDelta: lonSpan))
     }
 
     /// Centers the map on the favorite picked in the list and opens it.

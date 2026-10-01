@@ -14,10 +14,19 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
     /// than were returned. The map says so rather than pretending to be complete.
     @Published private(set) var isTruncated = false
     @Published var errorMessage: String?
+    /// What the pins are: the stations around the viewport, or the stations along a planned route.
+    /// Explicit so the two never overwrite each other (ADR 0017): in `.route` the camera moves freely and
+    /// loads nothing, because the stations on screen are the ones along the route.
+    @Published private(set) var mode: Mode = .viewport
     @Published private(set) var location = CLLocationCoordinate2D(latitude: 51.1657, longitude: 10.4515)
     /// Bumped on every accepted location fix so the map can recenter without
     /// needing `CLLocationCoordinate2D` to be `Equatable`.
     @Published private(set) var locationFixCount = 0
+
+    enum Mode: Equatable {
+        case viewport
+        case route
+    }
 
     private let repository: any ChargingStationRepository
     private let locationManager = CLLocationManager()
@@ -51,7 +60,32 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
     func apply(_ filter: StationFilter) {
         guard filter != self.filter else { return }
         self.filter = filter
+        // On a route the planner asks again for its own stations; there is no viewport to reload.
+        guard mode == .viewport else { return }
         AppLogger.stations.notice("Filter changed to \(filter.logDescription) — reloading")
+        reload()
+    }
+
+    /// Shows the stations along a route instead of the ones around the viewport (ADR 0017). Called with
+    /// the planner's list whenever it changes; an empty list is a route whose stations are still coming.
+    func showRoute(stations routeStations: [Station]) {
+        mode = .route
+        loadTask?.cancel()
+        liveTask?.cancel()
+        isLoading = false
+        isTruncated = false
+        liveAvailability = [:]
+        stations = routeStations.filter { !filter.availabilityOnly || ($0.availability?.isUsable ?? false) }
+        recluster()
+    }
+
+    /// Back to the viewport: what was drawn belonged to the route, so the area on screen is fetched anew.
+    func clearRoute() {
+        guard mode == .route else { return }
+        mode = .viewport
+        stations = []
+        loadedViewport = nil
+        recluster()
         reload()
     }
 
@@ -67,6 +101,7 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
         let viewport = MapViewport(region: region)
         currentViewport = viewport
         recluster()
+        guard mode == .viewport else { return }
 
         if let loadedViewport, viewport.isCovered(by: loadedViewport) {
             AppLogger.stations.debug("Camera settled inside the loaded area — no refetch")
@@ -77,7 +112,7 @@ final class MapViewModel: NSObject, ObservableObject, CLLocationManagerDelegate 
 
     /// Refetches the area currently on screen, e.g. after the filter changed.
     func reload() {
-        guard let currentViewport else { return }
+        guard mode == .viewport, let currentViewport else { return }
         load(currentViewport)
     }
 

@@ -128,8 +128,9 @@ struct ProviderSearchTests {
         repository.gateNextCall()
 
         model.queryChanged(to: "stale")
-        // Past the debounce, so the first lookup is inside the repository and parked there.
-        try await Task.sleep(for: .milliseconds(400))
+        // Until the first lookup is inside the repository and parked there. Polled rather than slept: a fixed
+        // pause past the debounce is shorter than it looks when the main actor is busy.
+        for _ in 0..<500 where repository.queries.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
         model.queryChanged(to: "ionity")
         repository.releaseGate()
         try await settle()

@@ -4,6 +4,10 @@ struct StationDetailScreen: View {
     let station: Station
     @ObservedObject var authSession: AuthSession
     @ObservedObject var favorites: FavoritesViewModel
+    /// Whether a route is being planned, which adds "add as a stop" to the route actions (ADR 0017).
+    let hasRoute: Bool
+    /// What to do with this station as a place on a route; the map screen carries it out.
+    let routeAction: (RouteIntent) -> Void
     @StateObject private var viewModel: StationDetailViewModel
     @State private var showCommentEditor = false
     @State private var showReport = false
@@ -11,10 +15,13 @@ struct StationDetailScreen: View {
     /// The comment somebody else wrote that the reader is about to report or block the author of.
     @State private var moderatingComment: StationComment?
 
-    init(station: Station, repository: any ChargingStationRepository, authSession: AuthSession, favorites: FavoritesViewModel) {
+    init(station: Station, repository: any ChargingStationRepository, authSession: AuthSession, favorites: FavoritesViewModel,
+         hasRoute: Bool = false, routeAction: @escaping (RouteIntent) -> Void = { _ in }) {
         self.station = station
         self.authSession = authSession
         self.favorites = favorites
+        self.hasRoute = hasRoute
+        self.routeAction = routeAction
         _viewModel = StateObject(wrappedValue: StationDetailViewModel(stationID: station.id, repository: repository))
     }
 
@@ -22,6 +29,7 @@ struct StationDetailScreen: View {
         NavigationStack {
             List {
                 StationInformationSection(station: station)
+                StationRouteSection(hasRoute: hasRoute, routeAction: routeAction)
                 // Above the infrastructure: "can I charge here now" outranks "what is installed here".
                 if let live = viewModel.liveAvailability { StationLiveAvailabilitySection(availability: live) }
                 if let detail = viewModel.detail { StationInfrastructureSections(detail: detail) }
@@ -111,5 +119,28 @@ struct StationDetailScreen: View {
     private func delete(_ comment: StationComment) async {
         guard let token = authSession.accessToken else { return }
         await viewModel.deleteComment(comment, accessToken: token)
+    }
+}
+
+/// "Route here", "route from here" and "add as stop" for a charging station (ADR 0017) — the same actions
+/// the info card offers for any other place.
+private struct StationRouteSection: View {
+    let hasRoute: Bool
+    let routeAction: (RouteIntent) -> Void
+
+    var body: some View {
+        Section {
+            HStack(spacing: 10) {
+                Button { routeAction(.routeTo) } label: { Label("route.to", systemImage: "arrow.turn.down.right").frame(maxWidth: .infinity) }
+                    .buttonStyle(.borderedProminent)
+                Button { routeAction(.routeFrom) } label: { Label("route.from", systemImage: "arrow.up.right").frame(maxWidth: .infinity) }
+                    .buttonStyle(.bordered)
+            }
+            .controlSize(.large)
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            if hasRoute {
+                Button { routeAction(.addStop) } label: { Label("route.addChargingStop", systemImage: "plus.circle") }
+            }
+        }
     }
 }
