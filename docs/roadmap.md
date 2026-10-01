@@ -31,7 +31,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | 9 | CarPlay als Lade-App | offen | | neu |
 | L1 | Lückenfüller: Österreich | übersprungen ⁴ | | [0012](adr/0012-additional-national-charging-registers.md) |
 | L2 | Lückenfüller: Schweiz | fertig ⁵ | [#18](https://github.com/Joinsider/evmap/pull/18) | [0012](adr/0012-additional-national-charging-registers.md) |
-| L3 | Lückenfüller: Italien | offen | | 0012 |
+| L3 | Lückenfüller: Italien | übersprungen ⁷ | | [0012](adr/0012-additional-national-charging-registers.md) |
 | L4 | Lückenfüller: Spanien | offen | | 0012 |
 
 ¹ Im Repository fertig; offen sind die 👤-Schritte auf dem VPS (Backup-Ziel, Monitore, erste
@@ -56,6 +56,12 @@ des BFE.
 ⁶ Im Repository fertig, keine neuen 👤-Schritte. Offen ist der Gerätetest: Favorit ohne Konto setzen, anmelden
 (Vereinigung prüfen), abmelden (Liste leer), Station melden und im Admin-Bereich schließen. Favoriten in
 der Web-Oberfläche folgen mit der Nutzer-Web-App (Phase 8); die Endpunkte sind vorbereitet.
+
+⁷ Die PUN (GSE/MASE) hat ihren CSV-Export im Juni 2026 abgeschaltet; geblieben ist nur die undokumentierte
+Portal-API, die laut Product Owner Italienern mit italienischem Ausweis vorbehalten ist, und die Lizenz
+(CC BY 4.0) ist nur eine Annahme der AgID (ADR 0012, „Italy skipped“). Italien bleibt über OCM abgedeckt.
+Wieder aufnehmen, falls GSE/MASE einen offenen, dokumentierten Export oder eine API für ausländische Nutzer
+mit klarer Lizenz anbietet oder der italienische AFIR-Zugangspunkt einen offenen Datensatz liefert.
 
 Separat angestoßen (Teil von Phase 0): `permitAll` für `/api/v1/stations/**` auf GET beschränken.
 Erledigt mit PR #8 (Commit `3d40492`), vor Beginn von Phase 0 auf `master` geprüft.
@@ -195,8 +201,8 @@ Ein nationales Register pro Lücke zwischen zwei Phasen, jeweils als eigenes `sy
 nach dem Rezept in `sync/package-info.java`, und `SourceAdapterRegistrationTests` erweitert.
 Reihenfolge: **Österreich → Schweiz → Italien → Spanien**. Vor jedem Adapter wird geprüft, ob die
 Daten offen verfügbar sind und unter welcher Lizenz; ein Land ohne offene Daten wird übersprungen
-und im ADR 0012 vermerkt. Österreich wurde so übersprungen (Stand 2026-09-30), Schweiz ist umgesetzt; als Nächstes ist
-**Italien** (L3) dran, vor Phase 4.
+und im ADR 0012 vermerkt. Österreich wurde so übersprungen (Stand 2026-09-30), Schweiz ist umgesetzt, Italien wurde
+übersprungen (Stand 2026-10-01); als Nächstes ist **Spanien** (L4) dran, vor Phase 4.
 
 ### Skalierung / Variante C · bei Bedarf
 
@@ -271,6 +277,12 @@ Phase 3 (2026-09-30, Details in ADR 0021):
 - Fehlermeldung an einer Station: geschlossener Grund plus optionaler Text (max. 500 Zeichen), nur für
   angemeldete Nutzer. Admins schließen mit „erledigt“ oder „abgewiesen“; Stammdaten bleiben unberührt.
 - iOS: Favoritenliste als Sheet über einen Stern-Button in der Karten-Toolbar. Web: nur die Admin-Warteschlange.
+
+Lückenfüller Italien (2026-10-01, Details in ADR 0012, Abschnitt „Italy skipped“):
+
+- L3 wird übersprungen. Die PUN hat keinen offenen Export mehr; die Portal-API ist laut Product Owner nur mit
+  italienischem Ausweis erreichbar, ihre Lizenz ist nicht ausdrücklich erklärt. Ein Adapter gegen die Portal-API
+  wurde verworfen. Italien bleibt über OCM abgedeckt.
 
 Roadmap allgemein:
 
