@@ -41,20 +41,21 @@ struct StationPriceSection: View {
         } footer: {
             VStack(alignment: .leading, spacing: 4) {
                 Text("price.disclaimer")
-                if let observedAt = groups.compactMap(\.observedAt).max() {
-                    Text(String(format: String(localized: "price.observedAt"), observedAt.formatted(.relative(presentation: .named))))
-                }
                 credits(groups)
             }
         }
     }
 
-    /// "2 × CCS · 150 kW · Partner AG": how many, which plugs, and the operator where it is not the station's.
+    /// "2 × CCS · 150 kW · Partner AG · Stand 01.04.2026": how many, which plugs, the operator where it is not the
+    /// station's, and since when the price stands. Per row, because one station's prices can be months apart.
     private func details(of group: PriceGroup) -> String {
         var parts: [String] = []
         if group.count > 1 { parts.append(String(format: String(localized: "price.chargePointCount"), group.count)) }
         if !group.plugs.isEmpty { parts.append(group.plugs) }
         if group.showsOperator, let operatorName = group.operatorName { parts.append(operatorName) }
+        if let observedAt = group.observedAt {
+            parts.append(String(format: String(localized: "price.observedAt"), observedAt.formatted(date: .numeric, time: .omitted)))
+        }
         return parts.isEmpty ? String(localized: "station.live.chargePoint") : parts.joined(separator: " · ")
     }
 

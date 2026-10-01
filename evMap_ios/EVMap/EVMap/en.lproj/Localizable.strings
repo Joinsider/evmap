@@ -86,7 +86,7 @@
 "price.timeBased" = "plus a time-based fee";
 "price.timeBasedFrom" = "time-based fee from min %lld";
 "price.title" = "Ad-hoc price";
-"price.unpriced" = "%lld charge points without a known price";
+"price.unpriced" = "Charge points without a known price: %lld";
 "provider.alreadyListed" = "Already on the list";
 "provider.empty" = "No providers found.";
 "provider.listed.empty.description" = "No individual providers set yet. Search for a charging network below and tap it.";

@@ -86,7 +86,7 @@
 "price.timeBased" = "zzgl. zeitabhängiger Gebühr";
 "price.timeBasedFrom" = "ab Min. %lld zeitabhängige Gebühr";
 "price.title" = "Ad-hoc-Preis";
-"price.unpriced" = "%lld Ladepunkte ohne bekannten Preis";
+"price.unpriced" = "Ladepunkte ohne bekannten Preis: %lld";
 "provider.alreadyListed" = "Bereits in der Liste";
 "provider.empty" = "Keine Anbieter gefunden.";
 "provider.listed.empty.description" = "Noch keine einzelnen Anbieter eingestellt. Suche unten nach einem Ladenetz und tippe es an.";
