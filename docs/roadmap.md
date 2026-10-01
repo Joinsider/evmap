@@ -32,7 +32,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | L1 | Lückenfüller: Österreich | übersprungen ⁴ | | [0012](adr/0012-additional-national-charging-registers.md) |
 | L2 | Lückenfüller: Schweiz | fertig ⁵ | [#18](https://github.com/Joinsider/evmap/pull/18) | [0012](adr/0012-additional-national-charging-registers.md) |
 | L3 | Lückenfüller: Italien | übersprungen ⁷ | | [0012](adr/0012-additional-national-charging-registers.md) |
-| L4 | Lückenfüller: Spanien | in Arbeit | `feature/sync-spain` | [0012](adr/0012-additional-national-charging-registers.md) |
+| L4 | Lückenfüller: Spanien | fertig ⁸ | `feature/sync-spain` | [0012](adr/0012-additional-national-charging-registers.md) |
 
 ¹ Im Repository fertig; offen sind die 👤-Schritte auf dem VPS (Backup-Ziel, Monitore, erste
 Restore-Probe, `docs/operations/backup-and-restore.md` §5).
@@ -62,6 +62,12 @@ Portal-API, die laut Product Owner Italienern mit italienischem Ausweis vorbehal
 (CC BY 4.0) ist nur eine Annahme der AgID (ADR 0012, „Italy skipped“). Italien bleibt über OCM abgedeckt.
 Wieder aufnehmen, falls GSE/MASE einen offenen, dokumentierten Export oder eine API für ausländische Nutzer
 mit klarer Lizenz anbietet oder der italienische AFIR-Zugangspunkt einen offenen Datensatz liefert.
+
+⁸ Im Repository fertig (10.217 Stationen aus 35.546 Ladepunkten gegen die Live-Datei vom 2026-10-01 geprüft), keine
+neuen 👤-Schritte. Offen ist der erste Lauf auf dem Server: einen zweiten Lauf prüfen, dass kaum noch Stationen neu
+angelegt werden (ADR 0012, offener Punkt 9). Die Lizenz (CC-BY laut Datensatzseite) wurde nicht mit der DGT
+geklärt; Restrisiko akzeptiert, Abschalten mit `MITERD_ENABLED=false`. Spanien war vorher nicht abgedeckt (nicht in
+der OCM-Standardliste). Betreiber pro Ladepunkt kommt mit Phase 5.
 
 Separat angestoßen (Teil von Phase 0): `permitAll` für `/api/v1/stations/**` auf GET beschränken.
 Erledigt mit PR #8 (Commit `3d40492`), vor Beginn von Phase 0 auf `master` geprüft.
@@ -207,7 +213,8 @@ nach dem Rezept in `sync/package-info.java`, und `SourceAdapterRegistrationTests
 Reihenfolge: **Österreich → Schweiz → Italien → Spanien**. Vor jedem Adapter wird geprüft, ob die
 Daten offen verfügbar sind und unter welcher Lizenz; ein Land ohne offene Daten wird übersprungen
 und im ADR 0012 vermerkt. Österreich wurde so übersprungen (Stand 2026-09-30), Schweiz ist umgesetzt, Italien wurde
-übersprungen (Stand 2026-10-01); als Nächstes ist **Spanien** (L4) dran, vor Phase 4.
+übersprungen (Stand 2026-10-01), Spanien ist umgesetzt (Stand 2026-10-01). Damit sind alle vier Lückenfüller
+erledigt; als Nächstes ist **Phase 4** dran.
 
 ### Skalierung / Variante C · bei Bedarf
 

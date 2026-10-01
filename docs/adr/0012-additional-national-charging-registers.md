@@ -421,7 +421,7 @@ MITERD's open-data catalogue (no charge point download found) and Red Eléctrica
 notice (`dgt.es/contenido/aviso-legal`) says unauthorised reproduction, distribution, commercialisation or
 transformation of its works is an infringement. It speaks of the portal's design and code and does not
 mention the datasets, and it does not contradict the CC-BY on the dataset page, but it was not clarified
-with the DGT either. Accepted residual risk; if the DGT objects, the adapter goes off with `ES_ENABLED=false`
+with the DGT either. Accepted residual risk; if the DGT objects, the adapter goes off with `MITERD_ENABLED=false`
 and Spain is blank again. Attribution "DGT / MITERD" is the per-station source display.
 
 **What the file holds** (2026-10-01 edition): 12.037 sites, one `energyInfrastructureStation` each, 35.546
@@ -440,9 +440,9 @@ EVSE name.
 - **Power** is in watts (`maxPowerAtSocket`), always present, 2.069 connectors above 150 kW, four CCS at 480–1.000 kW
   (kept). Six read `60` W, which is not a charger: below 1 kW is "unknown", never a rating.
 - **The EVSE-ID is the charge point's `fac:name`**, not its `id` (`COD2023…`, which is the register's own key and
-  becomes `sourceChargePointId`). 1.055 names are not EVSE-IDs (`ES*PAV*E_VIN_005`, `ES*INC*E JAUME I - RRCC`,
-  `ES*CAS*P3`). Only a name of the shape `ES*<3 characters>*E<…>` without spaces is kept as `evseId`; the rest
-  keep the plug without one, so the live-availability join never sees a junk id.
+  becomes `sourceChargePointId`). 449 of the 35.546 names are not EVSE-IDs (`ES*INC*E JAUME I - RRCC`, `ES*CAS*P3`; ids like `ES*PAV*E_VIN_005`
+  and `ES*814*E-03` are kept). Only a name of the shape `ES*<3 characters>*E<…>` without spaces is kept as
+  `evseId`; the rest keep the plug without one, so the live-availability join never sees a junk id.
 - **Postcodes lose the leading zero** on 3.369 sites (`7011` for Palma, `08xxx` Barcelona): four digits are padded
   to five. **Street and city** are address lines prefixed with their label (`Dirección: …`, `Municipio: …`); they
   are read by label, not by position.
@@ -466,6 +466,20 @@ a price depends on the operator of the charge point, not of the parking lot — 
 
 **Authority.** `ES: MITERD` joins `evmap.sync.authority`: the register is legally mandated, and without an entry any
 later source for Spain would overwrite its EVSE-IDs. Source token `MITERD`, adapter `sync.es`.
+
+**Implemented as `sync.es` (`MiterdSourceAdapter`, `MiterdDatexParser`, `MiterdProperties`, source token `MITERD`,
+`evmap.sync.miterd.*`, `MITERD_ENABLED` / `MITERD_URL`).** Run against the live 2026-10-01 file: **10.217 stations from
+35.546 charge points** (12.037 sites; 1.123 stations bundle several sites), 42.686 plugs, 35.097 EVSE-IDs kept, all of
+them unique, and every station id and charge point id unique. The closest two stations are 35,05 m apart, so the
+ingestion's 30 m match cannot merge two of them. Parsing takes 0,5 s and ~210 MB of heap; the download 7 s. Six
+connectors rated 60 W read as unknown. The document is read with a streaming parser (StAX, DTDs and external
+entities off) and held as small raw records until bundling is done; the stations are collected rather than streamed
+lazily because their counters go into one summary line, and 10.000 of them are small.
+
+Accepted edges: every station is labelled `ES`, including any near the French and Portuguese border that the
+register lists as Spanish; the station name is the anchor site's name and is often a car park or operator label; the
+postcode padding assumes the four-digit values are provinces 01–09, which is what the register's own numeric storage
+produces. The register carries opening hours only as free text, and none are read.
 
 ## Open points
 
@@ -506,6 +520,18 @@ later source for Spain would overwrite its EVSE-IDs. Source token `MITERD`, adap
    (`SELECT source, count(*) FROM master.charge_point GROUP BY source`), which the authority rule is meant to
    keep stable across OCM runs. Not measured yet — needs the production database.
 
+9. **First production run of `MITERD`.** Expected: ~10.000 stations, most of them `created` (Spain is not in the OCM
+   crawl, so there is little to match), and a second consecutive run that reports almost no `created`. Also worth a
+   look: the bundled stations should keep their ids across editions, since the anchor is the first site in
+   south-to-north order and a new site south of an old anchor changes it — the ingestion then falls back to its
+   30 m match and keeps the station, so this shows up as `updated`, never as a duplicate. Not measured — needs the
+   production database.
+
+10. **Operator per charge point** (from "Spain (L4)"): moved to phase 5 of the roadmap. Options when it is taken up:
+    (a) a nullable `operator_name` on `master.charge_point`, filled by every adapter that knows it, with the
+    station's `operator_name` kept as the fallback; (b) a separate operator table keyed by name. (a) is smaller and
+    matches how the directory (ADR 0014) already treats the name as the identity.
+
 ## References
 
 - [Fichier consolidé des IRVE — transport.data.gouv.fr](https://transport.data.gouv.fr/datasets/fichier-consolide-des-bornes-de-recharge-pour-vehicules-electriques)
@@ -536,4 +562,8 @@ later source for Spain would overwrite its EVSE-IDs. Source token `MITERD`, adap
 - [ADR 0013](0013-per-source-isolation-in-the-sync-run.md) — the sync restructuring the French adapter
   went in with
 - `evmap_service/src/main/java/de/joinside/evmap_service/sync/irve/` — the adapter
-- `evmap_service/src/main/resources/application-sync.yaml` — `evmap.sync.irve.*`
+- [Puntos de recarga eléctrica para vehículos — DGT NAP](https://nap.dgt.es/en/dataset/puntos-de-recarga-electrica-para-vehiculos)
+  — data `https://nap.dgt.es/datex2/v3/miterd/EnergyInfrastructureTablePublication/electrolineras.xml`, legal notice
+  `https://www.dgt.es/contenido/aviso-legal/`
+- `evmap_service/src/main/java/de/joinside/evmap_service/sync/es/` — the Spanish adapter
+- `evmap_service/src/main/resources/application-sync.yaml` — `evmap.sync.irve.*`, `evmap.sync.miterd.*`

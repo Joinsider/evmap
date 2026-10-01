@@ -35,6 +35,7 @@ evmap:
       FR: IRVE
       CH: DIEMO
       LI: DIEMO
+      ES: MITERD
 
     # Bundesnetzagentur Ladesäulenregister (CC BY 4.0, attribution "Bundesnetzagentur.de").
     # The published file name is date-stamped, so the adapter scrapes index-url for the current
@@ -64,6 +65,14 @@ evmap:
       enabled: ${DIEMO_ENABLED:true}
       url: ${DIEMO_URL:https://data.geo.admin.ch/ch.bfe.ladestellen-elektromobilitaet/data/oicp/ch.bfe.ladestellen-elektromobilitaet.json}
       timeout: PT2M
+
+    # Spanish national register (MITERD, Order TED/445/2023, published by the DGT's National Access Point
+    # as DATEX II v3; CC-BY per the dataset page, attribution "DGT / MITERD" — ADR 0012, "Spain (L4)").
+    # No key, one ~83 MB XML document of 12.037 sites, refreshed every 24 h. Override url to pin a copy.
+    miterd:
+      enabled: ${MITERD_ENABLED:true}
+      url: ${MITERD_URL:https://nap.dgt.es/datex2/v3/miterd/EnergyInfrastructureTablePublication/electrolineras.xml}
+      timeout: PT5M
 
     # Open Charge Map. api-key is mandatory (the API answers 403 without one) and comes from
     # https://openchargemap.org → my profile → my apps → Register An Application. A blank key skips
