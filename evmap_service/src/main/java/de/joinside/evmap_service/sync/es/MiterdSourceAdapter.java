@@ -1,4 +1,4 @@
-package de.joinside.evmap_service.sync.ch;
+package de.joinside.evmap_service.sync.es;
 
 import de.joinside.evmap_service.sync.SourceAdapter;
 import de.joinside.evmap_service.sync.SourceStation;
@@ -16,34 +16,31 @@ import java.time.Instant;
 import java.util.stream.Stream;
 
 /**
- * Ingests the Swiss national charging register: the Federal Office of Energy's <em>ich-tanke-strom</em>
- * feed (DIEMO), published as one OICP JSON document on {@code data.geo.admin.ch}.
+ * Ingests the Spanish national charging register that the Ministry for the Ecological Transition
+ * (MITERD) keeps under Order TED/445/2023, as the DGT's National Access Point publishes it: one DATEX II
+ * v3 XML document for the whole country.
  * <p>
- * No key, no discovery step and no paging: one stable URL serves the whole country. That makes the
- * adapter about as small as IRVE's; what is not small is the mapping, because the feed lists EVSEs
- * rather than stations and is loosely typed throughout — see {@link DiemoOicpParser} and ADR 0012.
- * <p>
- * The server stores the document gzipped and answers {@code Content-Encoding: gzip}. The JDK's HTTP
- * client does not undo that label, so what lands on disk is a gzip file, while another client would
- * deliver plain JSON. {@link BulkDownload} recognises gzip by its magic bytes and copes with either.
+ * No key, no discovery step and no paging, like the Swiss and French registers. What is not small is
+ * the mapping: the register lists one site per operator, so sites of different operators on one
+ * parking lot have to be bundled — see {@link MiterdDatexParser} and ADR 0012, "Spain (L4)".
  */
 @Component
 @ConditionalOnProperty(name = "evmap.sync.enabled", havingValue = "true")
-@EnableConfigurationProperties(DiemoProperties.class)
-class DiemoSourceAdapter implements SourceAdapter {
-    private static final BulkDownload DOWNLOAD = BulkDownload.named("Swiss DIEMO register", "diemo-register", ".json");
+@EnableConfigurationProperties(MiterdProperties.class)
+class MiterdSourceAdapter implements SourceAdapter {
+    private static final BulkDownload DOWNLOAD = BulkDownload.named("Spanish MITERD register", "miterd-register", ".xml");
 
-    private final DiemoProperties properties;
+    private final MiterdProperties properties;
     private final RestClient restClient;
     private final Clock clock;
 
     @Autowired
-    DiemoSourceAdapter(DiemoProperties properties, RestClient.Builder restClientBuilder) {
+    MiterdSourceAdapter(MiterdProperties properties, RestClient.Builder restClientBuilder) {
         this(properties, BulkDownload.withTimeout(restClientBuilder, properties.timeout()).build(), Clock.systemUTC());
     }
 
     /** Takes a ready-made client and a clock so tests can bind the first to a mock server. */
-    DiemoSourceAdapter(DiemoProperties properties, RestClient restClient, Clock clock) {
+    MiterdSourceAdapter(MiterdProperties properties, RestClient restClient, Clock clock) {
         this.properties = properties;
         this.restClient = restClient;
         this.clock = clock;
@@ -51,7 +48,7 @@ class DiemoSourceAdapter implements SourceAdapter {
 
     @Override
     public String source() {
-        return DiemoOicpParser.SOURCE;
+        return MiterdDatexParser.SOURCE;
     }
 
     @Override
@@ -63,6 +60,6 @@ class DiemoSourceAdapter implements SourceAdapter {
     public Stream<SourceStation> fetchStations() {
         Instant fetchedAt = clock.instant();
         return DOWNLOAD.fetchAndParse(restClient, URI.create(properties.url()), StandardCharsets.UTF_8,
-                reader -> DiemoOicpParser.parse(reader, fetchedAt));
+                reader -> MiterdDatexParser.parse(reader, fetchedAt));
     }
 }

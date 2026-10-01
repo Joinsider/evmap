@@ -25,7 +25,8 @@ class SourceAdapterRegistrationTests {
      */
     @Configuration
     @ComponentScan(basePackages = {"de.joinside.evmap_service.sync.bnetza", "de.joinside.evmap_service.sync.ch",
-            "de.joinside.evmap_service.sync.irve", "de.joinside.evmap_service.sync.ocm"})
+            "de.joinside.evmap_service.sync.es", "de.joinside.evmap_service.sync.irve",
+            "de.joinside.evmap_service.sync.ocm"})
     @EnableConfigurationProperties(SourceAuthority.class)
     static class AdaptersOnly {
         @Bean
@@ -64,7 +65,7 @@ class SourceAdapterRegistrationTests {
             assertThat(context.getBeansOfType(SourceAdapter.class).values())
                     .extracting(adapter -> adapter.getClass().getSimpleName())
                     .containsExactlyInAnyOrder("BnetzaCsvSourceAdapter", "DiemoSourceAdapter",
-                            "IrveCsvSourceAdapter", "OpenChargeMapSourceAdapter");
+                            "IrveCsvSourceAdapter", "MiterdSourceAdapter", "OpenChargeMapSourceAdapter");
         });
     }
 
@@ -77,7 +78,7 @@ class SourceAdapterRegistrationTests {
                     .extracting(SourceAdapter::source)
                     // Two adapters sharing a token would silently overwrite each other's stations and
                     // each other's incremental watermarks.
-                    .containsExactlyInAnyOrder("BNetzA", "DIEMO", "IRVE", "OCM")
+                    .containsExactlyInAnyOrder("BNetzA", "DIEMO", "IRVE", "MITERD", "OCM")
                     // master.charging_station_source.source is VARCHAR(32).
                     .allSatisfy(source -> assertThat(source).isNotBlank().hasSizeLessThanOrEqualTo(32));
         });
@@ -96,7 +97,7 @@ class SourceAdapterRegistrationTests {
                     SourceAuthority authority = context.getBean(SourceAuthority.class);
 
                     assertThat(authority.authority()).containsEntry("DE", "BNetzA").containsEntry("FR", "IRVE")
-                            .containsEntry("CH", "DIEMO");
+                            .containsEntry("CH", "DIEMO").containsEntry("ES", "MITERD");
                     assertThat(authority.authority().values()).isNotEmpty().allSatisfy(source ->
                             assertThat(registered).contains(source));
                 });
@@ -134,6 +135,10 @@ class SourceAdapterRegistrationTests {
             Object diemo = propertiesBean(context.getBeanNamesForType(Object.class), context, "DiemoProperties");
             assertThat(diemo).hasFieldOrPropertyWithValue("enabled", true);
             assertThat(diemo).extracting("url").asString().contains("data.geo.admin.ch");
+
+            Object miterd = propertiesBean(context.getBeanNamesForType(Object.class), context, "MiterdProperties");
+            assertThat(miterd).hasFieldOrPropertyWithValue("enabled", true);
+            assertThat(miterd).extracting("url").asString().contains("nap.dgt.es");
         });
     }
 

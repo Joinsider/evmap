@@ -32,7 +32,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | L1 | Lückenfüller: Österreich | übersprungen ⁴ | | [0012](adr/0012-additional-national-charging-registers.md) |
 | L2 | Lückenfüller: Schweiz | fertig ⁵ | [#18](https://github.com/Joinsider/evmap/pull/18) | [0012](adr/0012-additional-national-charging-registers.md) |
 | L3 | Lückenfüller: Italien | übersprungen ⁷ | | [0012](adr/0012-additional-national-charging-registers.md) |
-| L4 | Lückenfüller: Spanien | offen | | 0012 |
+| L4 | Lückenfüller: Spanien | fertig ⁸ | [#22](https://github.com/Joinsider/evmap/pull/22) | [0012](adr/0012-additional-national-charging-registers.md) |
 
 ¹ Im Repository fertig; offen sind die 👤-Schritte auf dem VPS (Backup-Ziel, Monitore, erste
 Restore-Probe, `docs/operations/backup-and-restore.md` §5).
@@ -62,6 +62,12 @@ Portal-API, die laut Product Owner Italienern mit italienischem Ausweis vorbehal
 (CC BY 4.0) ist nur eine Annahme der AgID (ADR 0012, „Italy skipped“). Italien bleibt über OCM abgedeckt.
 Wieder aufnehmen, falls GSE/MASE einen offenen, dokumentierten Export oder eine API für ausländische Nutzer
 mit klarer Lizenz anbietet oder der italienische AFIR-Zugangspunkt einen offenen Datensatz liefert.
+
+⁸ Im Repository fertig (10.217 Stationen aus 35.546 Ladepunkten gegen die Live-Datei vom 2026-10-01 geprüft), keine
+neuen 👤-Schritte. Offen ist der erste Lauf auf dem Server: einen zweiten Lauf prüfen, dass kaum noch Stationen neu
+angelegt werden (ADR 0012, offener Punkt 9). Die Lizenz (CC-BY laut Datensatzseite) wurde nicht mit der DGT
+geklärt; Restrisiko akzeptiert, Abschalten mit `MITERD_ENABLED=false`. Spanien war vorher nicht abgedeckt (nicht in
+der OCM-Standardliste). Betreiber pro Ladepunkt kommt mit Phase 5.
 
 Separat angestoßen (Teil von Phase 0): `permitAll` für `/api/v1/stations/**` auf GET beschränken.
 Erledigt mit PR #8 (Commit `3d40492`), vor Beginn von Phase 0 auf `master` geprüft.
@@ -159,6 +165,11 @@ Kleine Features, im Alltag sofort nützlich.
 
 Baut auf der Tarif-Recherche aus Phase 4 auf.
 
+- **Voraussetzung: Betreiber pro Ladepunkt** (entschieden 2026-10-01, ADR 0012 „Spain (L4)“). Heute steht der
+  Betreiber nur an der Station (`master.charging_station.operator_name`); Stationen mehrerer Betreiber am selben
+  Ort (in Spanien 250 gebündelte Stationen, 647 Ladepunkte) tragen den Mehrheitsbetreiber. Der Preis hängt am
+  Betreiber des Ladepunkts, deshalb kommt die Spalte in `master.charge_point` samt Migration, API-Feld und
+  iOS-Anzeige hier hinzu.
 - Ladekarten verwalten: eine gepflegte, möglichst automatisch aktualisierte Liste plus eigene
   Tarife.
 - An jeder Station anzeigen, was sie mit den eigenen Karten kostet; Ad-hoc-Preise, sobald eine
@@ -202,7 +213,8 @@ nach dem Rezept in `sync/package-info.java`, und `SourceAdapterRegistrationTests
 Reihenfolge: **Österreich → Schweiz → Italien → Spanien**. Vor jedem Adapter wird geprüft, ob die
 Daten offen verfügbar sind und unter welcher Lizenz; ein Land ohne offene Daten wird übersprungen
 und im ADR 0012 vermerkt. Österreich wurde so übersprungen (Stand 2026-09-30), Schweiz ist umgesetzt, Italien wurde
-übersprungen (Stand 2026-10-01); als Nächstes ist **Spanien** (L4) dran, vor Phase 4.
+übersprungen (Stand 2026-10-01), Spanien ist umgesetzt (Stand 2026-10-01). Damit sind alle vier Lückenfüller
+erledigt; als Nächstes ist **Phase 4** dran.
 
 ### Skalierung / Variante C · bei Bedarf
 
@@ -283,6 +295,16 @@ Lückenfüller Italien (2026-10-01, Details in ADR 0012, Abschnitt „Italy skip
 - L3 wird übersprungen. Die PUN hat keinen offenen Export mehr; die Portal-API ist laut Product Owner nur mit
   italienischem Ausweis erreichbar, ihre Lizenz ist nicht ausdrücklich erklärt. Ein Adapter gegen die Portal-API
   wurde verworfen. Italien bleibt über OCM abgedeckt.
+
+Lückenfüller Spanien (2026-10-01, Details in ADR 0012, Abschnitt „Spain (L4)“):
+
+- Quelle ist das MITERD-Register über den DGT-NAP (DATEX II v3, CC-BY laut Datensatzseite, kein Schlüssel). Der
+  allgemeine DGT-Rechtshinweis wurde nicht geklärt; die Datensatz-Lizenz gilt als maßgeblich, Restrisiko akzeptiert.
+- Standorte (einer je Betreiber) werden nach Position über alle Betreiber gebündelt (35 m, 10.217 Stationen).
+  Grund: Die Aufnahme behandelt 30 m als „derselbe Ort“; sonst überschreiben sich Standorte einer Quelle bei
+  jedem Lauf. Nur gleiche Betreiber zu bündeln ließe 441 Stationen kollidieren.
+- „Betreiber pro Ladepunkt“ wird Voraussetzung von Phase 5, kein Teil von L4.
+- Spanien ist nicht in der OCM-Standardliste; vor diesem Adapter war es nicht abgedeckt.
 
 Roadmap allgemein:
 

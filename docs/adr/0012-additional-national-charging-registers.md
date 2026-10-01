@@ -405,6 +405,82 @@ Access Point (AFIR). It would come back as an ordinary adapter: `sync.it`, sourc
 in `evmap.sync.authority` (without the entry OCM would overwrite its EVSE-IDs), and an extended
 `SourceAdapterRegistrationTests`. No 👤 step is open for this.
 
+## Spain (L4): source check and decisions, 2026-10-01
+
+The fourth gap filler is the Spanish register. Checked live on 2026-10-01 before any code was written. Note
+that Spain is **not** in the default `OCM_COUNTRY_CODES` (`DE,AT,CH,NL,BE,LU,FR,IT,DK,PL,CZ`), so until this
+adapter, Spain had no coverage at all.
+
+**Source.** The DGT's National Access Point (`nap.dgt.es`, ESNAP) publishes the register that MITERD keeps
+under Order TED/445/2023 (operators of publicly accessible charge points must report to it): DATEX II v3,
+`https://nap.dgt.es/datex2/v3/miterd/EnergyInfrastructureTablePublication/electrolineras.xml`. No key and no
+registration; 83 MB downloaded in 7 s; refreshed every 24 h. The dataset page states **CC-BY**. Not used:
+MITERD's open-data catalogue (no charge point download found) and Red Eléctrica's `mapareve.es` (a viewer).
+
+**Licence — decision (owner, 2026-10-01): take the dataset's CC-BY as stated.** The DGT's general legal
+notice (`dgt.es/contenido/aviso-legal`) says unauthorised reproduction, distribution, commercialisation or
+transformation of its works is an infringement. It speaks of the portal's design and code and does not
+mention the datasets, and it does not contradict the CC-BY on the dataset page, but it was not clarified
+with the DGT either. Accepted residual risk; if the DGT objects, the adapter goes off with `MITERD_ENABLED=false`
+and Spain is blank again. Attribution "DGT / MITERD" is the per-station source display.
+
+**What the file holds** (2026-10-01 edition): 12.037 sites, one `energyInfrastructureStation` each, 35.546
+charge points (`ElectricChargingPoint`) with 42.686 connectors, 156 operators (Endesa X Way 2.821 sites,
+Iberdrola 2.736, Repsol 1.860). All coordinates are inside Spain; no duplicate site id, charge point id or
+EVSE name.
+
+- **No access restriction.** `fac:accessibility` is empty on every site. The register covers public points only,
+  so nothing is skipped on that account (decision 2 of 2026-07-29 has nothing to act on).
+- **No operational status.** `availabilityStatus` stays `null`, as in IRVE and DIEMO. There is no live feed in
+  this file; the separate dynamic data (price, availability) is out of scope (ADR 0015).
+- **Connectors** are DATEX enumerations and map explicitly: `iec62196T2` → Type 2 (27.212), `iec62196T2COMBO` and
+  `iec62196T1COMBO` → CCS (10.367 / 6), `chademo` (3.728), `domesticF` → Schuko (1.169), `iec60309x2single16` and
+  `iec60309x2three32` → CEE, `iec62196T1` → Type 1 (54). `domesticA/E/L` and `iec62196T3A/C` (14 in total) become
+  readable raw labels, the intended degradation.
+- **Power** is in watts (`maxPowerAtSocket`), always present, 2.069 connectors above 150 kW, four CCS at 480–1.000 kW
+  (kept). Six read `60` W, which is not a charger: below 1 kW is "unknown", never a rating.
+- **The EVSE-ID is the charge point's `fac:name`**, not its `id` (`COD2023…`, which is the register's own key and
+  becomes `sourceChargePointId`). 449 of the 35.546 names are not EVSE-IDs (`ES*INC*E JAUME I - RRCC`, `ES*CAS*P3`; ids like `ES*PAV*E_VIN_005`
+  and `ES*814*E-03` are kept). Only a name of the shape `ES*<3 characters>*E<…>` without spaces is kept as
+  `evseId`; the rest keep the plug without one, so the live-availability join never sees a junk id.
+- **Postcodes lose the leading zero** on 3.369 sites (`7011` for Palma, `08xxx` Barcelona): four digits are padded
+  to five. **Street and city** are address lines prefixed with their label (`Dirección: …`, `Municipio: …`); they
+  are read by label, not by position.
+
+**Station shape — decision (owner, 2026-10-01): bundle by position, all operators.** The register has one site
+*per operator*, and 4.363 site pairs are within 35 m of each other, up to 22 sites on one point. The ingestion
+treats 30 m as "the same place" (`nearby` is only consulted for a source id it does not know) and then replaces
+that station's charge points, so two sites of one source inside 30 m each overwrite the other on every run —
+the IRVE failure. Clustering at 35 m (as DIEMO does, `CLUSTER_RADIUS_METRES`, both through `sync.support.PositionClusters`) merges what the ingestion would
+merge anyway, without losing any charge point: **10.217 stations, none within 30 m of another**. Bundling only
+sites of the same operator was measured and rejected: 441 stations with 1.490 charge points (4 %) would still
+collide. Each station is keyed by the id of its first site (south to north, then west to east, then by id), which
+is stable across editions, unlike DIEMO's coordinate key.
+
+**Accepted limit, and a prerequisite of phase 5.** `master.charge_point` has no operator column; the operator exists
+only on the station. A bundled station therefore carries the operator with most charge points: 250 of the 10.217
+stations hold more than one operator, 647 charge points (1,8 %) belong to a minority operator whose name is not
+shown. The right fix is an operator **per charge point** (migration, API field, iOS), which phase 5 needs anyway —
+a price depends on the operator of the charge point, not of the parking lot — and is therefore recorded there
+(owner decision, 2026-10-01). Not done in L4.
+
+**Authority.** `ES: MITERD` joins `evmap.sync.authority`: the register is legally mandated, and without an entry any
+later source for Spain would overwrite its EVSE-IDs. Source token `MITERD`, adapter `sync.es`.
+
+**Implemented as `sync.es` (`MiterdSourceAdapter`, `MiterdDatexParser`, `MiterdProperties`, source token `MITERD`,
+`evmap.sync.miterd.*`, `MITERD_ENABLED` / `MITERD_URL`).** Run against the live 2026-10-01 file: **10.217 stations from
+35.546 charge points** (12.037 sites; 1.123 stations bundle several sites), 42.686 plugs, 35.097 EVSE-IDs kept, all of
+them unique, and every station id and charge point id unique. The closest two stations are 35,05 m apart, so the
+ingestion's 30 m match cannot merge two of them. Parsing takes 0,5 s and ~210 MB of heap; the download 7 s. Six
+connectors rated 60 W read as unknown. The document is read with a streaming parser (StAX, DTDs and external
+entities off) and held as small raw records until bundling is done; the stations are collected rather than streamed
+lazily because their counters go into one summary line, and 10.000 of them are small.
+
+Accepted edges: every station is labelled `ES`, including any near the French and Portuguese border that the
+register lists as Spanish; the station name is the anchor site's name and is often a car park or operator label; the
+postcode padding assumes the four-digit values are provinces 01–09, which is what the register's own numeric storage
+produces. The register carries opening hours only as free text, and none are read.
+
 ## Open points
 
 4. **OpenStreetMap / ODbL.** Options: (a) leave OSM out entirely and accept blank countries; (b) ingest it,
@@ -444,6 +520,18 @@ in `evmap.sync.authority` (without the entry OCM would overwrite its EVSE-IDs), 
    (`SELECT source, count(*) FROM master.charge_point GROUP BY source`), which the authority rule is meant to
    keep stable across OCM runs. Not measured yet — needs the production database.
 
+9. **First production run of `MITERD`.** Expected: ~10.000 stations, most of them `created` (Spain is not in the OCM
+   crawl, so there is little to match), and a second consecutive run that reports almost no `created`. Also worth a
+   look: the bundled stations should keep their ids across editions, since the anchor is the first site in
+   south-to-north order and a new site south of an old anchor changes it — the ingestion then falls back to its
+   30 m match and keeps the station, so this shows up as `updated`, never as a duplicate. Not measured — needs the
+   production database.
+
+10. **Operator per charge point** (from "Spain (L4)"): moved to phase 5 of the roadmap. Options when it is taken up:
+    (a) a nullable `operator_name` on `master.charge_point`, filled by every adapter that knows it, with the
+    station's `operator_name` kept as the fallback; (b) a separate operator table keyed by name. (a) is smaller and
+    matches how the directory (ADR 0014) already treats the name as the identity.
+
 ## References
 
 - [Fichier consolidé des IRVE — transport.data.gouv.fr](https://transport.data.gouv.fr/datasets/fichier-consolide-des-bornes-de-recharge-pour-vehicules-electriques)
@@ -474,4 +562,8 @@ in `evmap.sync.authority` (without the entry OCM would overwrite its EVSE-IDs), 
 - [ADR 0013](0013-per-source-isolation-in-the-sync-run.md) — the sync restructuring the French adapter
   went in with
 - `evmap_service/src/main/java/de/joinside/evmap_service/sync/irve/` — the adapter
-- `evmap_service/src/main/resources/application-sync.yaml` — `evmap.sync.irve.*`
+- [Puntos de recarga eléctrica para vehículos — DGT NAP](https://nap.dgt.es/en/dataset/puntos-de-recarga-electrica-para-vehiculos)
+  — data `https://nap.dgt.es/datex2/v3/miterd/EnergyInfrastructureTablePublication/electrolineras.xml`, legal notice
+  `https://www.dgt.es/contenido/aviso-legal/`
+- `evmap_service/src/main/java/de/joinside/evmap_service/sync/es/` — the Spanish adapter
+- `evmap_service/src/main/resources/application-sync.yaml` — `evmap.sync.irve.*`, `evmap.sync.miterd.*`

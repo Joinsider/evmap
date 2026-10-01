@@ -106,7 +106,15 @@ the EVSE-ID — never emit one id twice, it fails the second station in every ru
 token `DIEMO`, ~5k stations from ~14k EVSEs). The feed lists EVSEs, not stations, so the parser clusters
 them by position within 35 m — deliberately more than the ingestion's 30 m match, so two of its stations
 can never replace each other's charge points — and it reads only the static feed, never the live `status/`
-one (ADR 0015). Austria has no adapter: the E-Control terms forbid storing and relaying the data (ADR 0012,
+one (ADR 0015).
+`sync.es` ingests the Spanish register (MITERD, published by the DGT's National Access Point as one DATEX II v3
+XML, CC-BY, no key, source token `MITERD`, ~10k stations from ~12k sites). The register has one site *per
+operator*, so the parser bundles sites by position within 35 m across operators (`sync.support.PositionClusters`,
+shared with `sync.ch`), for the same reason: the ingestion treats 30 m as "the same place" and replaces that station's charge points, so two sites
+of one source inside it would overwrite each other on every run. The bundled station is named after the operator
+with most charge points; `master.charge_point` has no operator, so the others are not shown — an operator per
+charge point is a prerequisite of phase 5 (ADR 0012, "Spain (L4)"). The EVSE-ID is the charge point's name, kept
+only where it has the shape `ES*XXX*E…`. Austria has no adapter: the E-Control terms forbid storing and relaying the data (ADR 0012,
 "Austria skipped"); nor has Italy, whose PUN register has no open export any more and whose portal API is not
 open to foreign users (ADR 0012, "Italy skipped"). `sync.ocm` crawls Open Charge Map per country with keyset paging, throttled and page-capped because
 their fair usage policy allows automated banning; it needs `OCM_API_KEY` and skips itself with a warning
@@ -120,7 +128,7 @@ and ingests one country less than it should.
 
 **Which source owns a station is a per-country table, not order.** `evmap.sync.authority` in
 `application-sync.yaml` maps a country to its authoritative source (`DE: BNetzA`, `FR: IRVE`, `CH: DIEMO`,
-`LI: DIEMO`); `SourceAuthority` reads it and `PostgresStationIngestionRepository.mayUpdate` applies it. The
+`LI: DIEMO`, `ES: MITERD`); `SourceAuthority` reads it and `PostgresStationIngestionRepository.mayUpdate` applies it. The
 authority takes over a station another source created first; any other source is only linked once the
 authority has claimed the station, and keeps maintaining the ones the authority has not. A country without
 an entry has no authority and the last source to run wins — adapters have no defined order, so a new
