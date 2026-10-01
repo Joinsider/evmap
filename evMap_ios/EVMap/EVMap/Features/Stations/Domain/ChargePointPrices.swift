@@ -24,7 +24,7 @@ struct AdHocPrice: Decodable, Hashable {
     let furtherFees: Bool
     let observedAt: Date?
     /// Who stated the price: a live source's credited name (`MobiData BW`) or the register's token (`IRVE`).
-    let source: String?
+    private(set) var source: String?
 
     private enum CodingKeys: String, CodingKey {
         case currency, energyPerKwh, sessionFee, timeFees, free, furtherFees, observedAt, source
@@ -43,7 +43,7 @@ struct AdHocPrice: Decodable, Hashable {
     }
 
     init(currency: String = "EUR", energyPerKwh: Decimal? = nil, sessionFee: Decimal? = nil, timeFees: [TimeFee] = [],
-         free: Bool = false, furtherFees: Bool = false, observedAt: Date? = nil, source: String? = nil) {
+         free: Bool = false, furtherFees: Bool = false, observedAt: Date? = nil) {
         self.currency = currency
         self.energyPerKwh = energyPerKwh
         self.sessionFee = sessionFee
@@ -51,8 +51,16 @@ struct AdHocPrice: Decodable, Hashable {
         self.free = free
         self.furtherFees = furtherFees
         self.observedAt = observedAt
+        self.source = nil
+    }
+
+    private init(_ price: AdHocPrice, source: String?) {
+        self = price
         self.source = source
     }
+
+    /// The same price, credited to `source`.
+    func stated(by source: String) -> AdHocPrice { AdHocPrice(self, source: source) }
 
     /// The same price, regardless of when and by whom it was stated — what makes two charge points one row.
     var amounts: AdHocPrice {

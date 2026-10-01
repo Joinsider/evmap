@@ -27,6 +27,7 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
     private static final Logger log = LoggerFactory.getLogger(PostgresStationIngestionRepository.class);
 
     // Named parameters shared by several statements; the SQL refers to them as :source, :sourceId, ….
+    private static final String PARAM_OPERATOR = "operator";
     private static final String PARAM_SOURCE = "source";
     private static final String PARAM_SOURCE_ID = "sourceId";
     private static final String PARAM_STATION_ID = "stationId";
@@ -162,7 +163,7 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
                     .param("city", clip(source.city(), 200))
                     .param("postal", clip(source.postalCode(), 32))
                     .param(PARAM_COUNTRY, clip(source.countryCode(), 2))
-                    .param("operator", clip(source.operatorName(), 500))
+                    .param(PARAM_OPERATOR, clip(source.operatorName(), 500))
                     .param(PARAM_LATITUDE, source.latitude())
                     .param(PARAM_LONGITUDE, source.longitude())
                     .param("availability", clip(source.availabilityStatus(), 32))
@@ -181,7 +182,7 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
                     .param("city", clip(source.city(), 200))
                     .param("postal", clip(source.postalCode(), 32))
                     .param(PARAM_COUNTRY, clip(source.countryCode(), 2))
-                    .param("operator", clip(source.operatorName(), 500))
+                    .param(PARAM_OPERATOR, clip(source.operatorName(), 500))
                     .param(PARAM_LATITUDE, source.latitude())
                     .param(PARAM_LONGITUDE, source.longitude())
                     .param("availability", clip(source.availabilityStatus(), 32))
@@ -242,7 +243,7 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
                     .param(PARAM_SOURCE_ID, clip(chargePoint.sourceChargePointId(), 255))
                     .param("evseId", clip(chargePoint.evseId(), 64))
                     .param("evseNormalized", EvseIds.normalize(chargePoint.evseId()))
-                    .param("operator", clip(ownOperator(chargePoint, source), 500))
+                    .param(PARAM_OPERATOR, clip(ownOperator(chargePoint, source), 500))
                     .update();
             if (chargePoint.price() != null) insertPrice(chargePointId, chargePoint.price());
             for (SourceStation.SourceConnector connector : chargePoint.connectors()) {
@@ -263,7 +264,8 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
     private static String ownOperator(SourceStation.SourceChargePoint chargePoint, SourceStation station) {
         String own = chargePoint.operatorName();
         if (own == null || own.isBlank()) return null;
-        return own.trim().equalsIgnoreCase(station.operatorName() == null ? "" : station.operatorName().trim()) ? null : own.trim();
+        String stations = station.operatorName() == null ? "" : station.operatorName().trim();
+        return own.trim().equalsIgnoreCase(stations) ? null : own.trim();
     }
 
     /** Removed with its charge point by the cascade, so replacing the inventory replaces the price. */

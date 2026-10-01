@@ -86,9 +86,9 @@ struct ViewRenderingTests {
                 .init(operatorName: "Endesa", connectors: ccs,
                       price: AdHocPrice(energyPerKwh: 0.59, sessionFee: 1.5,
                                         timeFees: [.init(fromMinute: 240, perMinute: 0.1), .init(fromMinute: 300, perMinute: nil)],
-                                        furtherFees: true, observedAt: .now, source: "MobiData BW")),
-                .init(operatorName: "Iberdrola", connectors: [], price: AdHocPrice(energyPerKwh: Decimal(string: "0.371"), source: "IRVE")),
-                .init(operatorName: "Endesa", connectors: ccs, price: AdHocPrice(free: true, source: "IRVE")),
+                                        furtherFees: true, observedAt: .now).stated(by: "MobiData BW")),
+                .init(operatorName: "Iberdrola", connectors: [], price: AdHocPrice(energyPerKwh: Decimal(string: "0.371")).stated(by: "IRVE")),
+                .init(operatorName: "Endesa", connectors: ccs, price: AdHocPrice(free: true).stated(by: "IRVE")),
                 .init(operatorName: "Endesa", connectors: ccs, price: nil)
             ],
             sources: [Fixtures.mobiData])

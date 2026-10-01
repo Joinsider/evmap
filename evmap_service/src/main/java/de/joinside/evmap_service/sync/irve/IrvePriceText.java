@@ -8,7 +8,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -61,23 +61,25 @@ final class IrvePriceText {
             "^" + NUMBER + " ?" + EURO + " ?" + VAT + "? ?(?:/|par|le|au) ?kwh ?" + VAT + "?$");
     private static final Pattern ENERGY_CENTS = Pattern.compile(
             "^" + NUMBER + " ?(?:cts?|c€|centimes?) ?" + VAT + "? ?(?:/|par) ?kwh ?" + VAT + "?$");
+    // CANON_EQ: the accented words must match whether the publisher wrote é as one code point or as e + accent.
     private static final Pattern SESSION = Pattern.compile(
             "^" + NUMBER + " ?" + EURO + " ?" + VAT + "? ?(?:/ ?session|par session|la session|à la connexion"
-                    + "|par accès|de co[uû]t fixe par session de recharge)$");
+                    + "|par accès|de co[uû]t fixe par session de recharge)$", Pattern.CANON_EQ);
     private static final Pattern TIME = Pattern.compile(
-            "^" + NUMBER + " ?" + EURO + " ?" + VAT + "? ?(?:/|par|à la) ?(?:min|mn|minute)$");
+            "^" + NUMBER + " ?" + EURO + " ?" + VAT + "? ?(?:/|par|à la) ?(?:min|mn|minute)$", Pattern.CANON_EQ);
     private static final Pattern MONEY = Pattern.compile("^" + NUMBER + " ?" + EURO + " ?" + VAT + "?$");
 
     /** A short label naming the kind of charge point the row already describes. */
     private static final Pattern LABEL = Pattern.compile(
-            "^(?:ac|dc|hpc|charge normale|charge rapide|bornes? (?:ultra )?rapides?)\\s*:?\\s*");
-    private static final Pattern NON_SUBSCRIBERS = Pattern.compile("\\s*pour les non[- ]abonn[ée]e?s\\s*\\.?$");
-    private static final Pattern PARTS = Pattern.compile("\\s*\\+\\s*|,\\s+(?=\\d)|\\s+et\\s+(?=\\d)");
+            "^(?:ac|dc|hpc|charge normale|charge rapide|bornes? (?:ultra )?rapides?) ?:? ?");
+    private static final Pattern NON_SUBSCRIBERS = Pattern.compile(" ?pour les non[- ]abonn[ée]e?s ?\\.?$", Pattern.CANON_EQ);
+    /** {@link #normalize} has collapsed whitespace to single spaces, so single optional spaces suffice. */
+    private static final Pattern PARTS = Pattern.compile(" ?\\+ ?|, (?=\\d)| et (?=\\d)");
 
     private static final Pattern GENERATED = Pattern.compile("par kwh de charge");
-    private static final Pattern GENERATED_ENERGY = Pattern.compile("(\\d+(?:\\.\\d+)?)\\s*\\S?\\s*par kwh de charge");
-    private static final Pattern GENERATED_OTHER = Pattern.compile(
-            "(\\d+(?:\\.\\d+)?)\\s*\\S?\\s*par heure|prix de d\\S+part (\\d+(?:\\.\\d+)?)");
+    private static final Pattern GENERATED_ENERGY = Pattern.compile("(\\d+(?:\\.\\d+)?) ?[^\\d\\s]? ?par kwh de charge");
+    private static final Pattern GENERATED_TIME = Pattern.compile("(\\d+(?:\\.\\d+)?) ?[^\\d\\s]? ?par heure");
+    private static final Pattern GENERATED_START = Pattern.compile("prix de d[^ ]+part (\\d+(?:\\.\\d+)?)");
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -91,8 +93,9 @@ final class IrvePriceText {
      * @return the price, or {@code null} when the row states none this class is certain about
      */
     static SourcePrice parse(String text, boolean free, Instant observedAt) {
-        String normalized = normalize(text);
-        SourcePrice price = normalized.isEmpty() ? null : parseText(text.trim(), normalized, observedAt);
+        String raw = text == null ? "" : text.trim();
+        String normalized = normalize(raw);
+        SourcePrice price = normalized.isEmpty() ? null : parseText(raw, normalized, observedAt);
         if (free) {
             // A row that is free and names an amount contradicts itself; neither is shown.
             if (price != null && !price.free()) return null;
@@ -122,51 +125,74 @@ final class IrvePriceText {
         if (body.endsWith(".")) body = body.substring(0, body.length() - 1).trim();
         body = LABEL.matcher(body).replaceFirst("");
 
-        List<String> parts = new ArrayList<>();
-        for (String part : PARTS.split(body)) if (!part.isBlank()) parts.add(part.trim());
+        List<String> parts = Arrays.stream(PARTS.split(body)).map(String::trim).filter(part -> !part.isEmpty()).toList();
         if (parts.isEmpty()) return null;
 
-        BigDecimal energy = null;
-        BigDecimal session = null;
-        BigDecimal time = null;
-        Set<String> vat = new LinkedHashSet<>();
-        for (int i = 0; i < parts.size(); i++) {
-            String part = parts.get(i);
-            Matcher m;
-            if (energy == null && (m = ENERGY.matcher(part)).matches()) {
-                energy = amount(m.group(1));
-                note(vat, m.group(2), m.group(3));
-            } else if (energy == null && (m = ENERGY_CENTS.matcher(part)).matches()) {
-                BigDecimal cents = amount(m.group(1));
-                // "0,35cts/kWh" is either 0,35 ct or 35 ct; there is no telling which.
-                if (cents == null || cents.compareTo(BigDecimal.ONE) < 0) return null;
-                energy = cents.movePointLeft(2);
-                note(vat, m.group(2), m.group(3));
-            } else if (session == null && (m = SESSION.matcher(part)).matches()) {
-                session = amount(m.group(1));
-                note(vat, m.group(2), null);
-            } else if (time == null && (m = TIME.matcher(part)).matches()) {
-                time = amount(m.group(1));
-                note(vat, m.group(2), null);
-            } else if (session == null && i == 0 && parts.size() > 1 && (m = MONEY.matcher(part)).matches()) {
-                // "2€ + 0.59€ / kWh": a bare amount leading a sum is the start fee.
-                session = amount(m.group(1));
-                note(vat, m.group(2), null);
-            } else {
-                return null;
-            }
-        }
-        if (energy == null && time == null) return null;
-        if (vat.size() > 1) return null;
-
-        boolean net = !vat.isEmpty() && vat.iterator().next().startsWith("ht");
-        if (!net && (tooPrecise(energy) || tooPrecise(session) || tooPrecise(time))) return null;
-        return plausible(gross(energy, net), gross(session, net), gross(time, net), false, observedAt);
+        PlainReading reading = new PlainReading();
+        for (int i = 0; i < parts.size(); i++)
+            if (!reading.accept(parts.get(i), i == 0 && parts.size() > 1)) return null;
+        return reading.price(observedAt);
     }
 
-    private static void note(Set<String> vat, String first, String second) {
-        if (first != null) vat.add(first.startsWith("ht") ? "ht" : first);
-        if (second != null) vat.add(second.startsWith("ht") ? "ht" : second);
+    /** The parts of a plain text as they are read; any part it does not understand rejects the whole text. */
+    private static final class PlainReading {
+        private BigDecimal energy;
+        private BigDecimal session;
+        private BigDecimal time;
+        private final Set<String> vat = new LinkedHashSet<>();
+
+        /** @param leadsSum whether this is the first of several parts, where a bare amount is the start fee */
+        boolean accept(String part, boolean leadsSum) {
+            if (energy == null) {
+                Matcher euros = ENERGY.matcher(part);
+                if (euros.matches()) return energy(amount(euros.group(1)), euros.group(2), euros.group(3));
+                Matcher cents = ENERGY_CENTS.matcher(part);
+                if (cents.matches()) return energyInCents(amount(cents.group(1)), cents.group(2), cents.group(3));
+            }
+            if (session == null) {
+                Matcher fee = SESSION.matcher(part);
+                if (!fee.matches() && leadsSum) fee = MONEY.matcher(part);
+                if (fee.matches()) {
+                    session = amount(fee.group(1));
+                    note(fee.group(2));
+                    return true;
+                }
+            }
+            if (time == null) {
+                Matcher perMinute = TIME.matcher(part);
+                if (perMinute.matches()) {
+                    time = amount(perMinute.group(1));
+                    note(perMinute.group(2));
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private boolean energy(BigDecimal value, String vatBefore, String vatAfter) {
+            energy = value;
+            note(vatBefore);
+            note(vatAfter);
+            return true;
+        }
+
+        /** "0,35cts/kWh" is either 0,35 ct or 35 ct; there is no telling which, so a value below 1 is refused. */
+        private boolean energyInCents(BigDecimal cents, String vatBefore, String vatAfter) {
+            if (cents == null || cents.compareTo(BigDecimal.ONE) < 0) return false;
+            return energy(cents.movePointLeft(2), vatBefore, vatAfter);
+        }
+
+        private void note(String basis) {
+            if (basis != null) vat.add(basis.startsWith("ht") ? "ht" : basis);
+        }
+
+        SourcePrice price(Instant observedAt) {
+            if (energy == null && time == null) return null;
+            if (vat.size() > 1) return null;
+            boolean net = !vat.isEmpty() && vat.iterator().next().startsWith("ht");
+            if (!net && (tooPrecise(energy) || tooPrecise(session) || tooPrecise(time))) return null;
+            return plausible(gross(energy, net), gross(session, net), gross(time, net), false, observedAt);
+        }
     }
 
     /** More than three decimals on a price that does not say it is net is a computed value of unknown basis. */
@@ -185,13 +211,15 @@ final class IrvePriceText {
         BigDecimal gross = provenNet(new BigDecimal(energies.iterator().next()));
         if (gross == null) return null;
 
-        boolean furtherFees = false;
-        Matcher other = GENERATED_OTHER.matcher(text);
-        while (other.find()) {
-            String value = other.group(1) != null ? other.group(1) : other.group(2);
-            if (new BigDecimal(value).signum() > 0) furtherFees = true;
-        }
+        boolean furtherFees = anyPositive(GENERATED_TIME.matcher(text)) || anyPositive(GENERATED_START.matcher(text));
         return plausible(gross, null, null, furtherFees, observedAt);
+    }
+
+    /** Whether any amount the matcher finds is above zero ("prix de départ 0.0€" is no fee). */
+    private static boolean anyPositive(Matcher amounts) {
+        while (amounts.find())
+            if (new BigDecimal(amounts.group(1)).signum() > 0) return true;
+        return false;
     }
 
     /**

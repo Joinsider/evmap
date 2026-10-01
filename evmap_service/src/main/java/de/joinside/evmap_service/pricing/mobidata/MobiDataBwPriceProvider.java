@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
@@ -58,7 +59,7 @@ public class MobiDataBwPriceProvider implements PriceProvider {
                            Map<String, OcpiTariffs.TimeUnit> timeUnits) {
     }
 
-    private volatile Catalog catalog;
+    private final AtomicReference<Catalog> catalog = new AtomicReference<>();
     /** Last unit seen per feed, so a change — OCPDB fixing its mapping — is reported once, loudly. */
     private final Map<String, OcpiTariffs.TimeUnit> lastUnits = new HashMap<>();
 
@@ -115,13 +116,14 @@ public class MobiDataBwPriceProvider implements PriceProvider {
         List<ChargePointPrice> prices = new ArrayList<>();
         Set<String> uncertain = new LinkedHashSet<>();
         int offset = 0;
-        for (int page = 0; page < properties.maxPages(); page++) {
+        boolean more = true;
+        for (int page = 0; more && page < properties.maxPages(); page++) {
             OcpiTariffs.LocationPage response = locations(bounds, offset);
-            List<OcpiTariffs.Location> items = response == null ? null : response.items();
-            if (items == null || items.isEmpty()) break;
+            List<OcpiTariffs.Location> items = response == null || response.items() == null ? List.of() : response.items();
             for (OcpiTariffs.Location location : items) collect(location, current, prices, uncertain);
             offset += items.size();
-            if (response.totalCount() != null && offset >= response.totalCount()) break;
+            // An empty or failed page ends the paging, and so does reaching the reported total.
+            more = !items.isEmpty() && (response.totalCount() == null || offset < response.totalCount());
         }
         log.debug("MobiData BW priced {} charge point(s) for bounds {}; {} tariff(s) left unpriced as uncertain",
                 prices.size(), bounds, uncertain.size());
@@ -175,34 +177,37 @@ public class MobiDataBwPriceProvider implements PriceProvider {
     // --- tariff catalog -------------------------------------------------------------------------------
 
     private Catalog catalog() {
-        Catalog current = catalog;
         Instant now = clock.instant();
-        if (current != null && current.loadedAt().plus(properties.tariffTtl()).isAfter(now)) return current;
+        Catalog current = catalog.get();
+        if (isFresh(current, now)) return current;
         synchronized (this) {
-            current = catalog;
-            if (current != null && current.loadedAt().plus(properties.tariffTtl()).isAfter(now)) return current;
+            current = catalog.get();
+            if (isFresh(current, now)) return current;
             Catalog loaded = loadCatalog(now);
             // A failed refresh keeps the previous list rather than dropping every price for a while.
-            if (loaded.tariffs().isEmpty() && current != null) {
-                catalog = new Catalog(now, current.tariffs(), current.timeUnits());
-                return catalog;
-            }
-            catalog = loaded;
-            return loaded;
+            Catalog kept = loaded.tariffs().isEmpty() && current != null
+                    ? new Catalog(now, current.tariffs(), current.timeUnits())
+                    : loaded;
+            catalog.set(kept);
+            return kept;
         }
+    }
+
+    private boolean isFresh(Catalog current, Instant now) {
+        return current != null && current.loadedAt().plus(properties.tariffTtl()).isAfter(now);
     }
 
     private Catalog loadCatalog(Instant now) {
         Map<String, OcpiTariffs.Tariff> tariffs = new HashMap<>();
         int offset = 0;
-        for (int page = 0; page < properties.maxTariffPages(); page++) {
+        boolean more = true;
+        for (int page = 0; more && page < properties.maxTariffPages(); page++) {
             OcpiTariffs.TariffPage response = tariffs(offset);
-            List<OcpiTariffs.Tariff> items = response == null ? null : response.items();
-            if (items == null || items.isEmpty()) break;
+            List<OcpiTariffs.Tariff> items = response == null || response.items() == null ? List.of() : response.items();
             for (OcpiTariffs.Tariff tariff : items)
                 if (tariff != null && tariff.originalId() != null) tariffs.put(tariff.originalId(), tariff);
             offset += items.size();
-            if (response.nextOffset() == null) break;
+            more = !items.isEmpty() && response.nextOffset() != null;
         }
         Map<String, OcpiTariffs.TimeUnit> units = OcpiTariffs.detectTimeUnits(tariffs.values());
         reportUnits(units);

@@ -126,22 +126,28 @@ final class OcpiTariffs {
      */
     static Map<String, TimeUnit> detectTimeUnits(Collection<Tariff> tariffs) {
         Map<String, List<BigDecimal>> prices = new HashMap<>();
-        for (Tariff tariff : tariffs) {
-            if (tariff.source() == null || tariff.elements() == null) continue;
-            for (Element element : tariff.elements()) {
-                if (element.priceComponents() == null) continue;
-                for (PriceComponent component : element.priceComponents())
-                    if ("TIME".equals(component.type()) && component.price() != null && component.price().signum() > 0)
-                        prices.computeIfAbsent(tariff.source(), key -> new ArrayList<>()).add(component.price());
-            }
-        }
+        for (Tariff tariff : tariffs)
+            if (tariff.source() != null)
+                prices.computeIfAbsent(tariff.source(), key -> new ArrayList<>()).addAll(timePrices(tariff));
         Map<String, TimeUnit> units = new HashMap<>();
         prices.forEach((source, values) -> {
+            if (values.isEmpty()) return;
             values.sort(null);
-            BigDecimal median = values.get(values.size() / 2);
-            units.put(source, unitOf(median));
+            units.put(source, unitOf(values.get(values.size() / 2)));
         });
         return units;
+    }
+
+    /** The non-zero {@code TIME} prices of a tariff. */
+    private static List<BigDecimal> timePrices(Tariff tariff) {
+        if (tariff.elements() == null) return List.of();
+        return tariff.elements().stream()
+                .filter(element -> element.priceComponents() != null)
+                .flatMap(element -> element.priceComponents().stream())
+                .filter(component -> "TIME".equals(component.type()) && component.price() != null
+                        && component.price().signum() > 0)
+                .map(PriceComponent::price)
+                .toList();
     }
 
     static TimeUnit unitOf(BigDecimal median) {
@@ -169,14 +175,17 @@ final class OcpiTariffs {
             return operatorName.trim().toLowerCase(Locale.ROOT);
         }
 
-        Boolean netFor(String operatorName) {
-            if (operatorName == null) return null;
+        TableBasis basisOf(String operatorName) {
+            if (operatorName == null) return TableBasis.UNCHECKED;
             String key = key(operatorName);
-            if (netOperators.contains(key)) return true;
-            if (grossOperators.contains(key)) return false;
-            return null;
+            if (netOperators.contains(key)) return TableBasis.NET;
+            if (grossOperators.contains(key)) return TableBasis.GROSS;
+            return TableBasis.UNCHECKED;
         }
     }
+
+    /** What the hand-kept table says about an operator's prices. */
+    enum TableBasis { NET, GROSS, UNCHECKED }
 
     /**
      * The gross price when {@code net} is demonstrably net at {@code rate}, else {@code null}: more than two
@@ -202,66 +211,86 @@ final class OcpiTariffs {
     static AdHocPrice read(Tariff tariff, String operatorName, TimeUnit unit, VatBasisTable table) {
         if (tariff == null || tariff.elements() == null || !"EUR".equals(tariff.currency())) return null;
 
-        Set<BigDecimal> energies = new LinkedHashSet<>();
-        Set<BigDecimal> flats = new LinkedHashSet<>();
-        Map<Integer, BigDecimal> timeFees = new TreeMap<>();
-        Set<BigDecimal> rates = new LinkedHashSet<>();
-        Set<Boolean> included = new LinkedHashSet<>();
-        boolean furtherFees = false;
+        Components components = new Components();
+        for (Element element : tariff.elements())
+            if (!components.add(element)) return null;
+        if (!components.isConsistent()) return null;
+        if (tariff.taxIncluded() != null) components.included = Set.of(tariff.taxIncluded());
 
-        for (Element element : tariff.elements()) {
-            if (element.priceComponents() == null) continue;
-            Integer fromMinute = fromMinute(element.restrictions());
-            if (fromMinute == null) return null;
-            for (PriceComponent component : element.priceComponents()) {
-                if (component.price() == null || component.price().signum() < 0) return null;
-                BigDecimal rate = rate(component.taxes());
-                if (rate == null) return null;
-                if (rate.signum() > 0) rates.add(rate);
-                if (component.taxIncluded() != null) included.add(component.taxIncluded());
-                switch (component.type() == null ? "" : component.type()) {
-                    case "ENERGY" -> {
-                        // An energy price that changes after some minutes is a second price; not shown.
-                        if (fromMinute != 0) return null;
-                        energies.add(component.price().stripTrailingZeros());
-                    }
-                    case "FLAT" -> {
-                        if (fromMinute != 0) return null;
-                        if (component.price().signum() > 0) flats.add(component.price().stripTrailingZeros());
-                    }
-                    case "TIME" -> {
-                        if (component.price().signum() == 0) continue;
-                        BigDecimal previous = timeFees.putIfAbsent(fromMinute, component.price().stripTrailingZeros());
-                        if (previous != null && previous.compareTo(component.price()) != 0) return null;
-                    }
-                    case "PARKING_TIME" -> furtherFees = component.price().signum() > 0 || furtherFees;
-                    default -> {
-                        return null;
-                    }
-                }
-            }
-        }
-        if (energies.size() != 1 || flats.size() > 1 || rates.size() > 1 || included.size() > 1) return null;
-        if (tariff.taxIncluded() != null) included = Set.of(tariff.taxIncluded());
-
-        BigDecimal energy = energies.iterator().next();
+        BigDecimal energy = components.energies.iterator().next();
         // Nothing to pay, whatever the VAT basis: free.
-        if (energy.signum() == 0 && flats.isEmpty() && timeFees.isEmpty())
-            return new AdHocPrice("EUR", null, null, List.of(), true, furtherFees, tariff.lastUpdated());
+        if (energy.signum() == 0 && components.flats.isEmpty() && components.timeFees.isEmpty())
+            return new AdHocPrice("EUR", null, null, List.of(), true, components.furtherFees, tariff.lastUpdated());
 
-        BigDecimal rate = rates.isEmpty() ? null : rates.iterator().next();
-        Basis basis = basis(energy, rate, included, table.netFor(operatorName));
-        if (basis == null) return null;
+        BigDecimal rate = components.rates.isEmpty() ? null : components.rates.iterator().next();
+        Basis basis = basis(energy, rate, components.included, table.basisOf(operatorName));
+        if (basis == null || !inBand(basis.energy, MIN_ENERGY, MAX_ENERGY)) return null;
 
-        BigDecimal grossEnergy = basis.energy;
-        if (grossEnergy.compareTo(MIN_ENERGY) < 0 || grossEnergy.compareTo(MAX_ENERGY) > 0) return null;
-
-        BigDecimal session = flats.isEmpty() ? null : basis.gross(flats.iterator().next());
+        BigDecimal session = components.flats.isEmpty() ? null : basis.gross(components.flats.iterator().next());
         if (session != null && session.compareTo(MAX_SESSION) > 0) return null;
 
         List<AdHocPrice.TimeFee> fees = new ArrayList<>();
-        timeFees.forEach((minute, price) -> fees.add(new AdHocPrice.TimeFee(minute, perMinute(price, unit, basis))));
-        return new AdHocPrice("EUR", grossEnergy, session, fees, false, furtherFees, tariff.lastUpdated());
+        components.timeFees.forEach((minute, price) -> fees.add(new AdHocPrice.TimeFee(minute, perMinute(price, unit, basis))));
+        return new AdHocPrice("EUR", basis.energy, session, fees, false, components.furtherFees, tariff.lastUpdated());
+    }
+
+    private static boolean inBand(BigDecimal value, BigDecimal min, BigDecimal max) {
+        return value.compareTo(min) >= 0 && value.compareTo(max) <= 0;
+    }
+
+    /** The price components of one tariff, collected element by element; anything not understood rejects it. */
+    private static final class Components {
+        final Set<BigDecimal> energies = new LinkedHashSet<>();
+        final Set<BigDecimal> flats = new LinkedHashSet<>();
+        final Map<Integer, BigDecimal> timeFees = new TreeMap<>();
+        final Set<BigDecimal> rates = new LinkedHashSet<>();
+        Set<Boolean> included = new LinkedHashSet<>();
+        boolean furtherFees;
+
+        boolean add(Element element) {
+            if (element.priceComponents() == null) return true;
+            Integer fromMinute = fromMinute(element.restrictions());
+            if (fromMinute == null) return false;
+            return element.priceComponents().stream().allMatch(component -> add(component, fromMinute));
+        }
+
+        private boolean add(PriceComponent component, int fromMinute) {
+            BigDecimal price = component.price();
+            if (price == null || price.signum() < 0) return false;
+            BigDecimal rate = rate(component.taxes());
+            if (rate == null) return false;
+            if (rate.signum() > 0) rates.add(rate);
+            if (component.taxIncluded() != null) included.add(component.taxIncluded());
+            String type = component.type() == null ? "" : component.type();
+            return switch (type) {
+                case "ENERGY" -> addFromStart(energies, fromMinute, price);
+                case "FLAT" -> price.signum() == 0 || addFromStart(flats, fromMinute, price);
+                case "TIME" -> addTimeFee(fromMinute, price);
+                case "PARKING_TIME" -> {
+                    furtherFees |= price.signum() > 0;
+                    yield true;
+                }
+                default -> false;
+            };
+        }
+
+        /** An energy price or start fee that changes after some minutes is a second price; not shown. */
+        private static boolean addFromStart(Set<BigDecimal> into, int fromMinute, BigDecimal price) {
+            if (fromMinute != 0) return false;
+            into.add(price.stripTrailingZeros());
+            return true;
+        }
+
+        /** Two different fees from the same minute are two prices for one moment: uncertain. */
+        private boolean addTimeFee(int fromMinute, BigDecimal price) {
+            if (price.signum() == 0) return true;
+            BigDecimal previous = timeFees.putIfAbsent(fromMinute, price.stripTrailingZeros());
+            return previous == null || previous.compareTo(price) == 0;
+        }
+
+        boolean isConsistent() {
+            return energies.size() == 1 && flats.size() <= 1 && rates.size() <= 1 && included.size() <= 1;
+        }
     }
 
     /** How net amounts become gross, once the basis is known. */
@@ -271,18 +300,20 @@ final class OcpiTariffs {
         }
     }
 
-    private static Basis basis(BigDecimal energy, BigDecimal rate, Set<Boolean> included, Boolean tableSaysNet) {
+    private static Basis basis(BigDecimal energy, BigDecimal rate, Set<Boolean> included, TableBasis table) {
         if (!included.isEmpty()) {
-            if (included.iterator().next()) return new Basis(energy, BigDecimal.ONE);
+            if (Boolean.TRUE.equals(included.iterator().next())) return new Basis(energy, BigDecimal.ONE);
             return rate == null ? null : net(energy, rate);
         }
         if (rate != null) {
             BigDecimal proven = provenGross(energy, rate);
             if (proven != null) return new Basis(proven, BigDecimal.ONE.add(rate));
         }
-        if (Boolean.TRUE.equals(tableSaysNet)) return rate == null ? null : net(energy, rate);
-        if (Boolean.FALSE.equals(tableSaysNet)) return new Basis(energy, BigDecimal.ONE);
-        return null;
+        return switch (table) {
+            case NET -> rate == null ? null : net(energy, rate);
+            case GROSS -> new Basis(energy, BigDecimal.ONE);
+            case UNCHECKED -> null;
+        };
     }
 
     /** A price known to be net: gross rounded to the cent, because no one charges a fraction of one. */
@@ -300,8 +331,7 @@ final class OcpiTariffs {
         if (perMinute == null) return null;
         BigDecimal gross = basis.gross(perMinute);
         // A single fee outside the band of its feed's unit is not trusted with a number.
-        if (gross.compareTo(MIN_PER_MINUTE) < 0 || gross.compareTo(MAX_PER_MINUTE) > 0) return null;
-        return gross;
+        return inBand(gross, MIN_PER_MINUTE, MAX_PER_MINUTE) ? gross : null;
     }
 
     /**
@@ -314,13 +344,18 @@ final class OcpiTariffs {
         int minute = 0;
         for (Map.Entry<String, Object> restriction : restrictions.entrySet()) {
             Object value = restriction.getValue();
-            if (value == null || value instanceof Number number && number.doubleValue() == 0
-                    || value instanceof Collection<?> values && values.isEmpty()
-                    || value instanceof String text && text.isBlank()) continue;
+            if (isAbsent(value)) continue;
             if (!"min_duration".equals(restriction.getKey()) || !(value instanceof Number seconds)) return null;
             minute = (int) Math.round(seconds.doubleValue() / 60);
         }
         return minute;
+    }
+
+    private static boolean isAbsent(Object value) {
+        return value == null
+                || value instanceof Number number && number.doubleValue() == 0
+                || value instanceof Collection<?> values && values.isEmpty()
+                || value instanceof String text && text.isBlank();
     }
 
     /**
@@ -330,21 +365,23 @@ final class OcpiTariffs {
      */
     private static BigDecimal rate(List<Tax> taxes) {
         if (taxes == null || taxes.isEmpty()) return BigDecimal.ZERO;
-        BigDecimal rate = null;
-        for (Tax tax : taxes) {
-            if (tax == null || tax.percentage() == null) continue;
-            BigDecimal value;
-            try {
-                value = new BigDecimal(tax.percentage().trim());
-            } catch (NumberFormatException _) {
-                return null;
-            }
-            if (value.signum() == 0) continue;
-            BigDecimal fraction = value.compareTo(BigDecimal.ONE) < 0 ? value : value.divide(HUNDRED);
-            fraction = fraction.setScale(4, RoundingMode.HALF_UP).stripTrailingZeros();
-            if (rate != null && rate.compareTo(fraction) != 0) return null;
-            rate = fraction;
+        Set<BigDecimal> rates = new LinkedHashSet<>();
+        try {
+            taxes.stream()
+                    .filter(tax -> tax != null && tax.percentage() != null)
+                    .map(tax -> new BigDecimal(tax.percentage().trim()))
+                    .filter(value -> value.signum() != 0)
+                    .map(OcpiTariffs::fraction)
+                    .forEach(rates::add);
+        } catch (NumberFormatException _) {
+            return null;
         }
-        return rate == null ? BigDecimal.ZERO : rate;
+        if (rates.size() > 1) return null;
+        return rates.isEmpty() ? BigDecimal.ZERO : rates.iterator().next();
+    }
+
+    private static BigDecimal fraction(BigDecimal value) {
+        BigDecimal fraction = value.compareTo(BigDecimal.ONE) < 0 ? value : value.divide(HUNDRED);
+        return fraction.setScale(4, RoundingMode.HALF_UP).stripTrailingZeros();
     }
 }
