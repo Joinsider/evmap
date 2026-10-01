@@ -127,7 +127,7 @@
 "route.from" = "Route von hier";
 "route.handoff" = "Navigation starten";
 "route.handoff.apple" = "Start → Ziel in Apple Karten";
-"route.handoff.footer" = "EVMap plant, navigiert wird in der anderen App. Apple Karten übernimmt zuverlässig nur Start und Ziel, deshalb Etappe für Etappe.";
+"route.handoff.footer" = "EVMap plant, navigiert wird in der anderen App. Apple Karten übernimmt zuverlässig nur Start und Ziel, mit Wegpunkten geht es deshalb Etappe für Etappe.";
 "route.handoff.google" = "Ganze Route in Google Maps";
 "route.handoff.google.tooMany" = "Für Google Maps sind es zu viele Wegpunkte. Nutze Apple Karten Etappe für Etappe.";
 "route.handoff.leg" = "Etappe %1$lld: %2$@ → %3$@";

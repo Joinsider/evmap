@@ -127,7 +127,7 @@
 "route.from" = "Route from here";
 "route.handoff" = "Start navigation";
 "route.handoff.apple" = "Start → destination in Apple Maps";
-"route.handoff.footer" = "EVMap plans, the other app navigates. Apple Maps reliably takes only a start and a destination, hence leg by leg.";
+"route.handoff.footer" = "EVMap plans, the other app navigates. Apple Maps reliably takes only a start and a destination, so with waypoints it goes leg by leg.";
 "route.handoff.google" = "Whole route in Google Maps";
 "route.handoff.google.tooMany" = "That is too many waypoints for Google Maps. Use Apple Maps leg by leg.";
 "route.handoff.leg" = "Leg %1$lld: %2$@ → %3$@";

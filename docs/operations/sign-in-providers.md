@@ -63,8 +63,11 @@ Google/GitHub callbacks:
    - `APPLE_KEY_ID=…`
    - `APPLE_PRIVATE_KEY=` the `.p8` content, newlines written as `\n`
 5. Check `https://evmap.joinside.de/.well-known/apple-app-site-association` returns
-   `{"webcredentials":{"apps":["56T6W6Z755.de.joinside.EVMap"]}}`. Apple's CDN caches the file, so
-   a device may need up to a day to see a change.
+   `{"webcredentials":{"apps":["56T6W6Z755.de.joinside.EVMap"]},"applinks":{"details":[{"appIDs":["56T6W6Z755.de.joinside.EVMap"],"components":[{"/":"/route"}]}]}}`.
+   `applinks` is the share link of a planned route (ADR 0017): `https://evmap.joinside.de/route?…`
+   opens the app, and a browser without the app gets a plain notice from the web container. Apple's CDN
+   caches the file, so a device may need up to a day to see a change, and the app has to be reinstalled
+   once after the entitlement `applinks:evmap.joinside.de` was added to it.
 
 ## 5. Account deletion, Apple token revocation and the privacy link (phase 2, ADR 0020)
 

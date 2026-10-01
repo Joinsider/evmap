@@ -41,6 +41,13 @@ server {
         alias /tmp/evmap/apple-app-site-association;
     }
 
+    # The share link of a route (ADR 0017) opens the app through the associated domain above. Where the app is
+    # not installed it arrives here; the web client shows no routes before phase 8, so this is a plain notice.
+    location = /route {
+        default_type text/html;
+        alias /usr/share/nginx/route-notice.html;
+    }
+
     location = /healthz {
         access_log off;
         default_type text/plain;

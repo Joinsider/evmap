@@ -125,8 +125,10 @@ Beschlossen mit ADR 0017 und ADR 0018; Reihenfolge und Umfang je Phase in `docs/
 Für v2 werden folgende Abgrenzungen aus §10 aufgehoben: Routenplanung und externe Login-Anbieter.
 
 ### Routenplanung (ADR 0017)
+- Einstieg über eine Infokarte: nach einer Suche oder beim Tippen auf einen Ort, eine Ortschaft oder eine
+  Ladestation bietet sie „Route hierhin“, „Route von hier“ und „Als Wegpunkt“ (ADR 0017)
 - Start, Ziel und optionale Wegpunkte (Adressen, Orte, Ladestationen, gespeicherte Orte), feste
-  Reihenfolge mit Umsortieren, Aufenthaltsdauer je Wegpunkt
+  Reihenfolge mit Umsortieren, Aufenthaltsdauer je Wegpunkt; gespeicherte Orte und Routen bleiben auf dem Gerät
 - Ladestationen entlang der Route nach Umweg-Minuten, gefiltert nach den Einstellungen und
   bevorzugten bzw. gemiedenen Anbietern
 - Übergabe an Apple Maps (Start → Ziel oder etappenweise) und Google Maps (ganze Route), Teilen per

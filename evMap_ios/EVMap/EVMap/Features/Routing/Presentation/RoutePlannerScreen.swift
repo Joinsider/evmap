@@ -28,16 +28,14 @@ struct RoutePlannerScreen: View {
                     RouteBreaksSection(planner: planner)
                     RouteHandoffSection(planner: planner)
                 }
-                RouteKeepSection(planner: planner, nameRoute: { routeName = ""; isNamingRoute = true }, showSaved: { showSaved = true })
+                RouteKeepSection(planner: planner, nameRoute: { routeName = ""; isNamingRoute = true }, showSaved: { showSaved = true },
+                                 clear: { isConfirmingClear = true })
             }
             .navigationTitle("route.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { EditButton() }
                 ToolbarItem(placement: .topBarTrailing) { Button("action.done") { dismiss() } }
-                ToolbarItem(placement: .bottomBar) {
-                    Button("route.clear", role: .destructive) { isConfirmingClear = true }
-                }
             }
             .confirmationDialog("route.clear.confirm", isPresented: $isConfirmingClear, titleVisibility: .visible) {
                 Button("route.clear", role: .destructive) { planner.clear() }
@@ -150,7 +148,8 @@ private struct RouteStopRow: View {
             Button(action: pick) { label }
                 .buttonStyle(.plain)
             Spacer(minLength: 4)
-            if let waypoint = slot.waypoint { dwellMenu(waypoint) }
+            // Staying at the start is waiting to leave, which is not something to plan.
+            if let waypoint = slot.waypoint, role != .start { dwellMenu(waypoint) }
         }
         .accessibilityElement(children: .contain)
     }
@@ -425,6 +424,7 @@ private struct RouteKeepSection: View {
     @ObservedObject var planner: RoutePlannerViewModel
     let nameRoute: () -> Void
     let showSaved: () -> Void
+    let clear: () -> Void
 
     var body: some View {
         Section {
@@ -434,6 +434,7 @@ private struct RouteKeepSection: View {
             Button(action: nameRoute) { Label("route.save", systemImage: "bookmark") }
                 .disabled(!planner.isPlannable)
             Button(action: showSaved) { Label("route.saved.title", systemImage: "list.bullet") }
+            Button(role: .destructive, action: clear) { Label("route.clear", systemImage: "trash") }
         } footer: {
             Text("route.keep.footer")
         }

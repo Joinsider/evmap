@@ -62,7 +62,7 @@ struct MapScreen: View {
                 ForEach(Array(planner.slots.enumerated()), id: \.element.id) { index, slot in
                     if let waypoint = slot.waypoint {
                         Marker(waypoint.kind == .currentLocation ? String(localized: "route.currentLocation") : waypoint.name,
-                               monogram: Text(index == 0 ? "A" : String(index)), coordinate: waypoint.coordinate)
+                               monogram: Text(stopMonogram(index)), coordinate: waypoint.coordinate)
                             .tint(index == 0 ? .green : (index == planner.slots.count - 1 ? .red : .blue))
                     }
                 }
@@ -201,6 +201,12 @@ struct MapScreen: View {
         }
     }
 
+    /// A for the start, B for the destination, numbers for the stops between.
+    private func stopMonogram(_ index: Int) -> String {
+        if index == 0 { return "A" }
+        return index == planner.slots.count - 1 ? "B" : String(index)
+    }
+
     /// Where the device is, once there has been a fix; the initial value of the view model is only a
     /// starting view of Germany, not a position.
     private var knownLocation: CLLocationCoordinate2D? { viewModel.locationFixCount > 0 ? viewModel.location : nil }
@@ -247,7 +253,8 @@ struct MapScreen: View {
         }
     }
 
-    /// Frames the whole route, a little south of the middle so it stays above the planner sheet.
+    /// Frames the whole route in the upper half of the screen, which is what stays free above the planner
+    /// sheet at half height.
     private func fitRoute() {
         guard let route = planner.route, let region = Self.region(fitting: route.coordinates) else { return }
         withAnimation { position = .region(region) }
@@ -260,8 +267,9 @@ struct MapScreen: View {
             minLat = min(minLat, coordinate.latitude); maxLat = max(maxLat, coordinate.latitude)
             minLon = min(minLon, coordinate.longitude); maxLon = max(maxLon, coordinate.longitude)
         }
-        let latSpan = max((maxLat - minLat) * 1.5, 0.02), lonSpan = max((maxLon - minLon) * 1.3, 0.02)
-        return MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2 - latSpan * 0.15, longitude: (minLon + maxLon) / 2),
+        // The route takes about 40 % of the height, and its middle sits a quarter of the way down.
+        let latSpan = max((maxLat - minLat) / 0.4, 0.04), lonSpan = max((maxLon - minLon) * 1.3, 0.04)
+        return MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2 - latSpan * 0.27, longitude: (minLon + maxLon) / 2),
                                   span: MKCoordinateSpan(latitudeDelta: latSpan, longitudeDelta: lonSpan))
     }
 
