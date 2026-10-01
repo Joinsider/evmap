@@ -159,6 +159,11 @@ Kleine Features, im Alltag sofort nützlich.
 
 Baut auf der Tarif-Recherche aus Phase 4 auf.
 
+- **Voraussetzung: Betreiber pro Ladepunkt** (entschieden 2026-10-01, ADR 0012 „Spain (L4)“). Heute steht der
+  Betreiber nur an der Station (`master.charging_station.operator_name`); Stationen mehrerer Betreiber am selben
+  Ort (in Spanien 250 gebündelte Stationen, 647 Ladepunkte) tragen den Mehrheitsbetreiber. Der Preis hängt am
+  Betreiber des Ladepunkts, deshalb kommt die Spalte in `master.charge_point` samt Migration, API-Feld und
+  iOS-Anzeige hier hinzu.
 - Ladekarten verwalten: eine gepflegte, möglichst automatisch aktualisierte Liste plus eigene
   Tarife.
 - An jeder Station anzeigen, was sie mit den eigenen Karten kostet; Ad-hoc-Preise, sobald eine
@@ -283,6 +288,16 @@ Lückenfüller Italien (2026-10-01, Details in ADR 0012, Abschnitt „Italy skip
 - L3 wird übersprungen. Die PUN hat keinen offenen Export mehr; die Portal-API ist laut Product Owner nur mit
   italienischem Ausweis erreichbar, ihre Lizenz ist nicht ausdrücklich erklärt. Ein Adapter gegen die Portal-API
   wurde verworfen. Italien bleibt über OCM abgedeckt.
+
+Lückenfüller Spanien (2026-10-01, Details in ADR 0012, Abschnitt „Spain (L4)“):
+
+- Quelle ist das MITERD-Register über den DGT-NAP (DATEX II v3, CC-BY laut Datensatzseite, kein Schlüssel). Der
+  allgemeine DGT-Rechtshinweis wurde nicht geklärt; die Datensatz-Lizenz gilt als maßgeblich, Restrisiko akzeptiert.
+- Standorte (einer je Betreiber) werden nach Position über alle Betreiber gebündelt (35 m, 10.217 Stationen).
+  Grund: Die Aufnahme behandelt 30 m als „derselbe Ort“; sonst überschreiben sich Standorte einer Quelle bei
+  jedem Lauf. Nur gleiche Betreiber zu bündeln ließe 441 Stationen kollidieren.
+- „Betreiber pro Ladepunkt“ wird Voraussetzung von Phase 5, kein Teil von L4.
+- Spanien ist nicht in der OCM-Standardliste; vor diesem Adapter war es nicht abgedeckt.
 
 Roadmap allgemein:
 
