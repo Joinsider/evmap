@@ -313,47 +313,47 @@ final class MiterdDatexParser {
                 addressLine(site, value);
             }
         }
-    }
 
-    private static boolean endsWith(List<String> path, String... tail) {
-        if (path.size() < tail.length) return false;
-        int offset = path.size() - tail.length;
-        for (int i = 0; i < tail.length; i++) {
-            if (!path.get(offset + i).equals(tail[i])) return false;
+        private static boolean endsWith(List<String> path, String... tail) {
+            if (path.size() < tail.length) return false;
+            int offset = path.size() - tail.length;
+            for (int i = 0; i < tail.length; i++) {
+                if (!path.get(offset + i).equals(tail[i])) return false;
+            }
+            return true;
         }
-        return true;
-    }
 
-    private static double number(String value) {
-        try {
-            return Double.parseDouble(value);
-        } catch (NumberFormatException _) {
-            return Double.NaN;
+        private static double number(String value) {
+            try {
+                return Double.parseDouble(value);
+            } catch (NumberFormatException _) {
+                return Double.NaN;
+            }
         }
-    }
 
-    /**
-     * Spanish postcodes have five digits and begin with the province number, 01 to 52. The register
-     * stores them as numbers, so every province below 10 arrives with four digits: {@code 7011} is Palma,
-     * {@code 8001} is Barcelona.
-     */
-    private static String postalCode(String value) {
-        return value.matches("\\d{4}") ? "0" + value : value;
-    }
+        /**
+         * Spanish postcodes have five digits and begin with the province number, 01 to 52. The register
+         * stores them as numbers, so every province below 10 arrives with four digits: {@code 7011} is Palma,
+         * {@code 8001} is Barcelona.
+         */
+        private static String postalCode(String value) {
+            return value.matches("\\d{4}") ? "0" + value : value;
+        }
 
-    /**
-     * {@code "Dirección: Camí dels Reis 166"}, {@code "Municipio: Palma"}. The label is compared without
-     * accents and in lower case, so a publisher dropping the accent does not lose the address.
-     */
-    private static void addressLine(RawSite site, String line) {
-        int colon = line.indexOf(':');
-        if (colon < 0) return;
-        String label = DIACRITICS.matcher(Normalizer.normalize(line.substring(0, colon), Normalizer.Form.NFD))
-                .replaceAll("").trim().toLowerCase(Locale.ROOT);
-        String value = blankToNull(line.substring(colon + 1));
-        if (value == null) return;
-        if (label.equals("direccion") && site.street == null) site.street = value;
-        else if (label.equals("municipio") && site.city == null) site.city = value;
+        /**
+         * {@code "Dirección: Camí dels Reis 166"}, {@code "Municipio: Palma"}. The label is compared without
+         * accents and in lower case, so a publisher dropping the accent does not lose the address.
+         */
+        private static void addressLine(RawSite site, String line) {
+            int colon = line.indexOf(':');
+            if (colon < 0) return;
+            String label = DIACRITICS.matcher(Normalizer.normalize(line.substring(0, colon), Normalizer.Form.NFD))
+                    .replaceAll("").trim().toLowerCase(Locale.ROOT);
+            String value = blankToNull(line.substring(colon + 1));
+            if (value == null) return;
+            if (label.equals("direccion") && site.street == null) site.street = value;
+            else if (label.equals("municipio") && site.city == null) site.city = value;
+        }
     }
 
     private static void closeQuietly(XMLStreamReader xml) {
