@@ -527,7 +527,7 @@ produces. The register carries opening hours only as free text, and none are rea
    30 m match and keeps the station, so this shows up as `updated`, never as a duplicate. Not measured — needs the
    production database.
 
-10. **Operator per charge point** (from "Spain (L4)"): moved to phase 5 of the roadmap. Options when it is taken up:
+10. **(Resolved 2026-10-01: option (a), see ADR 0022)** **Operator per charge point** (from "Spain (L4)"): moved to phase 5 of the roadmap. Options when it is taken up:
     (a) a nullable `operator_name` on `master.charge_point`, filled by every adapter that knows it, with the
     station's `operator_name` kept as the fallback; (b) a separate operator table keyed by name. (a) is smaller and
     matches how the directory (ADR 0014) already treats the name as the identity.
