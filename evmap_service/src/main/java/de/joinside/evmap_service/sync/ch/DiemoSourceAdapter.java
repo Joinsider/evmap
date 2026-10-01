@@ -6,7 +6,6 @@ import de.joinside.evmap_service.sync.support.BulkDownload;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -40,7 +39,7 @@ class DiemoSourceAdapter implements SourceAdapter {
 
     @Autowired
     DiemoSourceAdapter(DiemoProperties properties, RestClient.Builder restClientBuilder) {
-        this(properties, configure(properties, restClientBuilder).build(), Clock.systemUTC());
+        this(properties, BulkDownload.withTimeout(restClientBuilder, properties.timeout()).build(), Clock.systemUTC());
     }
 
     /** Takes a ready-made client and a clock so tests can bind the first to a mock server. */
@@ -48,13 +47,6 @@ class DiemoSourceAdapter implements SourceAdapter {
         this.properties = properties;
         this.restClient = restClient;
         this.clock = clock;
-    }
-
-    private static RestClient.Builder configure(DiemoProperties properties, RestClient.Builder builder) {
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(properties.timeout());
-        requestFactory.setReadTimeout(properties.timeout());
-        return builder.requestFactory(requestFactory);
     }
 
     @Override

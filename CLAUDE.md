@@ -109,8 +109,8 @@ can never replace each other's charge points — and it reads only the static fe
 one (ADR 0015).
 `sync.es` ingests the Spanish register (MITERD, published by the DGT's National Access Point as one DATEX II v3
 XML, CC-BY, no key, source token `MITERD`, ~10k stations from ~12k sites). The register has one site *per
-operator*, so the parser bundles sites by position within 35 m across operators, for the same reason as
-`sync.ch`: the ingestion treats 30 m as "the same place" and replaces that station's charge points, so two sites
+operator*, so the parser bundles sites by position within 35 m across operators (`sync.support.PositionClusters`,
+shared with `sync.ch`), for the same reason: the ingestion treats 30 m as "the same place" and replaces that station's charge points, so two sites
 of one source inside it would overwrite each other on every run. The bundled station is named after the operator
 with most charge points; `master.charge_point` has no operator, so the others are not shown — an operator per
 charge point is a prerequisite of phase 5 (ADR 0012, "Spain (L4)"). The EVSE-ID is the charge point's name, kept

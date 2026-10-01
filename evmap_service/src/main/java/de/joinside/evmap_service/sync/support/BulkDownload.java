@@ -2,6 +2,7 @@ package de.joinside.evmap_service.sync.support;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
 import java.io.BufferedInputStream;
@@ -19,6 +20,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.time.Duration;
 import java.util.Set;
 import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
@@ -56,6 +58,17 @@ public final class BulkDownload {
      */
     public static BulkDownload named(String label, String filePrefix, String fileSuffix) {
         return new BulkDownload(label, filePrefix, fileSuffix);
+    }
+
+    /**
+     * The builder with {@code timeout} as connect and read timeout. A bulk file is large and its server
+     * slow, so the adapters give it minutes rather than the client's default seconds.
+     */
+    public static RestClient.Builder withTimeout(RestClient.Builder builder, Duration timeout) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(timeout);
+        requestFactory.setReadTimeout(timeout);
+        return builder.requestFactory(requestFactory);
     }
 
     /** Parses a downloaded file into records. Called once, with a reader it does not have to close. */

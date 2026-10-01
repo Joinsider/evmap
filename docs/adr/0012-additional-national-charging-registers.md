@@ -451,7 +451,7 @@ EVSE name.
 *per operator*, and 4.363 site pairs are within 35 m of each other, up to 22 sites on one point. The ingestion
 treats 30 m as "the same place" (`nearby` is only consulted for a source id it does not know) and then replaces
 that station's charge points, so two sites of one source inside 30 m each overwrite the other on every run —
-the IRVE failure. Clustering at 35 m (as DIEMO does, `CLUSTER_RADIUS_METRES`) merges what the ingestion would
+the IRVE failure. Clustering at 35 m (as DIEMO does, `CLUSTER_RADIUS_METRES`, both through `sync.support.PositionClusters`) merges what the ingestion would
 merge anyway, without losing any charge point: **10.217 stations, none within 30 m of another**. Bundling only
 sites of the same operator was measured and rejected: 441 stations with 1.490 charge points (4 %) would still
 collide. Each station is keyed by the id of its first site (south to north, then west to east, then by id), which

@@ -3,6 +3,7 @@ package de.joinside.evmap_service.sync.es;
 import de.joinside.evmap_service.sync.ConnectorTypes;
 import de.joinside.evmap_service.sync.EvseIds;
 import de.joinside.evmap_service.sync.SourceStation;
+import de.joinside.evmap_service.sync.support.PositionClusters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,7 +19,6 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,6 +29,10 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+
+import static de.joinside.evmap_service.sync.support.SourceText.blankToNull;
+import static de.joinside.evmap_service.sync.support.SourceText.firstPresent;
+import static de.joinside.evmap_service.sync.support.SourceText.mostFrequent;
 
 /**
  * Turns the Spanish charging register — the MITERD publication on the DGT's National Access Point, in
@@ -81,10 +85,6 @@ final class MiterdDatexParser {
      * ingestion's guarantees that the stations this parser emits are never within 30 m of each other.
      */
     static final double CLUSTER_RADIUS_METRES = 35;
-
-    /** Cell edge for the neighbour lookup, in degrees (≈ 111 m north-south): larger than the radius. */
-    private static final double GRID_DEGREES = 0.001;
-    private static final double METRES_PER_DEGREE = 111_320;
 
     /** The register's lowest rating is 60 W on six connectors, which is not a charger. */
     private static final BigDecimal MIN_POWER_KW = BigDecimal.ONE;
@@ -142,10 +142,11 @@ final class MiterdDatexParser {
     /** A group of sites within the bundling radius of its first one, the anchor. */
     private static final class Bundle {
         final RawSite anchor;
-        final List<RawSite> sites = new ArrayList<>();
+        final List<RawSite> sites;
 
-        Bundle(RawSite anchor) {
+        Bundle(RawSite anchor, List<RawSite> sites) {
             this.anchor = anchor;
+            this.sites = sites;
         }
     }
 
@@ -366,69 +367,20 @@ final class MiterdDatexParser {
     }
 
     /**
-     * Greedy bundling in a fixed order — south to north, then west to east, then by site id — so the
-     * same file always yields the same stations. The first site of a bundle is its anchor; the station's
+     * Bundles in a fixed order — south to north, then west to east, then by site id — so the same file
+     * always yields the same stations. The first site of a bundle is its anchor; the station's
      * coordinates and its {@code sourceStationId} come from it.
      */
     private static List<Bundle> bundle(List<RawSite> sites, Counters counters) {
-        List<RawSite> ordered = new ArrayList<>(sites);
-        ordered.sort(Comparator.comparingDouble((RawSite site) -> site.latitude)
-                .thenComparingDouble(site -> site.longitude)
-                .thenComparing(site -> site.id));
-
-        List<Bundle> bundles = new ArrayList<>();
-        Map<Long, List<Bundle>> grid = new HashMap<>();
-
-        for (RawSite site : ordered) {
-            Bundle bundle = nearestBundle(grid, site);
-            if (bundle == null) {
-                bundle = new Bundle(site);
-                bundles.add(bundle);
-                grid.computeIfAbsent(cell(site.latitude, site.longitude), key -> new ArrayList<>()).add(bundle);
-            }
-            bundle.sites.add(site);
-        }
+        List<Bundle> bundles = PositionClusters.of(sites, site -> site.latitude, site -> site.longitude,
+                        Comparator.comparingDouble((RawSite site) -> site.latitude)
+                                .thenComparingDouble(site -> site.longitude)
+                                .thenComparing(site -> site.id),
+                        CLUSTER_RADIUS_METRES).stream()
+                .map(cluster -> new Bundle(cluster.anchor(), cluster.members()))
+                .toList();
         for (Bundle bundle : bundles) if (bundle.sites.size() > 1) counters.bundled++;
         return bundles;
-    }
-
-    private static Bundle nearestBundle(Map<Long, List<Bundle>> grid, RawSite site) {
-        long row = cellIndex(site.latitude);
-        long column = cellIndex(site.longitude);
-        Bundle best = null;
-        double bestDistance = CLUSTER_RADIUS_METRES;
-        for (long dRow = -1; dRow <= 1; dRow++) {
-            for (long dColumn = -1; dColumn <= 1; dColumn++) {
-                for (Bundle bundle : grid.getOrDefault(key(row + dRow, column + dColumn), List.of())) {
-                    double distance = metres(bundle.anchor.latitude, bundle.anchor.longitude, site.latitude, site.longitude);
-                    if (distance <= bestDistance) {
-                        best = bundle;
-                        bestDistance = distance;
-                    }
-                }
-            }
-        }
-        return best;
-    }
-
-    private static long cellIndex(double degrees) {
-        return (long) Math.floor(degrees / GRID_DEGREES);
-    }
-
-    private static long key(long row, long column) {
-        return row * 1_000_003L + column;
-    }
-
-    private static long cell(double latitude, double longitude) {
-        return key(cellIndex(latitude), cellIndex(longitude));
-    }
-
-    /** Equirectangular distance; ample at tens of metres, and it avoids trigonometry per pair. */
-    private static double metres(double latitudeA, double longitudeA, double latitudeB, double longitudeB) {
-        double dNorth = (latitudeB - latitudeA) * METRES_PER_DEGREE;
-        double dEast = (longitudeB - longitudeA) * METRES_PER_DEGREE
-                * Math.cos(Math.toRadians((latitudeA + latitudeB) / 2));
-        return Math.hypot(dNorth, dEast);
     }
 
     // ── stations ───────────────────────────────────────────────────────────────────────────────
@@ -463,24 +415,19 @@ final class MiterdDatexParser {
     private static SourceStation station(Bundle bundle, List<SourceStation.SourceChargePoint> chargePoints,
                                          String operator, Instant fetchedAt) {
         RawSite anchor = bundle.anchor;
-        String street = firstPresent(bundle, site -> site.street);
-        String name = firstPresent(firstPresent(bundle, site -> site.name), street, operator);
-        return new SourceStation(SOURCE, anchor.id, name, street, firstPresent(bundle, site -> site.city),
-                firstPresent(bundle, site -> site.postalCode), COUNTRY, operator, anchor.latitude, anchor.longitude,
+        String street = firstOfBundle(bundle, site -> site.street);
+        String name = firstPresent(firstOfBundle(bundle, site -> site.name), street, operator);
+        return new SourceStation(SOURCE, anchor.id, name, street, firstOfBundle(bundle, site -> site.city),
+                firstOfBundle(bundle, site -> site.postalCode), COUNTRY, operator, anchor.latitude, anchor.longitude,
                 null, latestUpdate(bundle, fetchedAt), List.of(), chargePoints);
     }
 
     /** The first value any site of the bundle has, anchor first. */
-    private static String firstPresent(Bundle bundle, Function<RawSite, String> field) {
+    private static String firstOfBundle(Bundle bundle, Function<RawSite, String> field) {
         for (RawSite site : bundle.sites) {
             String value = field.apply(site);
             if (value != null) return value;
         }
-        return null;
-    }
-
-    private static String firstPresent(String... values) {
-        for (String value : values) if (value != null) return value;
         return null;
     }
 
@@ -579,23 +526,5 @@ final class MiterdDatexParser {
         }
         BigDecimal stripped = kilowatts.stripTrailingZeros();
         return stripped.scale() < 0 ? stripped.setScale(0) : stripped;
-    }
-
-    private static String mostFrequent(Map<String, Integer> counts) {
-        String best = null;
-        int bestCount = 0;
-        for (Map.Entry<String, Integer> entry : counts.entrySet()) {
-            if (entry.getValue() > bestCount) {
-                best = entry.getKey();
-                bestCount = entry.getValue();
-            }
-        }
-        return best;
-    }
-
-    private static String blankToNull(String value) {
-        if (value == null) return null;
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
     }
 }

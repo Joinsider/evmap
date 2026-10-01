@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import de.joinside.evmap_service.sync.ConnectorTypes;
 import de.joinside.evmap_service.sync.EvseIds;
 import de.joinside.evmap_service.sync.SourceStation;
+import de.joinside.evmap_service.sync.support.PositionClusters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,7 +17,6 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -25,6 +25,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
+
+import static de.joinside.evmap_service.sync.support.SourceText.blankToNull;
+import static de.joinside.evmap_service.sync.support.SourceText.firstPresent;
+import static de.joinside.evmap_service.sync.support.SourceText.mostFrequent;
 
 /**
  * Turns the Swiss charging register — the Federal Office of Energy's <em>ich-tanke-strom</em> / DIEMO
@@ -75,10 +79,6 @@ final class DiemoOicpParser {
      * ingestion's guarantees that the stations this parser emits are never within 30 m of each other.
      */
     static final double CLUSTER_RADIUS_METRES = 35;
-
-    /** Cell edge for the neighbour lookup, in degrees (≈ 111 m north-south): larger than the radius. */
-    private static final double GRID_DEGREES = 0.001;
-    private static final double METRES_PER_DEGREE = 111_320;
 
     /**
      * Real EVSEs carry one to four plugs in the register; the largest ordinary count in the 2026-09-30
@@ -258,69 +258,23 @@ final class DiemoOicpParser {
     }
 
     /**
-     * Greedy clustering in a fixed order — south to north, then west to east, then by EVSE-ID — so the
-     * same file always yields the same stations. The first EVSE of a cluster is its anchor; the
-     * station's coordinates and its {@code sourceStationId} come from it.
+     * Clusters in a fixed order — south to north, then west to east, then by EVSE-ID — so the same file
+     * always yields the same stations. The first EVSE of a cluster is its anchor; the station's
+     * coordinates and its {@code sourceStationId} come from it.
      */
     private static List<Site> cluster(List<Candidate> candidates, Counters counters) {
-        List<Candidate> ordered = new ArrayList<>(candidates);
-        ordered.sort(Comparator.comparingDouble(Candidate::latitude)
-                .thenComparingDouble(Candidate::longitude)
-                .thenComparing(candidate -> candidate.evse().evseId()));
-
         List<Site> sites = new ArrayList<>();
-        Map<Long, List<Site>> grid = new HashMap<>();
-
-        for (Candidate candidate : ordered) {
-            Site site = nearestSite(grid, candidate);
-            if (site == null) {
-                site = new Site(candidate.latitude(), candidate.longitude());
-                sites.add(site);
-                grid.computeIfAbsent(cell(candidate.latitude(), candidate.longitude()), key -> new ArrayList<>())
-                        .add(site);
-            }
-            add(site, candidate, counters);
+        for (PositionClusters.Cluster<Candidate> cluster : PositionClusters.of(candidates, Candidate::latitude,
+                Candidate::longitude,
+                Comparator.comparingDouble(Candidate::latitude)
+                        .thenComparingDouble(Candidate::longitude)
+                        .thenComparing(candidate -> candidate.evse().evseId()),
+                CLUSTER_RADIUS_METRES)) {
+            Site site = new Site(cluster.anchor().latitude(), cluster.anchor().longitude());
+            for (Candidate candidate : cluster.members()) add(site, candidate, counters);
+            sites.add(site);
         }
         return sites;
-    }
-
-    private static Site nearestSite(Map<Long, List<Site>> grid, Candidate candidate) {
-        long row = cellIndex(candidate.latitude());
-        long column = cellIndex(candidate.longitude());
-        Site best = null;
-        double bestDistance = CLUSTER_RADIUS_METRES;
-        for (long dRow = -1; dRow <= 1; dRow++) {
-            for (long dColumn = -1; dColumn <= 1; dColumn++) {
-                for (Site site : grid.getOrDefault(key(row + dRow, column + dColumn), List.of())) {
-                    double distance = metres(site.latitude, site.longitude, candidate.latitude(), candidate.longitude());
-                    if (distance <= bestDistance) {
-                        best = site;
-                        bestDistance = distance;
-                    }
-                }
-            }
-        }
-        return best;
-    }
-
-    private static long cellIndex(double degrees) {
-        return (long) Math.floor(degrees / GRID_DEGREES);
-    }
-
-    private static long key(long row, long column) {
-        return row * 1_000_003L + column;
-    }
-
-    private static long cell(double latitude, double longitude) {
-        return key(cellIndex(latitude), cellIndex(longitude));
-    }
-
-    /** Equirectangular distance; ample at tens of metres, and it avoids trigonometry per pair. */
-    private static double metres(double latitudeA, double longitudeA, double latitudeB, double longitudeB) {
-        double dNorth = (latitudeB - latitudeA) * METRES_PER_DEGREE;
-        double dEast = (longitudeB - longitudeA) * METRES_PER_DEGREE
-                * Math.cos(Math.toRadians((latitudeA + latitudeB) / 2));
-        return Math.hypot(dNorth, dEast);
     }
 
     private static void add(Site site, Candidate candidate, Counters counters) {
@@ -437,28 +391,5 @@ final class DiemoOicpParser {
     /** Anchor coordinate at five decimals (≈ 1 m): anchors are at least 35 m apart, so it is unique. */
     private static String stationId(Site site) {
         return String.format(Locale.ROOT, "%.5f,%.5f", site.latitude, site.longitude);
-    }
-
-    private static String mostFrequent(Map<String, Integer> counts) {
-        String best = null;
-        int bestCount = 0;
-        for (Map.Entry<String, Integer> entry : counts.entrySet()) {
-            if (entry.getValue() > bestCount) {
-                best = entry.getKey();
-                bestCount = entry.getValue();
-            }
-        }
-        return best;
-    }
-
-    private static String firstPresent(String... values) {
-        for (String value : values) if (value != null) return value;
-        return null;
-    }
-
-    private static String blankToNull(String value) {
-        if (value == null) return null;
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
     }
 }
