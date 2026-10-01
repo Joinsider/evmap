@@ -77,8 +77,8 @@ final class IrvePriceText {
     private static final Pattern PARTS = Pattern.compile(" ?\\+ ?|, (?=\\d)| et (?=\\d)");
 
     private static final Pattern GENERATED = Pattern.compile("par kwh de charge");
-    private static final Pattern GENERATED_ENERGY = Pattern.compile("(\\d+(?:\\.\\d+)?) ?[^\\d\\s]? ?par kwh de charge");
-    private static final Pattern GENERATED_TIME = Pattern.compile("(\\d+(?:\\.\\d+)?) ?[^\\d\\s]? ?par heure");
+    private static final Pattern GENERATED_ENERGY = Pattern.compile("(\\d++(?:\\.\\d++)?+) ?+[^\\d\\s]?+ ?+par kwh de charge");
+    private static final Pattern GENERATED_TIME = Pattern.compile("(\\d++(?:\\.\\d++)?+) ?+[^\\d\\s]?+ ?+par heure");
     private static final Pattern GENERATED_START = Pattern.compile("prix de d[^ ]+part (\\d+(?:\\.\\d+)?)");
 
     private static final ObjectMapper JSON = new ObjectMapper();
@@ -114,7 +114,7 @@ final class IrvePriceText {
     /** Repairs the one mojibake that is unambiguous and folds case and spacing. */
     static String normalize(String text) {
         if (text == null) return "";
-        String repaired = text.replace("â‚¬", "€").replace(' ', ' ');
+        String repaired = text.replace("â‚¬", "€").replace('\u00a0', ' ');
         return repaired.toLowerCase(Locale.ROOT).replaceAll("\\s+", " ").trim();
     }
 
@@ -184,6 +184,18 @@ final class IrvePriceText {
 
         private void note(String basis) {
             if (basis != null) vat.add(basis.startsWith("ht") ? "ht" : basis);
+        }
+
+        private static BigDecimal amount(String value) {
+            try {
+                return new BigDecimal(value.replace(',', '.'));
+            } catch (NumberFormatException _) {
+                return null;
+            }
+        }
+
+        private static BigDecimal gross(BigDecimal value, boolean net) {
+            return value == null || !net ? value : value.multiply(GROSS_FACTOR).setScale(4, RoundingMode.HALF_UP);
         }
 
         SourcePrice price(Instant observedAt) {
@@ -267,18 +279,6 @@ final class IrvePriceText {
     }
 
     // --- shared ---------------------------------------------------------------------------------------
-
-    private static BigDecimal amount(String value) {
-        try {
-            return new BigDecimal(value.replace(',', '.'));
-        } catch (NumberFormatException _) {
-            return null;
-        }
-    }
-
-    private static BigDecimal gross(BigDecimal value, boolean net) {
-        return value == null || !net ? value : value.multiply(GROSS_FACTOR).setScale(4, RoundingMode.HALF_UP);
-    }
 
     private static SourcePrice plausible(BigDecimal energy, BigDecimal session, BigDecimal time,
                                          boolean furtherFees, Instant observedAt) {

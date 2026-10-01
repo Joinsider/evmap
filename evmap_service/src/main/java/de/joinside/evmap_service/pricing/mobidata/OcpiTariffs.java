@@ -288,6 +288,57 @@ final class OcpiTariffs {
             return previous == null || previous.compareTo(price) == 0;
         }
 
+        /**
+         * The session minute an element starts at, or {@code null} for a restriction this class does not
+         * understand — a time of day, a weekday, a power or energy range, or an end — which makes the tariff
+         * uncertain. Zero-valued restrictions are how OCPDB writes "none".
+         */
+        private static Integer fromMinute(Map<String, Object> restrictions) {
+            if (restrictions == null) return 0;
+            int minute = 0;
+            for (Map.Entry<String, Object> restriction : restrictions.entrySet()) {
+                Object value = restriction.getValue();
+                if (isAbsent(value)) continue;
+                if (!"min_duration".equals(restriction.getKey()) || !(value instanceof Number seconds)) return null;
+                minute = (int) Math.round(seconds.doubleValue() / 60);
+            }
+            return minute;
+        }
+
+        private static boolean isAbsent(Object value) {
+            return value == null
+                    || value instanceof Number number && number.doubleValue() == 0
+                    || value instanceof Collection<?> values && values.isEmpty()
+                    || value instanceof String text && text.isBlank();
+        }
+
+        /**
+         * The VAT rate as a fraction: zero when no tax is given, {@code null} for one that cannot be read. OCPDB
+         * writes {@code "19"}, and a few records the fraction itself ({@code "0.19000000000000000222…"}); a rate
+         * below 1 can only be the latter.
+         */
+        private static BigDecimal rate(List<Tax> taxes) {
+            if (taxes == null || taxes.isEmpty()) return BigDecimal.ZERO;
+            Set<BigDecimal> rates = new LinkedHashSet<>();
+            try {
+                taxes.stream()
+                        .filter(tax -> tax != null && tax.percentage() != null)
+                        .map(tax -> new BigDecimal(tax.percentage().trim()))
+                        .filter(value -> value.signum() != 0)
+                        .map(Components::fraction)
+                        .forEach(rates::add);
+            } catch (NumberFormatException _) {
+                return null;
+            }
+            if (rates.size() > 1) return null;
+            return rates.isEmpty() ? BigDecimal.ZERO : rates.iterator().next();
+        }
+
+        private static BigDecimal fraction(BigDecimal value) {
+            BigDecimal fraction = value.compareTo(BigDecimal.ONE) < 0 ? value : value.divide(HUNDRED);
+            return fraction.setScale(4, RoundingMode.HALF_UP).stripTrailingZeros();
+        }
+
         boolean isConsistent() {
             return energies.size() == 1 && flats.size() <= 1 && rates.size() <= 1 && included.size() <= 1;
         }
@@ -334,54 +385,4 @@ final class OcpiTariffs {
         return inBand(gross, MIN_PER_MINUTE, MAX_PER_MINUTE) ? gross : null;
     }
 
-    /**
-     * The session minute an element starts at, or {@code null} for a restriction this class does not
-     * understand — a time of day, a weekday, a power or energy range, or an end — which makes the tariff
-     * uncertain. Zero-valued restrictions are how OCPDB writes "none".
-     */
-    private static Integer fromMinute(Map<String, Object> restrictions) {
-        if (restrictions == null) return 0;
-        int minute = 0;
-        for (Map.Entry<String, Object> restriction : restrictions.entrySet()) {
-            Object value = restriction.getValue();
-            if (isAbsent(value)) continue;
-            if (!"min_duration".equals(restriction.getKey()) || !(value instanceof Number seconds)) return null;
-            minute = (int) Math.round(seconds.doubleValue() / 60);
-        }
-        return minute;
-    }
-
-    private static boolean isAbsent(Object value) {
-        return value == null
-                || value instanceof Number number && number.doubleValue() == 0
-                || value instanceof Collection<?> values && values.isEmpty()
-                || value instanceof String text && text.isBlank();
-    }
-
-    /**
-     * The VAT rate as a fraction: zero when no tax is given, {@code null} for one that cannot be read. OCPDB
-     * writes {@code "19"}, and a few records the fraction itself ({@code "0.19000000000000000222…"}); a rate
-     * below 1 can only be the latter.
-     */
-    private static BigDecimal rate(List<Tax> taxes) {
-        if (taxes == null || taxes.isEmpty()) return BigDecimal.ZERO;
-        Set<BigDecimal> rates = new LinkedHashSet<>();
-        try {
-            taxes.stream()
-                    .filter(tax -> tax != null && tax.percentage() != null)
-                    .map(tax -> new BigDecimal(tax.percentage().trim()))
-                    .filter(value -> value.signum() != 0)
-                    .map(OcpiTariffs::fraction)
-                    .forEach(rates::add);
-        } catch (NumberFormatException _) {
-            return null;
-        }
-        if (rates.size() > 1) return null;
-        return rates.isEmpty() ? BigDecimal.ZERO : rates.iterator().next();
-    }
-
-    private static BigDecimal fraction(BigDecimal value) {
-        BigDecimal fraction = value.compareTo(BigDecimal.ONE) < 0 ? value : value.divide(HUNDRED);
-        return fraction.setScale(4, RoundingMode.HALF_UP).stripTrailingZeros();
-    }
 }
