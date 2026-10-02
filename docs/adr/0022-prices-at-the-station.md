@@ -267,12 +267,11 @@ listed operator (e.g. Berliner Stadtwerke 0,55 €/kWh AC, TankE 0,49 €/kWh, I
 
 ## Open points
 
-1. **Upstream fixes in OCPDB.** Options: (a) comment on #278 and open an issue for the `pricePerMinute` → `TIME`
-   unit (recommended; the owner posts it, it is public); (b) send a pull request; (c) leave it, the detection copes.
-2. **Operator table beyond phase 5r.** 27 of the top 50 stayed unclear and operators 51–551 (~21 % of the gap) were
-   not researched. Options: (a) research them when monitoring or users show a need (recommended); (b) a second
-   round now for operators 51–100 (+12 % of the gap); (c) contact the large unclear ones (Aral pulse, Techem) and ask
-   for their ad-hoc price page.
+1. **Upstream fixes in OCPDB.** Decided 2026-10-02: (a) — the texts are drafted in
+   `docs/operations/ocpdb-upstream-issues.md` (a comment on #278 with our measurements, a new issue on the
+   `pricePerMinute` → `TIME` unit); the owner posts them. Still unfixed in OCPDB 2.16.2. Closed on our side once posted.
+2. **Operator table beyond phase 5r.** Decided 2026-10-02: (b) — a second round for operators 51–100, see
+   "Second round (operators 51–100)" below. Operators 101–551 (~9 % of the gap) remain unresearched.
 3. **Charging cards (5b)** — curated list (who maintains it, admin UI or repository file), own tariffs (device
    or account), price filter and map display.
 
