@@ -66,6 +66,12 @@ services:
       # shown by the clients only when the URL is set.
       TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-}
       PRIVACY_POLICY_URL: ${PRIVACY_POLICY_URL:-}
+      # Web map (ADR 0023): the Maps key MapKit JS tokens are signed with. Blank = no web map.
+      # MAPKIT_TEAM_ID defaults to APPLE_TEAM_ID; the .p8 PEM may write newlines as \n.
+      MAPKIT_TEAM_ID: ${MAPKIT_TEAM_ID:-${APPLE_TEAM_ID:-}}
+      MAPKIT_KEY_ID: ${MAPKIT_KEY_ID:-}
+      MAPKIT_PRIVATE_KEY: ${MAPKIT_PRIVATE_KEY:-}
+      MAPKIT_ORIGIN: ${MAPKIT_ORIGIN:-evmap.joinside.de}
       LOG_FORMAT: ${LOG_FORMAT-ecs}
       LOG_LEVEL_APP: ${LOG_LEVEL_APP:-INFO}
       LOG_LEVEL_ROOT: ${LOG_LEVEL_ROOT:-INFO}

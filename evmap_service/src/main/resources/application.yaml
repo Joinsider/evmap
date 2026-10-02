@@ -274,6 +274,16 @@ evmap:
   legal:
     privacy-policy-url: ${PRIVACY_POLICY_URL:}
 
+  # The web map's MapKit JS tokens (ADR 0023), signed here with a Maps key from the Apple developer portal
+  # (Certificates, Identifiers & Profiles → Keys, "MapKit JS" enabled). Blank key: GET /api/v1/map/token answers
+  # 404 and the web map says it is unavailable. The origin is the web domain without scheme.
+  mapkit:
+    team-id: ${MAPKIT_TEAM_ID:${APPLE_TEAM_ID:}}
+    key-id: ${MAPKIT_KEY_ID:}
+    private-key: ${MAPKIT_PRIVATE_KEY:}
+    origin: ${MAPKIT_ORIGIN:evmap.joinside.de}
+    lifetime: PT30M
+
   # Web sign-in (ADR 0018). Blank credentials switch a provider off. Redirect URIs derive from
   # web-base-url: <web>/auth/callback/{google,github} and <web>/api/v1/auth/apple/callback.
   auth:

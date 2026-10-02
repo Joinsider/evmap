@@ -1,5 +1,7 @@
 import { Component, inject } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter, map } from 'rxjs';
 import { AuthService } from './core/auth/auth.service';
 import { LegalService } from './core/legal.service';
 
@@ -25,7 +27,7 @@ import { LegalService } from './core/legal.service';
         }
       </div>
     </header>
-    <main>
+    <main [class.full-bleed]="onMap()">
       <router-outlet />
     </main>
     <footer>
@@ -43,6 +45,20 @@ export class App {
   protected readonly auth = inject(AuthService);
   protected readonly privacyPolicyUrl = inject(LegalService).privacyPolicyUrl;
   private readonly router = inject(Router);
+
+  /** The map fills the space between header and footer; every other page keeps the reading width. */
+  protected readonly onMap = toSignal(
+    this.router.events.pipe(
+      filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+      map((event) => App.isMap(event.urlAfterRedirects)),
+    ),
+    { initialValue: false },
+  );
+
+  static isMap(url: string): boolean {
+    const path = url.split(/[?#]/)[0];
+    return path === '/' || path === '' || path.startsWith('/station/');
+  }
 
   protected async signOut() {
     await this.auth.signOut();

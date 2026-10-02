@@ -1,6 +1,6 @@
 # Verarbeitung personenbezogener Daten in EVMap
 
-- Stand: 2026-09-30 (Phase 3: Favoriten, Stationsmeldungen)
+- Stand: 2026-10-02 (Phase 8a: Nutzer-Web-App mit Karte)
 - Gilt für: iOS-Client (`evMap_ios/`), Web-Client (`evmap_web/`) und API-Service (`evmap_service/`)
 
 Dieses Dokument ist eine **technische Bestandsaufnahme** für Entwicklung und
@@ -36,6 +36,9 @@ hinein.
 | Gespeicherte Orte und gespeicherte Routen (iOS, seit Phase 4) | benannte Orte (Zuhause, Büro) und Routen wiederverwenden | JSON-Dateien `saved-places.json`, `saved-routes.json` im selben Verzeichnis; Namen vergibt die Person selbst; nie geloggt, nie an den Server gesendet, deshalb **nicht** im Datenexport (es gibt serverseitig nichts zu exportieren) | bis zum Löschen durch die Person oder Deinstallation der App | Art. 6 Abs. 1 lit. b |
 | Teilen-Link einer Route (seit Phase 4) | Route an andere weitergeben | die Route steht im Link selbst (`https://evmap.joinside.de/route?w=…`); der Standort des Geräts („Mein Standort“) wird **nie** in den Link geschrieben; auf dem Server wird nichts gespeichert, der Web-Container liefert nur eine statische Hinweisseite | wie der Link, den die Person weitergibt | Art. 6 Abs. 1 lit. a (die Person teilt aktiv) |
 | Datenexport-Datei (iOS, seit Phase 2) | Weitergabe des Exports über das Teilen-Menü | temporäres Verzeichnis der App, mit vollständigem Dateischutz | bis der Konto-Bildschirm verlassen wird (dann gelöscht) oder das System das temporäre Verzeichnis leert | Art. 6 Abs. 1 lit. b (Art. 15/20) |
+| Kartenausschnitt der Web-App (seit Phase 8a, ADR 0023) | Ladestationen im sichtbaren Bereich laden | nur flüchtig im Browser; als Mittelpunkt und Radius (bzw. als Rechteck für die Live-Belegung) an die API übertragen, wie in iOS | nicht gespeichert | Art. 6 Abs. 1 lit. f |
+| Filter und Anbieterauswahl der Web-App (seit Phase 8a) | Einstellungen beim nächsten Besuch wiederherstellen | `localStorage` des Browsers (Schlüssel `evmap.stationSettings.v1`: Steckertypen, Mindestleistung, Anbieternamen); nie an den Server gesendet außer als Filter der Stationsabfrage, nie geloggt | bis die Person „Einstellungen zurücksetzen“ wählt oder die Website-Daten des Browsers löscht | Art. 6 Abs. 1 lit. f; § 25 Abs. 2 Nr. 2 TDDDG (für die gewünschte Funktion unbedingt erforderlich) — juristisch zu prüfen |
+| IP-Adresse, Kartenausschnitt und Suchtext gegenüber **Apple** (Web-App, seit Phase 8a) | Kartendarstellung und Ortssuche über MapKit JS | Apple lädt Skript, Kacheln und Suchergebnisse von `*.apple-mapkit.com`; der Browser sendet dabei IP-Adresse, die angezeigten Kartenbereiche und den Text der Ortssuche direkt an Apple. Wir speichern davon nichts; das MapKit-Token enthält keine personenbezogenen Daten (nur Team-ID, Domain, Ablauf) | nach Apples Bedingungen (Apple Developer Program License Agreement, MapKit-JS-Bedingungen) | Art. 6 Abs. 1 lit. f; in der Datenschutzerklärung zu nennen, ob ein Auftragsverarbeitungs- oder Drittlandbezug besteht, ist juristisch zu prüfen |
 | Zeitstempel (`created_at`, `last_login_at`) | Sortierung, Betrieb | `user_data.*` | wie zugehöriger Datensatz | Art. 6 Abs. 1 lit. f |
 | Client-Logs | Fehlerdiagnose | ausschließlich Unified Log des Nutzergeräts | siehe §3 | keine Verarbeitung durch den Verantwortlichen (§3) |
 | Server-Logs | Betrieb, Fehlerdiagnose | stdout des Containers | abhängig vom Log-Collector | Art. 6 Abs. 1 lit. f |
@@ -60,7 +63,11 @@ nicht stillschweigend aufgegeben:
 - **Keine Standorthistorie.** Die Koordinate wird pro Suche als Query-Parameter
   gesendet und weder im Client noch in der Datenbank persistiert.
 - **Kein Tracking, keine Analytics, keine Werbe-IDs.** Es gibt keine
-  Drittanbieter-SDKs im Client.
+  Drittanbieter-SDKs im iOS-Client. Die einzige Ausnahme im Web-Client ist
+  MapKit JS (seit Phase 8a, ADR 0023): Apples Kartenskript wird erst auf der
+  Kartenseite geladen, nicht im Konto- oder Admin-Bereich, und bekommt keine
+  Konto- oder Sitzungsdaten. Suchtexte und Kartenausschnitte werden von uns
+  weder gespeichert noch geloggt.
 - **Kein Remote-Log-Sink.** Weder Crashlytics noch Sentry noch Vergleichbares.
 - **Admins sehen keine Melder.** Die Moderations-Warteschlange zeigt den gemeldeten
   Kommentar, Gründe und Anzahl, nie das Konto, das gemeldet hat. Dasselbe gilt für die

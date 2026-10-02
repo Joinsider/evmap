@@ -29,7 +29,8 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | 5b | Ladekarten und Preis mit eigenen Karten | offen | | [0022](adr/0022-prices-at-the-station.md) |
 | 6 | Routenplaner Stufe 2 | offen | | 0017 |
 | 7 | Routenplaner Stufe 3 | offen | | 0017 |
-| 8 | Nutzer-Web-App | offen | | 0018 + neu |
+| 8a | Nutzer-Web-App: Karte und Station (lesend), vor 5b gezogen | fertig ¹² | [#29](https://github.com/Joinsider/evmap/pull/29) | [0023](adr/0023-user-web-app.md) |
+| 8b | Nutzer-Web-App: Mitmachen (Kommentare, Melden, Favoriten) | offen | | [0023](adr/0023-user-web-app.md) |
 | 9 | CarPlay als Lade-App | offen | | neu |
 | L1 | Lückenfüller: Österreich | übersprungen ⁴ | | [0012](adr/0012-additional-national-charging-registers.md) |
 | L2 | Lückenfüller: Schweiz | fertig ⁵ | [#18](https://github.com/Joinsider/evmap/pull/18) | [0012](adr/0012-additional-national-charging-registers.md) |
@@ -91,6 +92,12 @@ Nachtrag 2026-10-02 (offene Punkte von 5r, [#28](https://github.com/Joinsider/ev
 die Tabelle jetzt 17.351 Ladepunkte, 46 % der deutschen Ladepunkte mit Tarif. 👤 Die Texte für OCPDB (Kommentar zu #278,
 neues Issue zur Minuten-Einheit) in `docs/operations/ocpdb-upstream-issues.md` selbst posten.
 
+¹² Im Repository fertig (Backend 521 Tests, Web 100 Tests, Oberfläche im Browser gegen eine gemockte API geprüft; die
+echte Karte ohne Maps-Schlüssel noch nicht gesehen). Offen sind die 👤-Schritte in `docs/operations/web-map.md`: Maps-ID
+und MapKit-JS-Schlüssel anlegen, `MAPKIT_KEY_ID`/`MAPKIT_PRIVATE_KEY` setzen, die Karte einmal auf Desktop und Handy
+ansehen, vor der öffentlichen Freigabe Last und Antwortzeiten prüfen, MapKit JS in der Datenschutzerklärung nennen.
+Als Nächstes: 8b (Mitmachen im Web), danach 5b.
+
 Separat angestoßen (Teil von Phase 0): `permitAll` für `/api/v1/stations/**` auf GET beschränken.
 Erledigt mit PR #8 (Commit `3d40492`), vor Beginn von Phase 0 auf `master` geprüft.
 
@@ -101,11 +108,12 @@ Phase 0  Fundament ──► Phase 1  Login + Web-Gerüst ──► Phase 2  Kon
                                                               │
          ┌────────────────────────────────────────────────────┘
          ▼
-Phase 3  Favoriten + Fehler melden ──► Phase 4  Routenplaner 1 ──► Phase 5  Preise an der Station
+Phase 3  Favoriten + Fehler melden ──► Phase 4  Routenplaner 1 ──► Phase 5a/5r Preise
                                                                         │
          ┌──────────────────────────────────────────────────────────────┘
          ▼
-Phase 6  Routenplaner 2 ──► Phase 7  Routenplaner 3 ──► Phase 8  Web-App ──► Phase 9  CarPlay
+Phase 8  Web-App (8a, 8b; vor 5b gezogen) ──► Phase 5b Ladekarten ──► Phase 6  Routenplaner 2
+         ──► Phase 7  Routenplaner 3 ──► Phase 9  CarPlay
 
 Lückenfüller zwischen den Phasen:  AT → CH → IT → ES   (je ein sync-Adapter)
 Recherche parallel zu Phase 4:     Tarif-Quellen, Fahrzeugdatenbank
@@ -211,7 +219,11 @@ Baut auf der Tarif-Recherche aus Phase 4 auf. Aufgeteilt in **5a** (Betreiber pr
 
 - Planungsziel „günstig“, auf Basis der Ladekarten und Tarife aus Phase 5.
 
-### Phase 8 — Nutzer-Web-App · XL
+### Phase 8 — Nutzer-Web-App · XL · [ADR 0023](adr/0023-user-web-app.md)
+
+Vor 5b gezogen und geteilt in **8a** (Karte, Ortssuche, Filter, Stationsseite mit Live-Status, Preisen und
+Kommentaren, lesend) und **8b** (Kommentar schreiben, melden und blockieren, Favoriten, Fehler melden).
+
 
 - Karte, Stationsdetails, Kommentare, Favoriten und Konto im Browser, auf dem Angular-Gerüst aus
   Phase 1. Den Routenplaner im Web danach.
@@ -219,7 +231,8 @@ Baut auf der Tarif-Recherche aus Phase 4 auf. Aufgeteilt in **5a** (Betreiber pr
   Kartenaufrufe und 25.000 Service-Aufrufe pro Tag. Das Token signiert das Backend. Die
   Autovervollständigung wird beim Tippen verzögert wie in iOS, weil sie das Service-Kontingent
   verbraucht.
-- Vorher prüfen: Ist Skalierung schon nötig?
+- Vorher prüfen: Ist Skalierung schon nötig? Entschieden 2026-10-02: Prüfung anhand der Monitoring-Daten durch den
+  Product Owner vor der öffentlichen Freigabe der Web-App, nicht vor dem Bau.
 
 ### Phase 9 — CarPlay als Lade-App · M
 
@@ -237,7 +250,8 @@ Reihenfolge: **Österreich → Schweiz → Italien → Spanien**. Vor jedem Adap
 Daten offen verfügbar sind und unter welcher Lizenz; ein Land ohne offene Daten wird übersprungen
 und im ADR 0012 vermerkt. Österreich wurde so übersprungen (Stand 2026-09-30), Schweiz ist umgesetzt, Italien wurde
 übersprungen (Stand 2026-10-01), Spanien ist umgesetzt (Stand 2026-10-01). Damit sind alle vier Lückenfüller
-erledigt; danach folgte **Phase 4**, jetzt **Phase 5** (5a und 5r fertig, als Nächstes 5b).
+erledigt; danach folgte **Phase 4**, dann **Phase 5** (5a und 5r fertig); als Nächstes **Phase 8** (vor 5b gezogen,
+entschieden 2026-10-02), danach 5b.
 
 ### Skalierung / Variante C · bei Bedarf
 
@@ -372,6 +386,16 @@ Offene Punkte von Phase 5r (2026-10-02, Details in ADR 0022, Abschnitt „Phase 
   nicht verstanden, mit Beispielen (Weinheim, Kiel) neu gestellt.
 - Betreiber mit ungerundeten Bruttopreisen (eins energie, 58,31 ct) werden eingetragen und auf ganze Cent gerundet
   gezeigt.
+
+Phase 8 (2026-10-02, Details in ADR 0023):
+
+- Phase 8 wird vor 5b gezogen: Die Sitzung lief in der Cloud ohne iOS-Simulator, und Phase 8 braucht keine
+  iOS-Arbeit. Neue Reihenfolge: 8 → 5b → 6 → 7 → 9.
+- Phase 8 wird geteilt: 8a lesend (Karte, Ortssuche, Filter, Stationsseite), 8b Mitmachen (Kommentare schreiben,
+  melden/blockieren, Favoriten, Fehler melden).
+- Skalierung: kein Umbau vorab; der Product Owner prüft Antwortzeiten und Last vor der öffentlichen Freigabe.
+- MapKit-JS-Token: Das Backend signiert kurzlebige Tokens selbst (wie in ADR 0018 entschieden), statt ein
+  Portal-Token durchzureichen; nochmals gefragt, nachdem Apple inzwischen domain-gebundene Portal-Tokens anbietet.
 
 Phase 4 (2026-10-01, Details in ADR 0017, Abschnitt „Phase 4 decisions“):
 
