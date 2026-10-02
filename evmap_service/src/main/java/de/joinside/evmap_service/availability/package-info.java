@@ -57,5 +57,13 @@
  * <p>
  * Then extend {@code AvailabilityProviderRegistrationTests}, which asserts the full set for the same
  * reason {@code SourceAdapterRegistrationTests} does.
+ *
+ * <h2>On demand, with one exception</h2>
+ * <p>
+ * Providers are asked when someone looks, and cached for a minute. The Mobilithek provider is the
+ * exception and must stay the only one: its feeds are deltas, correct only when read continuously from
+ * their last snapshot, so it polls in the background and {@code fetch} hands out what it holds. A source
+ * that can be asked for its current state should be asked on demand. Where two providers report one
+ * EVSE-ID, the newer observation wins.
  */
 package de.joinside.evmap_service.availability;
