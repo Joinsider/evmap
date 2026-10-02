@@ -10,6 +10,7 @@ import de.joinside.evmap_service.sync.EvseIds;
 
 import javax.xml.XMLConstants;
 import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import java.io.BufferedInputStream;
@@ -176,8 +177,20 @@ final class AfirStatusParser {
         }
 
         Package toPackage() {
-            int evseShaped = (int) chargePoints.keySet().stream().filter(AfirStatusParser::isEvseShaped).count();
+            int evseShaped = (int) chargePoints.keySet().stream().filter(PackageReader::isEvseShaped).count();
             return new Package(delta, chargePoints, ignored, evseShaped, List.copyOf(otherIdSamples), publicationTime);
+        }
+
+        /** The normalized EVSE-ID of a published id: the id itself, or the starred EVSE-ID embedded in it. */
+        private static String evseIdOf(String id) {
+            String normalized = EvseIds.normalize(id);
+            if (normalized == null || isEvseShaped(normalized)) return normalized;
+            Matcher embedded = EMBEDDED_EVSE_ID.matcher(id);
+            return embedded.find() ? EvseIds.normalize(embedded.group(1)) : normalized;
+        }
+
+        private static boolean isEvseShaped(String normalizedId) {
+            return EVSE_ID_SHAPE.matcher(normalizedId).matches() && !HEX_HASH.matcher(normalizedId).matches();
         }
 
         private static Instant instant(String text) {
@@ -268,7 +281,7 @@ final class AfirStatusParser {
                 XMLStreamReader xml = FACTORY.createXMLStreamReader(in);
                 try {
                     while (xml.hasNext())
-                        if (xml.next() == XMLStreamReader.START_ELEMENT) read(xml, reader);
+                        if (xml.next() == XMLStreamConstants.START_ELEMENT) read(xml, reader);
                 } finally {
                     xml.close();
                 }
@@ -300,11 +313,11 @@ final class AfirStatusParser {
             int depth = 1;
             while (depth > 0 && xml.hasNext()) {
                 int event = xml.next();
-                if (event == XMLStreamReader.END_ELEMENT) {
+                if (event == XMLStreamConstants.END_ELEMENT) {
                     depth--;
-                } else if (event == XMLStreamReader.START_ELEMENT && depth > 1) {
+                } else if (event == XMLStreamConstants.START_ELEMENT && depth > 1) {
                     depth++;
-                } else if (event == XMLStreamReader.START_ELEMENT) {
+                } else if (event == XMLStreamConstants.START_ELEMENT) {
                     switch (xml.getLocalName()) {
                         case REFERENCE -> {
                             id = xml.getAttributeValue(null, "id");
@@ -319,18 +332,6 @@ final class AfirStatusParser {
             }
             reader.chargePoint(id, status, operationStatus, lastUpdated);
         }
-    }
-
-    /** The normalized EVSE-ID of a published id: the id itself, or the starred EVSE-ID embedded in it. */
-    private static String evseIdOf(String id) {
-        String normalized = EvseIds.normalize(id);
-        if (normalized == null || isEvseShaped(normalized)) return normalized;
-        Matcher embedded = EMBEDDED_EVSE_ID.matcher(id);
-        return embedded.find() ? EvseIds.normalize(embedded.group(1)) : normalized;
-    }
-
-    private static boolean isEvseShaped(String normalizedId) {
-        return EVSE_ID_SHAPE.matcher(normalizedId).matches() && !HEX_HASH.matcher(normalizedId).matches();
     }
 
     private static String blankToNull(String text) {
