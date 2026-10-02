@@ -36,7 +36,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | L2 | Lückenfüller: Schweiz | fertig ⁵ | [#18](https://github.com/Joinsider/evmap/pull/18) | [0012](adr/0012-additional-national-charging-registers.md) |
 | L3 | Lückenfüller: Italien | übersprungen ⁷ | | [0012](adr/0012-additional-national-charging-registers.md) |
 | L4 | Lückenfüller: Spanien | fertig ⁸ | [#22](https://github.com/Joinsider/evmap/pull/22) | [0012](adr/0012-additional-national-charging-registers.md) |
-| L5 | Lückenfüller: Mobilithek (Live-Daten Deutschland), vor 8b | fertig ¹³ | `feature/availability-mobilithek` | [0015](adr/0015-live-availability-national-access-points-with-tomtom-fallback.md) |
+| L5 | Lückenfüller: Mobilithek (Live-Daten Deutschland), vor 8b | fertig ¹³ | [#34](https://github.com/Joinsider/evmap/pull/34) | [0015](adr/0015-live-availability-national-access-points-with-tomtom-fallback.md) |
 
 ¹ Im Repository fertig; offen sind die 👤-Schritte auf dem VPS (Backup-Ziel, Monitore, erste
 Restore-Probe, `docs/operations/backup-and-restore.md` §5).
