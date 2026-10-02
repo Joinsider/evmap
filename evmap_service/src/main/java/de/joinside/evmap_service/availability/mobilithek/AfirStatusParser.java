@@ -162,7 +162,7 @@ final class AfirStatusParser {
         }
 
         void chargePoint(String id, String status, String operationStatus, String lastUpdated) {
-            String evseId = EvseIds.normalize(id);
+            String evseId = evseIdOf(id);
             String live = toLiveAvailability(status, operationStatus);
             if (evseId == null || live == null) {
                 ignored++;
@@ -321,6 +321,14 @@ final class AfirStatusParser {
             }
             reader.chargePoint(id, status, operationStatus, lastUpdated);
         }
+    }
+
+    /** The normalized EVSE-ID of a published id: the id itself, or the starred EVSE-ID embedded in it. */
+    private static String evseIdOf(String id) {
+        String normalized = EvseIds.normalize(id);
+        if (normalized == null || isEvseShaped(normalized)) return normalized;
+        Matcher embedded = EMBEDDED_EVSE_ID.matcher(id);
+        return embedded.find() ? EvseIds.normalize(embedded.group(1)) : normalized;
     }
 
     private static boolean isEvseShaped(String normalizedId) {

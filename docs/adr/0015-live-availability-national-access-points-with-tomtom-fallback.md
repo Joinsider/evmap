@@ -420,6 +420,16 @@ each of ladenetz.de, Wirelane and eRound was fetched with the machine certificat
   UUIDs (4.081 charge points) and eRound 32-character hashes (19.187), so nothing of theirs can match until the static
   feeds translate the ids (open point b, answered). A UUID occasionally fits the EVSE-ID pattern by chance; the log's
   count now excludes hex hashes and names sample ids of any other shape.
+- **Survey of every active feed** (one package each, 2026-10-02, charge points after parsing):
+
+  | Ids in `reference.idG` | Feeds |
+  |---|---|
+  | EVSE-IDs | chargecloud 26.840, EnBW 11.505, ladenetz.de 8.910, e-clearing.net 7.335 (+2.443 internal `CO_…`), Tesla 3.997, Monta 2.970, ladebusiness 2.911, EDRI 1.731, SMATRICS 290, ENIO 35, ELU 1 |
+  | EVSE-ID embedded | GP JOULE 844 (`cp-DE*CNT*EP90046*002*1-1`) — the starred EVSE-ID is taken literally |
+  | internal (static feed needed) | eRound 19.187, vaylens 16.058, LichtBlick 6.233, Wirelane 4.081, Qwello 1.994, EWE 1.577, EV Price 32, Grid & Co 4, Road 4, VW Group Charging 1 |
+  | nothing on the broker (204) | Audi charging hub |
+
+  ladebusiness's only package is from 2026-09-15 and is dropped by `max-age` — a feed that stopped, correctly unknown.
 - **`lastUpdated` is the last change, not the last observation.** Wirelane's fresh snapshot carries a `lastUpdated`
   older than 72 h for 4.034 of 4.081 charge points; eRound sends none (the publication time stands in). `max-age`
   therefore drops most of an operator whose charge points rarely change state (open point e).
