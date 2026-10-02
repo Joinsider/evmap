@@ -1,6 +1,27 @@
 import { Observable, of, throwError } from 'rxjs';
 import { EvmapApi } from '../core/api/evmap-api';
-import { Account, AdminOverview, BlockedAuthor, Contributions, Legal, ProviderToken, ReportedComment, ReportedStation, SignInProvider, StationReportReason, SyncRun } from '../core/api/models';
+import {
+  Account,
+  AdminOverview,
+  BlockedAuthor,
+  Contributions,
+  GeoBounds,
+  Legal,
+  MapToken,
+  Operator,
+  ProviderToken,
+  ReportedComment,
+  ReportedStation,
+  SignInProvider,
+  StationAvailability,
+  StationChargePoints,
+  StationComment,
+  StationDetail,
+  StationQuery,
+  StationReportReason,
+  StationSummary,
+  SyncRun,
+} from '../core/api/models';
 
 /** In-memory {@link EvmapApi}: what the tests swap in for REST, the same way a later GraphQL client would be. */
 export class FakeEvmapApi extends EvmapApi {
@@ -21,6 +42,18 @@ export class FakeEvmapApi extends EvmapApi {
   /** Calls that changed something, in order, for assertions. */
   calls: string[] = [];
   rejectDeletion = false;
+  stationList: StationSummary[] = [];
+  /** Every map query, in order. */
+  stationQueries: StationQuery[] = [];
+  details = new Map<string, StationDetail>();
+  liveByStation = new Map<string, StationAvailability>();
+  liveInBounds: StationAvailability[] = [];
+  boundsQueries: GeoBounds[] = [];
+  prices = new Map<string, StationChargePoints>();
+  commentsByStation = new Map<string, StationComment[]>();
+  directory: Operator[] = [];
+  operatorQueries: string[] = [];
+  token: MapToken | null = { token: 'test-token', expiresAt: '2026-10-02T12:30:00Z' };
 
   signInProviders(): Observable<SignInProvider[]> {
     return of(this.providers);
@@ -104,5 +137,44 @@ export class FakeEvmapApi extends EvmapApi {
     this.calls.push(`${outcome}:${stationId}:${reason}`);
     this.stationReports = this.stationReports.filter((item) => !(item.stationId === stationId && item.reason === reason));
     return of(undefined);
+  }
+
+  stations(query: StationQuery): Observable<StationSummary[]> {
+    this.stationQueries.push(query);
+    return of(this.stationList);
+  }
+
+  station(id: string): Observable<StationDetail> {
+    const detail = this.details.get(id);
+    return detail ? of(detail) : throwError(() => new Error('404'));
+  }
+
+  stationAvailability(id: string): Observable<StationAvailability> {
+    const live = this.liveByStation.get(id);
+    return live ? of(live) : throwError(() => new Error('404'));
+  }
+
+  availabilityInBounds(bounds: GeoBounds): Observable<StationAvailability[]> {
+    this.boundsQueries.push(bounds);
+    return of(this.liveInBounds);
+  }
+
+  chargePoints(id: string): Observable<StationChargePoints> {
+    const prices = this.prices.get(id);
+    return prices ? of(prices) : throwError(() => new Error('404'));
+  }
+
+  comments(stationId: string): Observable<StationComment[]> {
+    return of(this.commentsByStation.get(stationId) ?? []);
+  }
+
+  operators(query: string): Observable<Operator[]> {
+    this.operatorQueries.push(query);
+    const needle = query.trim().toLowerCase();
+    return of(this.directory.filter((operator) => !needle || operator.name.toLowerCase().includes(needle)));
+  }
+
+  mapToken(): Observable<MapToken> {
+    return this.token ? of(this.token) : throwError(() => new Error('404'));
   }
 }
