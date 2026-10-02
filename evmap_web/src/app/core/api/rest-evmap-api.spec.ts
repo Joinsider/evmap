@@ -61,13 +61,13 @@ describe('RestEvmapApi', () => {
     expect(backend.expectOne('/api/v1/me/blocks/b%2F1').request.method).toBe('DELETE');
   });
 
-  it('reads the privacy link and drives the moderation queue', () => {
-    api.legal().subscribe();
+  it('reads the site operator from the web container and drives the moderation queue', () => {
+    api.siteOperator().subscribe();
     api.adminReports().subscribe();
     api.adminDismissReports('c-1').subscribe();
     api.adminRemoveComment('c-2').subscribe();
 
-    backend.expectOne('/api/v1/legal').flush({});
+    backend.expectOne('/site-operator.json').flush({});
     backend.expectOne('/api/v1/admin/reports').flush([]);
     expect(backend.expectOne('/api/v1/admin/reports/c-1/dismiss').request.method).toBe('POST');
     expect(backend.expectOne('/api/v1/admin/comments/c-2').request.method).toBe('DELETE');

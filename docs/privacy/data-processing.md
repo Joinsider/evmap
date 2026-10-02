@@ -1,12 +1,14 @@
 # Verarbeitung personenbezogener Daten in EVMap
 
-- Stand: 2026-10-02 (Phase 8a: Nutzer-Web-App mit Karte)
+- Stand: 2026-10-02 (Phase 8a: Nutzer-Web-App mit Karte; Impressum und Datenschutzerklärung, ADR 0024)
 - Gilt für: iOS-Client (`evMap_ios/`), Web-Client (`evmap_web/`) und API-Service (`evmap_service/`)
 
 Dieses Dokument ist eine **technische Bestandsaufnahme** für Entwicklung und
 Architekturentscheidungen. Es ist als Grundlage für ein Verzeichnis von
-Verarbeitungstätigkeiten (Art. 30 DSGVO) und eine Datenschutzerklärung gedacht,
-ersetzt aber weder das eine noch das andere und ist keine Rechtsberatung. Die
+Verarbeitungstätigkeiten (Art. 30 DSGVO) gedacht und ist keine Rechtsberatung. Die
+veröffentlichte Datenschutzerklärung für Website und App ist
+`evmap_web/src/app/features/legal/privacy.page.html` (`/datenschutz`, ADR 0024); sie ist die
+lesbare Fassung dieses Dokuments und ändert sich mit ihm. Die
 Spalte "Rechtsgrundlage" enthält die naheliegende Einordnung aus technischer
 Sicht und ist juristisch zu prüfen.
 
@@ -41,7 +43,9 @@ hinein.
 | IP-Adresse, Kartenausschnitt und Suchtext gegenüber **Apple** (Web-App, seit Phase 8a) | Kartendarstellung und Ortssuche über MapKit JS | Apple lädt Skript, Kacheln und Suchergebnisse von `*.apple-mapkit.com`; der Browser sendet dabei IP-Adresse, die angezeigten Kartenbereiche und den Text der Ortssuche direkt an Apple. Wir speichern davon nichts; das MapKit-Token enthält keine personenbezogenen Daten (nur Team-ID, Domain, Ablauf) | nach Apples Bedingungen (Apple Developer Program License Agreement, MapKit-JS-Bedingungen) | Art. 6 Abs. 1 lit. f; in der Datenschutzerklärung zu nennen, ob ein Auftragsverarbeitungs- oder Drittlandbezug besteht, ist juristisch zu prüfen |
 | Zeitstempel (`created_at`, `last_login_at`) | Sortierung, Betrieb | `user_data.*` | wie zugehöriger Datensatz | Art. 6 Abs. 1 lit. f |
 | Client-Logs | Fehlerdiagnose | ausschließlich Unified Log des Nutzergeräts | siehe §3 | keine Verarbeitung durch den Verantwortlichen (§3) |
-| Server-Logs | Betrieb, Fehlerdiagnose | stdout des Containers | abhängig vom Log-Collector | Art. 6 Abs. 1 lit. f |
+| Server-Logs (API) | Betrieb, Fehlerdiagnose | stdout des Containers; keine IP-Adressen | Docker-Log des Containers | Art. 6 Abs. 1 lit. f |
+| Zugriffsprotokoll des Web-Containers (seit ADR 0024) | Betrieb, Missbrauchsabwehr | stdout des Containers, Format `evmap_anon`: IP gekürzt (IPv4 ohne letztes Oktett, IPv6 /48), Zeitpunkt, Request-Zeile, Status, Größe, Dauer, User-Agent | Docker-Logrotation 3 × 10 MB, fortlaufend überschrieben | Art. 6 Abs. 1 lit. f |
+| Fehlerprotokoll des Reverse Proxys (Nginx Proxy Manager) | Fehlerdiagnose | auf dem Server, enthält bei Fehlern die volle IP; das Access-Log des Proxys ist für EVMap abgeschaltet (`docs/operations/legal-pages.md`) | täglich rotiert, höchstens 14 Tage | Art. 6 Abs. 1 lit. f |
 | Datenbank-Backups (alle obigen `user_data`-Inhalte) | Wiederherstellung nach Datenverlust | restic-Repository auf S3-kompatiblem Speicher (SeaweedFS) auf einem **zweiten, selbst betriebenen Host**, clientseitig verschlüsselt | 7 tägliche, 4 wöchentliche, 3 monatliche Stände — höchstens ~3 Monate (ADR 0019) | Art. 6 Abs. 1 lit. f, Art. 32 |
 
 Ladestationsdaten (`master.*`) stammen aus BNetzA und Open Charge Map und sind
@@ -150,12 +154,19 @@ nutzlos, weil der Tausch das Client-Secret (und bei Google/GitHub den
 PKCE-Verifier) braucht. Access Tokens erscheinen dort nie; sie reisen nur im
 `Authorization`-Header.
 
-**Offener Punkt:** Ein vorgelagerter Reverse Proxy (nginx, Traefik, Load
-Balancer) protokolliert standardmäßig vollständige Request-URLs — inklusive
-`?latitude=…&longitude=…`. Damit entstünde an einer Stelle, die dieses Repository
-nicht kontrolliert, doch eine Standort-Historie pro IP-Adresse. Vor
-Produktivbetrieb ist entweder das Access-Log des Proxys auf den Pfad ohne Query
-zu beschränken oder eine Aufbewahrungsfrist zu setzen.
+Seit ADR 0024 schreibt der Web-Container sein Access-Log im eigenen Format
+`evmap_anon`: Als Client gilt der *letzte* `X-Forwarded-For`-Eintrag (den der
+Reverse Proxy angehängt hat), IPv4 ohne letztes Oktett, IPv6 auf /48 gekürzt.
+Die Request-Zeile enthält weiterhin Query-Strings, also auch Koordinaten des
+Kartenausschnitts — mit gekürzter IP aber ohne Personenbezug.
+
+Der vorgelagerte Reverse Proxy (Nginx Proxy Manager) protokolliert standardmäßig
+vollständige Request-URLs mit voller IP — inklusive `?latitude=…&longitude=…`.
+**Entscheidung (ADR 0024):** Sein Access-Log ist für den EVMap-Host abgeschaltet
+(`access_log off;`), seine Fehlerprotokolle werden täglich rotiert und nach 14
+Tagen gelöscht. Das ist eine Einstellung auf dem Server, nicht in diesem
+Repository: `docs/operations/legal-pages.md` §3. Die Datenschutzerklärung
+verspricht genau das.
 
 ## 5. Backups
 
@@ -206,8 +217,11 @@ protokolliert. Der Access Token verliert mit dem Konto sofort seine Gültigkeit.
   und liest Subject, E-Mail-Adresse und Bestätigungsstatus (GitHub: `/user`
   und `/user/emails`). Der Anbieter erfährt dabei, dass sich jemand bei EVMap
   anmeldet — das ist jeder Anmeldung über einen Dritten eigen.
-- **Hosting des API-Service** — abhängig vom Deployment (aktuell
-  `evmap.joinside.de`); AV-Vertrag erforderlich.
+- **Hosting** — API, Web-Container und Datenbank laufen auf einem eigenen,
+  selbst betriebenen Server (`evmap.joinside.de`); es gibt keinen
+  Hosting-Auftragsverarbeiter. Zieht das Hosting zu einem Anbieter um, braucht
+  es einen AV-Vertrag, und die Datenschutzerklärung (Abschnitt 2) ändert sich
+  mit.
 - **Backup-Speicher und Monitoring** — SeaweedFS und Uptime Kuma laufen auf einem
   zweiten, selbst betriebenen Host. Wird dieser Host angemietet, braucht es
   auch dafür einen AV-Vertrag. Uptime Kuma erhält nur Statuscodes und

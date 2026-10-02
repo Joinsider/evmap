@@ -110,16 +110,9 @@ describe('AccountPage', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
-  it('shows the privacy policy link only when the operator configured one', async () => {
-    let fixture = await open();
-    expect((fixture.nativeElement as HTMLElement).querySelector('a[href="https://evmap.example/privacy"]')).toBeNull();
+  it('links to the privacy policy next to the data export', async () => {
+    const fixture = await open();
 
-    TestBed.resetTestingModule();
-    api.legalData = { privacyPolicyUrl: 'https://evmap.example/privacy' };
-    TestBed.configureTestingModule({ providers: [{ provide: EvmapApi, useValue: api }, { provide: FILE_SAVER, useValue: save }, provideRouter([])] });
-    fixture = await open();
-    fixture.detectChanges();
-
-    expect((fixture.nativeElement as HTMLElement).querySelector('a[href="https://evmap.example/privacy"]')).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('a[href="/datenschutz"]')).not.toBeNull();
   });
 });

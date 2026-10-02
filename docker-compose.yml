@@ -68,6 +68,12 @@ services:
     environment:
       API_UPSTREAM: http://api:8080
       APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+      # Impressum and privacy policy (ADR 0024); blank shows the pages without operator details.
+      OPERATOR_NAME: ${OPERATOR_NAME:-}
+      OPERATOR_STREET: ${OPERATOR_STREET:-}
+      OPERATOR_CITY: ${OPERATOR_CITY:-}
+      OPERATOR_EMAIL: ${OPERATOR_EMAIL:-}
+      OPERATOR_PHONE: ${OPERATOR_PHONE:-}
     ports: ["8081:8080"]
 
   sync:

@@ -29,9 +29,8 @@ describe('App', () => {
     expect(navigate).toHaveBeenCalledWith('/');
   });
 
-  it('links to the account area when signed in, and to the privacy policy when one is configured', async () => {
+  it('links to the account area when signed in, and to Impressum and privacy policy always', async () => {
     const api = new FakeEvmapApi();
-    api.legalData = { privacyPolicyUrl: 'https://evmap.example/privacy' };
     api.hasSession = true;
     TestBed.configureTestingModule({ providers: [{ provide: EvmapApi, useValue: api }, provideRouter([])] });
     await TestBed.inject(AuthService).restore();
@@ -41,7 +40,8 @@ describe('App', () => {
     const root = fixture.nativeElement as HTMLElement;
 
     expect(root.textContent).toContain('Mein Konto');
-    expect(root.querySelector('footer a[href="https://evmap.example/privacy"]')).not.toBeNull();
+    expect(root.querySelector('footer a[href="/impressum"]')).not.toBeNull();
+    expect(root.querySelector('footer a[href="/datenschutz"]')).not.toBeNull();
   });
 
   it('gives the map and its station panel the full page, every other page the reading width', () => {

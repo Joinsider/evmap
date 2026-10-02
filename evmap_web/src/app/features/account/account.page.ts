@@ -1,11 +1,10 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { EvmapApi } from '../../core/api/evmap-api';
 import { BlockedAuthor, Contributions } from '../../core/api/models';
 import { AuthService } from '../../core/auth/auth.service';
-import { LegalService } from '../../core/legal.service';
 import { load } from '../../core/loaded';
 import { FILE_SAVER } from '../../core/save-file';
 import { providerName } from '../login/provider-labels';
@@ -21,7 +20,7 @@ type DeletionStage = 'idle' | 'confirm' | 'deleting' | 'failed';
  */
 @Component({
   selector: 'app-account',
-  imports: [DatePipe],
+  imports: [DatePipe, RouterLink],
   templateUrl: './account.page.html',
   styleUrl: './account.page.scss',
 })
@@ -30,7 +29,6 @@ export class AccountPage {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly saveFile = inject(FILE_SAVER);
-  protected readonly privacyPolicyUrl = inject(LegalService).privacyPolicyUrl;
 
   protected readonly identities = computed(() => this.auth.account()?.identities ?? []);
   protected readonly contributions = load<Contributions>(this.api.contributions());
