@@ -139,11 +139,24 @@ final class AfirStatusJson {
             int evseShaped = (int) chargePoints.keySet().stream().filter(id -> EVSE_ID_SHAPE.matcher(id).matches()).count();
             return new Package(delta, chargePoints, ignored, evseShaped);
         }
-    }
 
-    private static JsonNode nextTree(JsonParser parser) throws IOException {
-        parser.nextToken();
-        return MAPPER.readTree(parser);
+        private static JsonNode nextTree(JsonParser parser) throws IOException {
+            parser.nextToken();
+            return MAPPER.readTree(parser);
+        }
+
+        private static Instant instant(String text) {
+            if (text == null) return null;
+            try {
+                return OffsetDateTime.parse(text).toInstant();
+            } catch (DateTimeException _) {
+                try {
+                    return LocalDateTime.parse(text).atZone(PUBLISHER_ZONE).toInstant();
+                } catch (DateTimeException _) {
+                    return null;
+                }
+            }
+        }
     }
 
     /**
@@ -187,18 +200,5 @@ final class AfirStatusJson {
         if (node.isObject()) return textOf(node.get("value"));
         String text = node.asText();
         return text == null || text.isBlank() ? null : text.trim();
-    }
-
-    private static Instant instant(String text) {
-        if (text == null) return null;
-        try {
-            return OffsetDateTime.parse(text).toInstant();
-        } catch (DateTimeException _) {
-            try {
-                return LocalDateTime.parse(text).atZone(PUBLISHER_ZONE).toInstant();
-            } catch (DateTimeException _) {
-                return null;
-            }
-        }
     }
 }
