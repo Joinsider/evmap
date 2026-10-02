@@ -87,7 +87,7 @@ ungeprüften Ladepunkten sind 14 eingetragen, 9 Plattformen übersprungen und 27
 `docs/operations/price-basis-operators.md`). Mit Preis über die Tabelle: 15.576 statt 2.064 Ladepunkte; insgesamt 44 %
 statt 30 % der deutschen Ladepunkte mit Tarif. Offen ist der Gerätetest nach dem Ausrollen (z. B. Berliner Stadtwerke,
 TankE, IONITY). Erneute Prüfung fällig am 2027-04-02; die API warnt beim Start.
-Nachtrag 2026-10-02 (offene Punkte von 5r): zweite Runde für die Betreiber 51–100, 16 weitere eingetragen; mit Preis über
+Nachtrag 2026-10-02 (offene Punkte von 5r, [#28](https://github.com/Joinsider/evmap/pull/28)): zweite Runde für die Betreiber 51–100, 16 weitere eingetragen; mit Preis über
 die Tabelle jetzt 17.351 Ladepunkte, 46 % der deutschen Ladepunkte mit Tarif. 👤 Die Texte für OCPDB (Kommentar zu #278,
 neues Issue zur Minuten-Einheit) in `docs/operations/ocpdb-upstream-issues.md` selbst posten.
 
