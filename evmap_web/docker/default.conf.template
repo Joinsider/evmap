@@ -20,7 +20,9 @@ server {
     # line carries no credential. It can carry a single-use authorization code on the callback route.
     add_header X-Content-Type-Options nosniff always;
     add_header Referrer-Policy no-referrer always;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+    # MapKit JS (ADR 0023): the script and its libraries come from Apple's CDN, it renders with WebAssembly, workers
+    # and blob URLs, and fetches tiles and search results from *.apple-mapkit.com — Apple's documented CSP, nothing more.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://cdn.apple-mapkit.com 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.apple-mapkit.com; connect-src 'self' blob: https://*.apple-mapkit.com; worker-src 'self' blob: https://*.apple-mapkit.com; frame-src https://*.apple-mapkit.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
 
     # Resolved per request through the container's DNS, so the web container starts (and keeps
     # working) regardless of whether the API is up yet or has been recreated with a new address.

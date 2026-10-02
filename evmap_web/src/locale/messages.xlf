@@ -3,7 +3,7 @@
   <file id="ngi18n" original="ng.template">
     <unit id="nav.account">
       <notes>
-        <note category="location">src/app/app.ts:14,16</note>
+        <note category="location">src/app/app.ts:16,18</note>
       </notes>
       <segment>
         <source>Mein Konto</source>
@@ -11,7 +11,7 @@
     </unit>
     <unit id="nav.admin">
       <notes>
-        <note category="location">src/app/app.ts:17,19</note>
+        <note category="location">src/app/app.ts:19,21</note>
       </notes>
       <segment>
         <source>Admin</source>
@@ -19,7 +19,7 @@
     </unit>
     <unit id="nav.signOut">
       <notes>
-        <note category="location">src/app/app.ts:22,23</note>
+        <note category="location">src/app/app.ts:24,25</note>
       </notes>
       <segment>
         <source>Abmelden</source>
@@ -27,7 +27,7 @@
     </unit>
     <unit id="nav.signIn">
       <notes>
-        <note category="location">src/app/app.ts:24,26</note>
+        <note category="location">src/app/app.ts:26,28</note>
       </notes>
       <segment>
         <source>Anmelden</source>
@@ -35,7 +35,7 @@
     </unit>
     <unit id="footer.privacy">
       <notes>
-        <note category="location">src/app/app.ts:36,39</note>
+        <note category="location">src/app/app.ts:38,41</note>
       </notes>
       <segment>
         <source>Datenschutz</source>
@@ -157,6 +157,7 @@
         <note category="location">src/app/features/admin/reports.page.html:38,40</note>
         <note category="location">src/app/features/admin/station-reports.page.html:34,36</note>
         <note category="location">src/app/features/login/login.page.ts:26,29</note>
+        <note category="location">src/app/features/map/station.panel.html:5,6</note>
       </notes>
       <segment>
         <source>Wird geladen …</source>
@@ -638,22 +639,6 @@
         <source>Zur Startseite</source>
       </segment>
     </unit>
-    <unit id="home.title">
-      <notes>
-        <note category="location">src/app/features/home/home.page.ts:7,8</note>
-      </notes>
-      <segment>
-        <source>EVMap im Browser</source>
-      </segment>
-    </unit>
-    <unit id="home.body">
-      <notes>
-        <note category="location">src/app/features/home/home.page.ts:8,10</note>
-      </notes>
-      <segment>
-        <source>Karte, Stationen und Kommentare kommen hier später dazu. Bis dahin gibt es EVMap als App für das iPhone.</source>
-      </segment>
-    </unit>
     <unit id="callback.working">
       <notes>
         <note category="location">src/app/features/login/callback.page.ts:13,15</note>
@@ -748,6 +733,677 @@
       </notes>
       <segment>
         <source>Mit GitHub anmelden</source>
+      </segment>
+    </unit>
+    <unit id="station.availability.operational">
+      <notes>
+        <note category="location">src/app/features/map/domain/availability.ts:10</note>
+      </notes>
+      <segment>
+        <source>In Betrieb</source>
+      </segment>
+    </unit>
+    <unit id="station.availability.maintenance">
+      <notes>
+        <note category="location">src/app/features/map/domain/availability.ts:12</note>
+      </notes>
+      <segment>
+        <source>In Wartung</source>
+      </segment>
+    </unit>
+    <unit id="station.availability.outOfService">
+      <notes>
+        <note category="location">src/app/features/map/domain/availability.ts:14</note>
+      </notes>
+      <segment>
+        <source>Außer Betrieb</source>
+      </segment>
+    </unit>
+    <unit id="station.live.available">
+      <notes>
+        <note category="location">src/app/features/map/domain/availability.ts:47</note>
+      </notes>
+      <segment>
+        <source>Frei</source>
+      </segment>
+    </unit>
+    <unit id="station.live.occupied">
+      <notes>
+        <note category="location">src/app/features/map/domain/availability.ts:49</note>
+      </notes>
+      <segment>
+        <source>Belegt</source>
+      </segment>
+    </unit>
+    <unit id="station.live.outOfOrder">
+      <notes>
+        <note category="location">src/app/features/map/domain/availability.ts:51</note>
+      </notes>
+      <segment>
+        <source>Gestört</source>
+      </segment>
+    </unit>
+    <unit id="station.live.unknown">
+      <notes>
+        <note category="location">src/app/features/map/domain/availability.ts:53</note>
+      </notes>
+      <segment>
+        <source>Unbekannt</source>
+      </segment>
+    </unit>
+    <unit id="station.live.occupancy">
+      <notes>
+        <note category="location">src/app/features/map/domain/availability.ts:71</note>
+      </notes>
+      <segment>
+        <source><ph id="0" equiv="available" disp="available"/> von <ph id="1" equiv="resolved" disp="resolved"/> Ladepunkten frei</source>
+      </segment>
+    </unit>
+    <unit id="station.power">
+      <notes>
+        <note category="location">src/app/features/map/domain/format.ts:4</note>
+      </notes>
+      <segment>
+        <source><ph id="0" equiv="value" disp="value"/> kW</source>
+      </segment>
+    </unit>
+    <unit id="power.tier.slow">
+      <notes>
+        <note category="location">src/app/features/map/domain/power-tier.ts:44</note>
+      </notes>
+      <segment>
+        <source>Langsamladen (AC)</source>
+      </segment>
+    </unit>
+    <unit id="power.tier.standard">
+      <notes>
+        <note category="location">src/app/features/map/domain/power-tier.ts:46</note>
+      </notes>
+      <segment>
+        <source>Normalladen (AC)</source>
+      </segment>
+    </unit>
+    <unit id="power.tier.fast">
+      <notes>
+        <note category="location">src/app/features/map/domain/power-tier.ts:48</note>
+      </notes>
+      <segment>
+        <source>Schnellladen (DC)</source>
+      </segment>
+    </unit>
+    <unit id="power.tier.highPower">
+      <notes>
+        <note category="location">src/app/features/map/domain/power-tier.ts:50</note>
+      </notes>
+      <segment>
+        <source>Highpower (DC)</source>
+      </segment>
+    </unit>
+    <unit id="power.tier.ultra">
+      <notes>
+        <note category="location">src/app/features/map/domain/power-tier.ts:52</note>
+      </notes>
+      <segment>
+        <source>Ultraschnell (HPC)</source>
+      </segment>
+    </unit>
+    <unit id="price.free">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:70</note>
+        <note category="location">src/app/features/map/domain/prices.ts:95</note>
+      </notes>
+      <segment>
+        <source>Kostenlos</source>
+      </segment>
+    </unit>
+    <unit id="price.perKwh">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:74</note>
+      </notes>
+      <segment>
+        <source><ph id="0" equiv="amount" disp="amount"/>/kWh</source>
+      </segment>
+    </unit>
+    <unit id="price.sessionFee">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:78</note>
+      </notes>
+      <segment>
+        <source>Startgebühr <ph id="0" equiv="amount" disp="amount"/></source>
+      </segment>
+    </unit>
+    <unit id="price.perMinute">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:88</note>
+      </notes>
+      <segment>
+        <source><ph id="0" equiv="amount" disp="amount"/>/min</source>
+      </segment>
+    </unit>
+    <unit id="price.perMinuteFrom">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:88</note>
+      </notes>
+      <segment>
+        <source>ab Min. <ph id="0" equiv="minute" disp="minute"/>: <ph id="1" equiv="amount" disp="amount"/>/min</source>
+      </segment>
+    </unit>
+    <unit id="price.timeBased">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:90</note>
+      </notes>
+      <segment>
+        <source>zzgl. zeitabhängiger Gebühr</source>
+      </segment>
+    </unit>
+    <unit id="price.timeBasedFrom">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:90</note>
+      </notes>
+      <segment>
+        <source>ab Min. <ph id="0" equiv="minute" disp="minute"/> zeitabhängige Gebühr</source>
+      </segment>
+    </unit>
+    <unit id="price.fromPerKwh">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:98</note>
+      </notes>
+      <segment>
+        <source>ab <ph id="0" equiv="amount" disp="amount"/>/kWh</source>
+      </segment>
+    </unit>
+    <unit id="filter.title">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:3,4</note>
+      </notes>
+      <segment>
+        <source>Filter</source>
+      </segment>
+    </unit>
+    <unit id="filter.done">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:4,7</note>
+      </notes>
+      <segment>
+        <source>Fertig</source>
+      </segment>
+    </unit>
+    <unit id="filter.connector">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:8,9</note>
+      </notes>
+      <segment>
+        <source>Steckertypen</source>
+      </segment>
+    </unit>
+    <unit id="filter.minimumPower">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:18,19</note>
+        <note category="location">src/app/features/map/filter-panel.html:20</note>
+      </notes>
+      <segment>
+        <source>Minimale Ladeleistung</source>
+      </segment>
+    </unit>
+    <unit id="filter.availability">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:27,29</note>
+      </notes>
+      <segment>
+        <source>Nur betriebsbereite Ladestationen</source>
+      </segment>
+    </unit>
+    <unit id="settings.providers">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:32,33</note>
+      </notes>
+      <segment>
+        <source>Anbieter</source>
+      </segment>
+    </unit>
+    <unit id="provider.unlisted">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:35,37</note>
+      </notes>
+      <segment>
+        <source>Alle übrigen Anbieter anzeigen</source>
+      </segment>
+    </unit>
+    <unit id="provider.unlisted.footer.shown">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:39,41</note>
+      </notes>
+      <segment>
+        <source>Die Karte zeigt alle Anbieter außer denen, die du hier unten auf „Nicht anzeigen“ stellst.</source>
+      </segment>
+    </unit>
+    <unit id="provider.unlisted.footer.hidden">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:41,45</note>
+      </notes>
+      <segment>
+        <source>Die Karte zeigt nur die Anbieter aus dieser Liste, die auf „Anzeigen“ stehen. Alle anderen sind ausgeblendet.</source>
+      </segment>
+    </unit>
+    <unit id="provider.section.configured">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:45,47</note>
+      </notes>
+      <segment>
+        <source>Deine Auswahl</source>
+      </segment>
+    </unit>
+    <unit id="provider.listed.empty.web">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:47,50</note>
+      </notes>
+      <segment>
+        <source>Noch keine einzelnen Anbieter eingestellt. Suche unten nach einem Ladenetz und füge es hinzu.</source>
+      </segment>
+    </unit>
+    <unit id="provider.remove">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:58,60</note>
+      </notes>
+      <segment>
+        <source>Entfernen</source>
+      </segment>
+    </unit>
+    <unit id="provider.search.prompt">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:64</note>
+        <note category="location">src/app/features/map/filter-panel.html:64,66</note>
+      </notes>
+      <segment>
+        <source>Anbieter suchen</source>
+      </segment>
+    </unit>
+    <unit id="provider.section.results">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:68,70</note>
+      </notes>
+      <segment>
+        <source>Suchergebnisse</source>
+      </segment>
+    </unit>
+    <unit id="provider.section.common">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:70,73</note>
+      </notes>
+      <segment>
+        <source>Größte Anbieter</source>
+      </segment>
+    </unit>
+    <unit id="provider.failed">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:74,75</note>
+      </notes>
+      <segment>
+        <source>Die Anbieter konnten nicht geladen werden.</source>
+      </segment>
+    </unit>
+    <unit id="provider.empty">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:76,78</note>
+      </notes>
+      <segment>
+        <source>Keine Anbieter gefunden.</source>
+      </segment>
+    </unit>
+    <unit id="provider.alreadyListed">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:83,85</note>
+      </notes>
+      <segment>
+        <source>Bereits in der Liste</source>
+      </segment>
+    </unit>
+    <unit id="provider.add">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:85,87</note>
+      </notes>
+      <segment>
+        <source>Hinzufügen</source>
+      </segment>
+    </unit>
+    <unit id="settings.reset.message.web">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:95,96</note>
+      </notes>
+      <segment>
+        <source>Alle Filter und deine Anbieterauswahl werden verworfen.</source>
+      </segment>
+    </unit>
+    <unit id="settings.reset">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:96,97</note>
+        <note category="location">src/app/features/map/filter-panel.html:99,102</note>
+      </notes>
+      <segment>
+        <source>Einstellungen zurücksetzen</source>
+      </segment>
+    </unit>
+    <unit id="action.cancel">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.html:97,99</note>
+      </notes>
+      <segment>
+        <source>Abbrechen</source>
+      </segment>
+    </unit>
+    <unit id="filter.power.any">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.ts:96</note>
+      </notes>
+      <segment>
+        <source>Beliebig</source>
+      </segment>
+    </unit>
+    <unit id="provider.preference.shown">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.ts:126</note>
+      </notes>
+      <segment>
+        <source>Anzeigen</source>
+      </segment>
+    </unit>
+    <unit id="provider.preference.hidden">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.ts:128</note>
+      </notes>
+      <segment>
+        <source>Nicht anzeigen</source>
+      </segment>
+    </unit>
+    <unit id="provider.preference.preferred">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.ts:130</note>
+      </notes>
+      <segment>
+        <source>Bevorzugen</source>
+      </segment>
+    </unit>
+    <unit id="provider.preference.avoided">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.ts:132</note>
+      </notes>
+      <segment>
+        <source>Meiden</source>
+      </segment>
+    </unit>
+    <unit id="provider.stationCount">
+      <notes>
+        <note category="location">src/app/features/map/filter-panel.ts:155</note>
+      </notes>
+      <segment>
+        <source><ph id="0" equiv="count" disp="count"/> Ladestationen</source>
+      </segment>
+    </unit>
+    <unit id="map.loading">
+      <notes>
+        <note category="location">src/app/features/map/map.page.html:6,8</note>
+      </notes>
+      <segment>
+        <source>Karte wird geladen …</source>
+      </segment>
+    </unit>
+    <unit id="map.unavailable">
+      <notes>
+        <note category="location">src/app/features/map/map.page.html:10,15</note>
+      </notes>
+      <segment>
+        <source>Die Karte ist gerade nicht verfügbar. Stationen, die du per Link öffnest, werden trotzdem angezeigt.</source>
+      </segment>
+    </unit>
+    <unit id="map.filter">
+      <notes>
+        <note category="location">src/app/features/map/map.page.html:19,22</note>
+      </notes>
+      <segment>
+        <source>Filter</source>
+      </segment>
+    </unit>
+    <unit id="stations.loading">
+      <notes>
+        <note category="location">src/app/features/map/map.page.html:25,26</note>
+      </notes>
+      <segment>
+        <source>Stationen werden geladen …</source>
+      </segment>
+    </unit>
+    <unit id="stations.failed">
+      <notes>
+        <note category="location">src/app/features/map/map.page.html:27,28</note>
+      </notes>
+      <segment>
+        <source>Stationen konnten nicht geladen werden.</source>
+      </segment>
+    </unit>
+    <unit id="stations.truncated">
+      <notes>
+        <note category="location">src/app/features/map/map.page.html:29,33</note>
+      </notes>
+      <segment>
+        <source>Nur die stärksten Ladestationen — zum Anzeigen aller hineinzoomen</source>
+      </segment>
+    </unit>
+    <unit id="map.legend">
+      <notes>
+        <note category="location">src/app/features/map/map.page.html:33,34</note>
+      </notes>
+      <segment>
+        <source>Legende: Die Farbe eines Pins zeigt die maximale Ladeleistung.</source>
+      </segment>
+    </unit>
+    <unit id="map.cluster">
+      <notes>
+        <note category="location">src/app/features/map/map.page.ts:180</note>
+      </notes>
+      <segment>
+        <source><ph id="0" equiv="count" disp="count"/> Ladestationen</source>
+      </segment>
+    </unit>
+    <unit id="search.prompt">
+      <notes>
+        <note category="location">src/app/features/map/place-search.ts:23,24</note>
+        <note category="location">src/app/features/map/place-search.ts:25,26</note>
+      </notes>
+      <segment>
+        <source>Adresse oder Ort suchen</source>
+      </segment>
+    </unit>
+    <unit id="search.error.notFound">
+      <notes>
+        <note category="location">src/app/features/map/place-search.ts:42,46</note>
+      </notes>
+      <segment>
+        <source>Zu dieser Adresse wurde kein Ort gefunden.</source>
+      </segment>
+    </unit>
+    <unit id="station.close">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.html:2,4</note>
+      </notes>
+      <segment>
+        <source>Schließen</source>
+      </segment>
+    </unit>
+    <unit id="station.notFound">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.html:7,8</note>
+      </notes>
+      <segment>
+        <source>Diese Station gibt es nicht oder sie konnte nicht geladen werden.</source>
+      </segment>
+    </unit>
+    <unit id="station.live.title">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.html:34,35</note>
+      </notes>
+      <segment>
+        <source>Live-Verfügbarkeit</source>
+      </segment>
+    </unit>
+    <unit id="station.live.source">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.html:53,54</note>
+      </notes>
+      <segment>
+        <source>Live-Daten:</source>
+      </segment>
+    </unit>
+    <unit id="station.connectors">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.html:66,67</note>
+      </notes>
+      <segment>
+        <source>Anschlüsse</source>
+      </segment>
+    </unit>
+    <unit id="station.noConnectors">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.html:68,70</note>
+      </notes>
+      <segment>
+        <source>Keine Angaben zu den Anschlüssen.</source>
+      </segment>
+    </unit>
+    <unit id="price.title">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.html:85,86</note>
+      </notes>
+      <segment>
+        <source>Ad-hoc-Preis</source>
+      </segment>
+    </unit>
+    <unit id="price.furtherFees">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.html:92,94</note>
+      </notes>
+      <segment>
+        <source>Weitere Gebühren möglich, z. B. fürs Blockieren nach dem Laden</source>
+      </segment>
+    </unit>
+    <unit id="price.disclaimer">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.html:100,101</note>
+      </notes>
+      <segment>
+        <source>Preis ohne Ladekarte, wie vom Betreiber veröffentlicht. Mit einer Ladekarte kann er abweichen.</source>
+      </segment>
+    </unit>
+    <unit id="price.source">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.html:103,104</note>
+        <note category="location">src/app/features/map/station.panel.html:112</note>
+      </notes>
+      <segment>
+        <source>Preisdaten:</source>
+      </segment>
+    </unit>
+    <unit id="comments.title">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.html:118,119</note>
+      </notes>
+      <segment>
+        <source>Community</source>
+      </segment>
+    </unit>
+    <unit id="comments.empty">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.html:121,123</note>
+      </notes>
+      <segment>
+        <source>Noch keine Kommentare.</source>
+      </segment>
+    </unit>
+    <unit id="comments.failed">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.html:132,134</note>
+      </notes>
+      <segment>
+        <source>Kommentare konnten nicht geladen werden.</source>
+      </segment>
+    </unit>
+    <unit id="comments.webSoon">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.html:134,137</note>
+      </notes>
+      <segment>
+        <source>Kommentieren geht bisher in der iPhone-App.</source>
+      </segment>
+    </unit>
+    <unit id="station.sources">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.html:138</note>
+      </notes>
+      <segment>
+        <source>Datenquellen</source>
+      </segment>
+    </unit>
+    <unit id="station.addressUnavailable">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.ts:31</note>
+      </notes>
+      <segment>
+        <source>Keine Adresse verfügbar</source>
+      </segment>
+    </unit>
+    <unit id="station.live.chargePoint">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.ts:32</note>
+        <note category="location">src/app/features/map/station.panel.ts:121</note>
+      </notes>
+      <segment>
+        <source>Ladepunkt</source>
+      </segment>
+    </unit>
+    <unit id="station.live.observedAt">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.ts:85</note>
+      </notes>
+      <segment>
+        <source>Zuletzt gemeldet <ph id="0" equiv="date" disp="date"/></source>
+      </segment>
+    </unit>
+    <unit id="station.live.unresolved">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.ts:90</note>
+      </notes>
+      <segment>
+        <source><ph id="0" equiv="count" disp="count"/> weitere Ladepunkte ohne Live-Daten</source>
+      </segment>
+    </unit>
+    <unit id="price.chargePointCount">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.ts:113</note>
+      </notes>
+      <segment>
+        <source><ph id="0" equiv="count" disp="count"/> ×</source>
+      </segment>
+    </unit>
+    <unit id="price.observedAt">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.ts:119</note>
+      </notes>
+      <segment>
+        <source>Stand <ph id="0" equiv="date" disp="date"/></source>
+      </segment>
+    </unit>
+    <unit id="price.unpriced">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.ts:126</note>
+      </notes>
+      <segment>
+        <source>Ladepunkte ohne bekannten Preis: <ph id="0" equiv="count" disp="count"/></source>
+      </segment>
+    </unit>
+    <unit id="comments.paid">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.ts:138</note>
+      </notes>
+      <segment>
+        <source>Bezahlt: <ph id="0" equiv="amount" disp="amount"/></source>
       </segment>
     </unit>
     <unit id="report.reason.spam">

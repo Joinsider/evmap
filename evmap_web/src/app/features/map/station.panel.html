@@ -1,0 +1,141 @@
+<aside class="panel" role="dialog" aria-labelledby="station-title">
+  <a class="close" routerLink="/" i18n-aria-label="@@station.close" aria-label="Schließen">×</a>
+
+  @if (detail.isLoading()) {
+    <p class="muted" i18n="@@common.loading">Wird geladen …</p>
+  } @else if (detail.error()) {
+    <p class="error" role="alert" i18n="@@station.notFound">Diese Station gibt es nicht oder sie konnte nicht geladen werden.</p>
+  } @else if (detail.hasValue()) {
+    @let station = detail.value().station;
+    <header>
+      <h2 id="station-title">{{ station.displayName }}</h2>
+      <p class="muted">{{ address(station) || noAddress }}</p>
+      @if (station.operatorName) {
+        <p>{{ station.operatorName }}</p>
+      }
+      <p class="facts">
+        @if (station.maxPowerKw !== undefined && station.maxPowerKw !== null) {
+          @let tierInfo = tier(station.maxPowerKw);
+          <span class="tier"><span class="dot" [style.background]="tierInfo!.color"></span>{{ power(station.maxPowerKw) }} · {{ tierInfo!.label }}</span>
+        }
+        @if (station.availabilityStatus) {
+          <span>{{ serviceState(station.availabilityStatus) }}</span>
+        }
+        @if (priced(); as prices) {
+          @if (fromPrice(prices); as from) {
+            <span class="from">{{ from }}</span>
+          }
+        }
+      </p>
+    </header>
+
+    @if (knownLive(); as live) {
+      <section>
+        <h3 i18n="@@station.live.title">Live-Verfügbarkeit</h3>
+        <p><strong>{{ occupancy(live) }}</strong></p>
+        @if (live.observedAt) {
+          <p class="muted">{{ observedAt(live.observedAt) }}</p>
+        }
+        <ul class="plain">
+          @for (point of live.chargePoints; track point.id) {
+            @if (point.status !== 'UNKNOWN') {
+              <li class="row">
+                <span>{{ point.evseId || chargePointLabel }}</span>
+                <span [class]="liveStateClass(point.status)">{{ liveStateLabel(point.status) }}</span>
+              </li>
+            }
+          }
+        </ul>
+        @if (live.unknown > 0) {
+          <p class="muted">{{ unresolved(live) }}</p>
+        }
+        <p class="credit">
+          <ng-container i18n="@@station.live.source">Live-Daten:</ng-container>
+          @for (source of live.sources; track source.name) {
+            @if (source.url) {
+              <a [href]="source.url" target="_blank" rel="noopener">{{ credit(source) }}</a>
+            } @else {
+              <span>{{ credit(source) }}</span>
+            }
+          }
+        </p>
+      </section>
+    }
+
+    <section>
+      <h3 i18n="@@station.connectors">Anschlüsse</h3>
+      @if (detail.value().connectors.length === 0) {
+        <p class="muted" i18n="@@station.noConnectors">Keine Angaben zu den Anschlüssen.</p>
+      }
+      <ul class="plain">
+        @for (connector of detail.value().connectors; track $index) {
+          <li class="row">
+            <span>{{ connector.quantity }} × {{ connector.connectorType }}</span>
+            @if (connector.powerKw !== undefined && connector.powerKw !== null) {
+              <span>{{ power(connector.powerKw) }}</span>
+            }
+          </li>
+        }
+      </ul>
+    </section>
+
+    @if (priced(); as prices) {
+      @let priceRows = groups(prices, station);
+      <section>
+        <h3 i18n="@@price.title">Ad-hoc-Preis</h3>
+        <ul class="plain">
+          @for (group of priceRows; track $index) {
+            <li class="price">
+              <strong>{{ priceText(group) }}</strong>
+              <span class="muted">{{ priceDetails(group) }}</span>
+              @if (group.price.furtherFees) {
+                <span class="muted" i18n="@@price.furtherFees">Weitere Gebühren möglich, z. B. fürs Blockieren nach dem Laden</span>
+              }
+            </li>
+          }
+        </ul>
+        @if (unpriced(prices); as text) {
+          <p class="muted">{{ text }}</p>
+        }
+        <p class="credit" i18n="@@price.disclaimer">Preis ohne Ladekarte, wie vom Betreiber veröffentlicht. Mit einer Ladekarte kann er abweichen.</p>
+        @for (source of prices.sources; track source.name) {
+          <p class="credit">
+            <ng-container i18n="@@price.source">Preisdaten:</ng-container>
+            @if (source.url) {
+              <a [href]="source.url" target="_blank" rel="noopener">{{ credit(source) }}</a>
+            } @else {
+              {{ credit(source) }}
+            }
+          </p>
+        }
+        @if (registerSources(prices, priceRows); as registers) {
+          <p class="credit"><ng-container i18n="@@price.source">Preisdaten:</ng-container> {{ registers }}</p>
+        }
+      </section>
+    }
+
+    <section>
+      <h3 i18n="@@comments.title">Community</h3>
+      @if (comments.hasValue()) {
+        @if (comments.value().length === 0) {
+          <p class="muted" i18n="@@comments.empty">Noch keine Kommentare.</p>
+        }
+        <ul class="plain">
+          @for (comment of comments.value(); track comment.id) {
+            <li class="comment">
+              <p>{{ comment.body }}</p>
+              <p class="muted">{{ commentMeta(comment) }}</p>
+            </li>
+          }
+        </ul>
+      } @else if (comments.error()) {
+        <p class="muted" i18n="@@comments.failed">Kommentare konnten nicht geladen werden.</p>
+      }
+      <p class="muted" i18n="@@comments.webSoon">Kommentieren geht bisher in der iPhone-App.</p>
+    </section>
+
+    @if (detail.value().sources.length) {
+      <p class="credit"><ng-container i18n="@@station.sources">Datenquellen</ng-container>: {{ detail.value().sources.join(', ') }}</p>
+    }
+  }
+</aside>

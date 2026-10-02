@@ -1,0 +1,46 @@
+<section class="map-page">
+  <div class="canvas" #canvas></div>
+
+  @switch (state()) {
+    @case ('loading') {
+      <p class="notice" role="status" i18n="@@map.loading">Karte wird geladen …</p>
+    }
+    @case ('unavailable') {
+      <div class="notice card" role="alert">
+        <p i18n="@@map.unavailable">Die Karte ist gerade nicht verfügbar. Stationen, die du per Link öffnest, werden trotzdem angezeigt.</p>
+      </div>
+    }
+  }
+
+  <div class="controls">
+    @if (state() === 'ready') {
+      <app-place-search [near]="viewport()" (chosen)="placeChosen($event)" />
+    }
+    <button type="button" class="control" (click)="openFilter()" [attr.aria-expanded]="filterOpen()" i18n="@@map.filter">Filter</button>
+  </div>
+
+  @if (state() === 'ready') {
+    <div class="status" aria-live="polite">
+      @if (loading()) {
+        <span i18n="@@stations.loading">Stationen werden geladen …</span>
+      } @else if (loadFailed()) {
+        <span class="error" i18n="@@stations.failed">Stationen konnten nicht geladen werden.</span>
+      } @else if (truncated()) {
+        <span i18n="@@stations.truncated">Nur die stärksten Ladestationen — zum Anzeigen aller hineinzoomen</span>
+      }
+    </div>
+
+    <ul class="legend" i18n-aria-label="@@map.legend" aria-label="Legende: Die Farbe eines Pins zeigt die maximale Ladeleistung.">
+      @for (step of legend; track step.label) {
+        <li [title]="step.name"><span class="dot" [style.background]="step.color"></span>{{ step.label }}</li>
+      }
+      <li>kW</li>
+    </ul>
+  }
+
+  @if (filterOpen()) {
+    <app-filter-panel (closed)="closeFilter()" />
+  }
+
+  <router-outlet />
+</section>
