@@ -6,7 +6,8 @@ import de.joinside.evmap_service.pricing.mobidata.OcpiTariffs.PriceComponent;
 import de.joinside.evmap_service.pricing.mobidata.OcpiTariffs.Tariff;
 import de.joinside.evmap_service.pricing.mobidata.OcpiTariffs.Tax;
 import de.joinside.evmap_service.pricing.mobidata.OcpiTariffs.TimeUnit;
-import de.joinside.evmap_service.pricing.mobidata.OcpiTariffs.VatBasisTable;
+import de.joinside.evmap_service.pricing.mobidata.MobiDataPricingProperties.OperatorBasis;
+import de.joinside.evmap_service.pricing.mobidata.OcpiTariffs.TableBasis;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -14,6 +15,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -27,8 +29,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class OcpiTariffsTests {
     private static final Instant UPDATED = Instant.parse("2026-09-30T21:58:47Z");
-    private static final VatBasisTable NO_TABLE = VatBasisTable.of(List.of(), List.of());
-    private static final VatBasisTable ALLEGO_NET = VatBasisTable.of(List.of("Allego"), List.of());
+    private static final VatBasisTable NO_TABLE = VatBasisTable.of(List.of());
+    private static final VatBasisTable ALLEGO_NET = table("Allego", TableBasis.NET);
+    private static final BigDecimal NO_RATE = null;
+
+    private static VatBasisTable table(String operator, TableBasis basis) {
+        return VatBasisTable.of(List.of(new OperatorBasis(operator, basis, LocalDate.parse("2026-10-02"), "test")));
+    }
 
     private static PriceComponent component(String type, String price, String vat) {
         return new PriceComponent(type, new BigDecimal(price), vat == null ? null : List.of(new Tax("VAT", vat)), null);
@@ -47,7 +54,7 @@ class OcpiTariffsTests {
     }
 
     private static AdHocPrice read(Tariff tariff, String operator, VatBasisTable table) {
-        return OcpiTariffs.read(tariff, operator, TimeUnit.PER_MINUTE, table);
+        return OcpiTariffs.read(tariff, operator, TimeUnit.PER_MINUTE, table, NO_RATE);
     }
 
     @Test
@@ -86,7 +93,7 @@ class OcpiTariffsTests {
     }
 
     @Test
-    @DisplayName("without any VAT (chargecloud) only a gross operator from the table gets a price")
+    @DisplayName("without any VAT (chargecloud): a gross operator as published, a net one only with the assumed rate")
     void withoutVat() {
         Tariff chargecloud = tariff("datex2_chargecloud",
                 element(component("FLAT", "1.5", null)),
@@ -96,14 +103,58 @@ class OcpiTariffsTests {
                 after(14400, component("TIME", "0.06", null)));
 
         assertThat(read(chargecloud, "TankE GmbH", NO_TABLE)).isNull();
-        assertThat(read(chargecloud, "TankE GmbH", VatBasisTable.of(List.of("TankE GmbH"), List.of()))).isNull();
-        AdHocPrice gross = read(chargecloud, "TankE GmbH", VatBasisTable.of(List.of(), List.of("TankE GmbH")));
+        VatBasisTable tankeNet = table("TankE GmbH", TableBasis.NET);
+        assertThat(read(chargecloud, "TankE GmbH", tankeNet)).isNull();
+        assertThat(OcpiTariffs.read(chargecloud, "TankE GmbH", TimeUnit.PER_MINUTE, tankeNet, OcpiTariffs.GERMAN_VAT)
+                .energyPerKwh()).isEqualByComparingTo("0.55");
+        AdHocPrice gross = read(chargecloud, "TankE GmbH", table("TankE GmbH", TableBasis.GROSS));
         assertThat(gross.energyPerKwh()).isEqualByComparingTo("0.46");
         assertThat(gross.sessionFee()).isEqualByComparingTo("1.5");
         assertThat(gross.timeFees()).singleElement().satisfies(fee -> {
             assertThat(fee.fromMinute()).isEqualTo(240);
             assertThat(fee.perMinute()).isEqualByComparingTo("0.06");
         });
+    }
+
+    @Test
+    @DisplayName("a table operator's amounts are rounded to whole cents, as its price page charges them")
+    void tableAmountsInWholeCents() {
+        // Mainova publishes 0,54 × 1,19 = 0,6426 and charges 0,64 €/kWh (price page, 2026-10-02).
+        AdHocPrice mainova = read(tariff("datex2_chargecloud", element(component("ENERGY", "0.6426", null))),
+                "Mainova AG", table("Mainova AG", TableBasis.GROSS));
+        assertThat(mainova.energyPerKwh()).isEqualByComparingTo("0.64");
+
+        AdHocPrice net = read(tariff("datex2_ecomovement", element(component("FLAT", "0.83", "19")),
+                        element(component("ENERGY", "0.44", "19")), after(7200, component("TIME", "0.15", "19"))),
+                "Hochtief Ladepartner GmbH", table("Hochtief Ladepartner GmbH", TableBasis.NET));
+        assertThat(net.energyPerKwh()).isEqualByComparingTo("0.52");
+        assertThat(net.sessionFee()).isEqualByComparingTo("0.99");
+        assertThat(net.timeFees()).singleElement()
+                .satisfies(fee -> assertThat(fee.perMinute()).isEqualByComparingTo("0.18"));
+    }
+
+    @Test
+    @DisplayName("the feed contradicts an entry: gross listed but proven net, or net listed but VAT already added")
+    void contradictions() {
+        Tariff provenNet = tariff("datex2_ecomovement", element(component("ENERGY", "0.4622", "19")));
+        Tariff grossAsNet = tariff("datex2_ecomovement", element(component("ENERGY", "0.6426", "19")));
+        Tariff round = tariff("datex2_ecomovement", element(component("ENERGY", "0.64", "19")));
+        Tariff noRate = tariff("datex2_chargecloud", element(component("ENERGY", "0.7616", null)));
+
+        assertThat(OcpiTariffs.contradicts(provenNet, TableBasis.GROSS, null)).isTrue();
+        assertThat(OcpiTariffs.contradicts(provenNet, TableBasis.NET, null)).isFalse();
+        // Mainova: 0,6426 = 0,54 × 1,19 — read as net, it would become 0,76 €
+        assertThat(OcpiTariffs.contradicts(grossAsNet, TableBasis.NET, null)).isTrue();
+        assertThat(OcpiTariffs.contradicts(grossAsNet, TableBasis.GROSS, null)).isFalse();
+        // A round value proves nothing either way.
+        assertThat(OcpiTariffs.contradicts(round, TableBasis.NET, null)).isFalse();
+        assertThat(OcpiTariffs.contradicts(round, TableBasis.GROSS, null)).isFalse();
+        // Without a rate in the feed, only the assumed one can tell.
+        assertThat(OcpiTariffs.contradicts(noRate, TableBasis.NET, null)).isFalse();
+        assertThat(OcpiTariffs.contradicts(noRate, TableBasis.NET, OcpiTariffs.GERMAN_VAT)).isTrue();
+        assertThat(OcpiTariffs.contradicts(provenNet, TableBasis.UNCHECKED, null)).isFalse();
+        assertThat(OcpiTariffs.contradicts(new Tariff("t", "s", "EUR", UPDATED, true,
+                List.of(element(component("ENERGY", "0.4622", "19")))), TableBasis.GROSS, null)).isFalse();
     }
 
     @Test
@@ -173,12 +224,12 @@ class OcpiTariffsTests {
         Tariff tariff = tariff("s", element(component("ENERGY", "0.4622", "19")),
                 after(3600, component("TIME", "6", "19")));
 
-        assertThat(OcpiTariffs.read(tariff, "x", TimeUnit.PER_HOUR, NO_TABLE).timeFees())
+        assertThat(OcpiTariffs.read(tariff, "x", TimeUnit.PER_HOUR, NO_TABLE, NO_RATE).timeFees())
                 .singleElement().satisfies(fee -> assertThat(fee.perMinute()).isEqualByComparingTo("0.119"));
-        assertThat(OcpiTariffs.read(tariff, "x", TimeUnit.UNKNOWN, NO_TABLE).timeFees())
+        assertThat(OcpiTariffs.read(tariff, "x", TimeUnit.UNKNOWN, NO_TABLE, NO_RATE).timeFees())
                 .singleElement().satisfies(fee -> assertThat(fee.perMinute()).isNull());
         // 6 € read as per minute is outside the band: the fee stays, its amount goes.
-        assertThat(OcpiTariffs.read(tariff, "x", TimeUnit.PER_MINUTE, NO_TABLE).timeFees())
+        assertThat(OcpiTariffs.read(tariff, "x", TimeUnit.PER_MINUTE, NO_TABLE, NO_RATE).timeFees())
                 .singleElement().satisfies(fee -> assertThat(fee.perMinute()).isNull());
     }
 

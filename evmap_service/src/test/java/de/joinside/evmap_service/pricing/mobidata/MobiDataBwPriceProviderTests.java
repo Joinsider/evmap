@@ -12,6 +12,8 @@ import org.springframework.web.client.RestClient;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.Period;
 import java.time.ZoneOffset;
 import java.util.List;
 
@@ -68,7 +70,9 @@ class MobiDataBwPriceProviderTests {
         RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL);
         server = MockRestServiceServer.bindTo(builder).build();
         provider = new MobiDataBwPriceProvider(new MobiDataPricingProperties(true, BASE_URL, List.of("DE"), 200, 3,
-                1000, 10, Duration.ofMinutes(15), Duration.ofSeconds(10), List.of("Allego"), List.of()),
+                1000, 10, Duration.ofMinutes(15), Duration.ofSeconds(10),
+                List.of(new MobiDataPricingProperties.OperatorBasis("Allego", OcpiTariffs.TableBasis.NET,
+                        LocalDate.parse("2026-10-01"), "test")), Period.ofMonths(6)),
                 builder.build(), clock);
     }
 
@@ -128,6 +132,54 @@ class MobiDataBwPriceProviderTests {
         server.expect(once(), requestTo(BASE_URL + "/tariffs?limit=1000&offset=0")).andRespond(withServerError());
 
         assertThat(provider.fetch(BOUNDS)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a feed that contradicts an entry suspends it before any of the operator's prices leave the area")
+    void suspendsAContradictedEntry() {
+        String tariffs = """
+                {"items": [
+                  {"source": "datex2_ecomovement", "currency": "EUR", "original_id": "lidl-proven", "elements": [
+                    {"price_components": [{"type": "ENERGY", "price": 0.4622, "taxes": [{"name": "VAT", "percentage": "19"}]}]}]},
+                  {"source": "datex2_ecomovement", "currency": "EUR", "original_id": "lidl-round", "elements": [
+                    {"price_components": [{"type": "ENERGY", "price": 0.55, "taxes": [{"name": "VAT", "percentage": "19"}]}]}]},
+                  {"source": "datex2_chargecloud", "currency": "EUR", "original_id": "tanke-ac", "elements": [
+                    {"price_components": [{"type": "ENERGY", "price": 0.49}]}]}
+                ], "total_count": 3}
+                """;
+        // The round tariff comes first, so a check made while reading would let it through.
+        String locations = """
+                {"items": [
+                  {"country": "DEU", "operator": {"name": "Lidl"}, "charging_pool": [{"evses": [
+                    {"evse_id": "DE*LID*E1*1", "connectors": [{"tariff_ids": ["lidl-round"]}]},
+                    {"evse_id": "DE*LID*E1*2", "connectors": [{"tariff_ids": ["lidl-proven"]}]}]}]},
+                  {"country": "DEU", "operator": {"name": "TankE GmbH"}, "charging_pool": [{"evses": [
+                    {"evse_id": "DE*TNK*E1", "connectors": [{"tariff_ids": ["tanke-ac"]}]}]}]}
+                ], "total_count": 2}
+                """;
+        RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL);
+        MockRestServiceServer mock = MockRestServiceServer.bindTo(builder).build();
+        MobiDataBwPriceProvider wrongTable = new MobiDataBwPriceProvider(new MobiDataPricingProperties(true, BASE_URL,
+                List.of("DE"), 200, 3, 1000, 10, Duration.ofMinutes(15), Duration.ofSeconds(10), List.of(
+                        basis("Lidl", OcpiTariffs.TableBasis.GROSS), basis("TankE GmbH", OcpiTariffs.TableBasis.NET)),
+                Period.ofMonths(6)), builder.build(), clock);
+        mock.expect(once(), requestTo(BASE_URL + "/tariffs?limit=1000&offset=0"))
+                .andRespond(withSuccess(tariffs, MediaType.APPLICATION_JSON));
+        mock.expect(once(), request -> assertThat(request.getURI().getPath()).endsWith("/locations"))
+                .andRespond(withSuccess(locations, MediaType.APPLICATION_JSON));
+
+        List<ChargePointPrice> prices = wrongTable.fetch(BOUNDS);
+
+        // Lidl's round tariff is gone with the suspended entry; its proven one stands on its own arithmetic.
+        // TankE's chargecloud tariff names no rate, so its net entry takes Germany's 19 %: 0,49 → 0,58.
+        assertThat(prices).extracting(ChargePointPrice::evseId).containsExactlyInAnyOrder("DELIDE12", "DETNKE1");
+        assertThat(prices).filteredOn(p -> p.evseId().equals("DETNKE1")).singleElement()
+                .satisfies(p -> assertThat(p.price().energyPerKwh()).isEqualByComparingTo("0.58"));
+        mock.verify();
+    }
+
+    private static MobiDataPricingProperties.OperatorBasis basis(String operator, OcpiTariffs.TableBasis basis) {
+        return new MobiDataPricingProperties.OperatorBasis(operator, basis, LocalDate.parse("2026-10-02"), "test");
     }
 
     private static final class MutableClock extends Clock {

@@ -15,8 +15,10 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -52,7 +54,7 @@ public class MobiDataBwPriceProvider implements PriceProvider {
     private final MobiDataPricingProperties properties;
     private final RestClient restClient;
     private final Set<String> countryCodes;
-    private final OcpiTariffs.VatBasisTable basisTable;
+    private final VatBasisTable basisTable;
     private final Clock clock;
 
     private record Catalog(Instant loadedAt, Map<String, OcpiTariffs.Tariff> tariffs,
@@ -78,7 +80,18 @@ public class MobiDataBwPriceProvider implements PriceProvider {
                 .map(code -> code.trim().toUpperCase(Locale.ROOT))
                 .filter(code -> !code.isEmpty())
                 .collect(Collectors.toUnmodifiableSet());
-        this.basisTable = OcpiTariffs.VatBasisTable.of(properties.netPriceOperators(), properties.grossPriceOperators());
+        this.basisTable = VatBasisTable.of(properties.vatBasis());
+        reportDueChecks();
+    }
+
+    /** Names the table entries whose check is older than {@code recheckAfter}; they stay in force (ADR 0022). */
+    private void reportDueChecks() {
+        List<MobiDataPricingProperties.OperatorBasis> due =
+                basisTable.dueForRecheck(LocalDate.now(clock), properties.recheckAfter());
+        if (!due.isEmpty())
+            log.warn("{} VAT basis entr(ies) checked more than {} ago, due for a new check against the price pages: {}",
+                    due.size(), properties.recheckAfter(),
+                    due.stream().map(entry -> entry.operator() + " (" + entry.checkedOn() + ")").toList());
     }
 
     private static SimpleClientHttpRequestFactory requestFactory(MobiDataPricingProperties properties) {
@@ -113,55 +126,90 @@ public class MobiDataBwPriceProvider implements PriceProvider {
         Catalog current = catalog();
         if (current.tariffs().isEmpty()) return List.of();
 
-        List<ChargePointPrice> prices = new ArrayList<>();
-        Set<String> uncertain = new LinkedHashSet<>();
+        List<OcpiTariffs.Location> locations = new ArrayList<>();
         int offset = 0;
         boolean more = true;
         for (int page = 0; more && page < properties.maxPages(); page++) {
             OcpiTariffs.LocationPage response = locations(bounds, offset);
             List<OcpiTariffs.Location> items = response == null || response.items() == null ? List.of() : response.items();
-            for (OcpiTariffs.Location location : items) collect(location, current, prices, uncertain);
+            locations.addAll(items);
             offset += items.size();
             // An empty or failed page ends the paging, and so does reaching the reported total.
             more = !items.isEmpty() && (response.totalCount() == null || offset < response.totalCount());
         }
+        // Contradictions first, so no price of a suspended operator leaves this area.
+        for (OcpiTariffs.Location location : locations) checkTable(location, current);
+        List<ChargePointPrice> prices = new ArrayList<>();
+        Set<String> uncertain = new LinkedHashSet<>();
+        for (OcpiTariffs.Location location : locations) collect(location, current, prices, uncertain);
         log.debug("MobiData BW priced {} charge point(s) for bounds {}; {} tariff(s) left unpriced as uncertain",
                 prices.size(), bounds, uncertain.size());
         return prices;
     }
 
-    private void collect(OcpiTariffs.Location location, Catalog current, List<ChargePointPrice> into,
-                         Set<String> uncertain) {
-        if (location.chargingPool() == null) return;
-        String operator = location.operator() == null ? null : location.operator().name();
-        for (OcpiTariffs.ChargeStation chargeStation : location.chargingPool()) {
-            if (chargeStation == null || chargeStation.evses() == null) continue;
-            for (OcpiTariffs.Evse evse : chargeStation.evses()) {
-                String evseId = identifierOf(evse);
-                if (evseId == null) continue;
-                AdHocPrice price = priceOf(evse, operator, current, uncertain);
-                if (price != null) into.add(new ChargePointPrice(evseId, price));
+    /**
+     * Suspends the table entry of the location's operator when one of its tariffs contradicts it: the hand check
+     * is outdated, and until someone checks again, no price beats a price that is off by the VAT (ADR 0022, 5r).
+     */
+    private void checkTable(OcpiTariffs.Location location, Catalog current) {
+        String operator = operatorOf(location);
+        OcpiTariffs.TableBasis listed = basisTable.basisOf(operator);
+        if (listed == OcpiTariffs.TableBasis.UNCHECKED) return;
+        for (OcpiTariffs.Evse evse : evsesOf(location)) {
+            OcpiTariffs.Tariff tariff = singleTariff(evse, current);
+            if (OcpiTariffs.contradicts(tariff, listed, location.assumedVatRate()) && basisTable.suspend(operator)) {
+                log.warn("MobiData BW tariff {} of {} contradicts its VAT basis entry {}; entry suspended until the "
+                        + "price page is checked again", tariff.originalId(), operator, listed);
+                return;
             }
         }
+    }
+
+    private void collect(OcpiTariffs.Location location, Catalog current, List<ChargePointPrice> into,
+                         Set<String> uncertain) {
+        String operator = operatorOf(location);
+        for (OcpiTariffs.Evse evse : evsesOf(location)) {
+            String evseId = identifierOf(evse);
+            if (evseId == null) continue;
+            AdHocPrice price = priceOf(evse, operator, location.assumedVatRate(), current, uncertain);
+            if (price != null) into.add(new ChargePointPrice(evseId, price));
+        }
+    }
+
+    private static String operatorOf(OcpiTariffs.Location location) {
+        return location.operator() == null ? null : location.operator().name();
+    }
+
+    private static List<OcpiTariffs.Evse> evsesOf(OcpiTariffs.Location location) {
+        if (location.chargingPool() == null) return List.of();
+        return location.chargingPool().stream()
+                .filter(chargeStation -> chargeStation != null && chargeStation.evses() != null)
+                .flatMap(chargeStation -> chargeStation.evses().stream())
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     /**
      * The EVSE's price: every connector must name the same single tariff and that tariff must read. Different
      * tariffs on one EVSE (a CCS and a CHAdeMO plug priced apart) cannot be one charge point's price.
      */
-    private AdHocPrice priceOf(OcpiTariffs.Evse evse, String operator, Catalog current, Set<String> uncertain) {
+    private AdHocPrice priceOf(OcpiTariffs.Evse evse, String operator, BigDecimal assumedVatRate, Catalog current,
+                               Set<String> uncertain) {
+        OcpiTariffs.Tariff tariff = singleTariff(evse, current);
+        if (tariff == null) return null;
+        OcpiTariffs.TimeUnit unit = current.timeUnits().getOrDefault(tariff.source(), OcpiTariffs.TimeUnit.UNKNOWN);
+        AdHocPrice price = OcpiTariffs.read(tariff, operator, unit, basisTable, assumedVatRate);
+        if (price == null) uncertain.add(tariff.originalId());
+        return price;
+    }
+
+    /** The one tariff all of the EVSE's connectors name, or {@code null}. */
+    private static OcpiTariffs.Tariff singleTariff(OcpiTariffs.Evse evse, Catalog current) {
         if (evse.connectors() == null) return null;
         Set<String> tariffIds = new LinkedHashSet<>();
         for (OcpiTariffs.Connector connector : evse.connectors())
             if (connector != null && connector.tariffIds() != null) tariffIds.addAll(connector.tariffIds());
-        if (tariffIds.size() != 1) return null;
-
-        OcpiTariffs.Tariff tariff = current.tariffs().get(tariffIds.iterator().next());
-        if (tariff == null) return null;
-        OcpiTariffs.TimeUnit unit = current.timeUnits().getOrDefault(tariff.source(), OcpiTariffs.TimeUnit.UNKNOWN);
-        AdHocPrice price = OcpiTariffs.read(tariff, operator, unit, basisTable);
-        if (price == null) uncertain.add(tariff.originalId());
-        return price;
+        return tariffIds.size() == 1 ? current.tariffs().get(tariffIds.iterator().next()) : null;
     }
 
     private static String identifierOf(OcpiTariffs.Evse evse) {

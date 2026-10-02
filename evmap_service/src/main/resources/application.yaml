@@ -125,10 +125,71 @@ evmap:
       timeout: PT10S
       # OCPDB drops DATEX II's taxIncluded flag (binary-butterfly/ocpdb#278), so where a tariff's net or
       # gross basis is not evident from its arithmetic, it is shown only for operators checked by hand
-      # against their own price pages. Names as OCPDB writes them on the location. Phase 5r fills these.
-      net-price-operators:
-        - Allego   # 0,64 net → 0,76 €/kWh, checked by the product owner on 2026-10-01
-      gross-price-operators: []
+      # against their own price pages (ADR 0022, phase 5r; evidence per operator in
+      # docs/operations/price-basis-operators.md). Names exactly as OCPDB writes them on the location.
+      # An entry the feed contradicts is suspended at runtime; one older than recheck-after is named at startup.
+      recheck-after: P6M
+      vat-basis:
+        - operator: Allego
+          basis: NET   # 0,64 net → 0,76 €/kWh
+          checked-on: "2026-10-01"
+          source: checked by the product owner on Allego's price page
+        - operator: TankE GmbH
+          basis: GROSS   # AC 0,49 / DC 0,59 €/kWh inkl. MwSt.
+          checked-on: "2026-10-02"
+          source: https://www.tanke.io/oeffentliche-ladestationen/
+        - operator: N-ERGIE Aktiengesellschaft
+          basis: GROSS   # ad hoc 52 / 62 ct/kWh, brutto
+          checked-on: "2026-10-02"
+          source: https://produkte.n-ergie.de/ladeverbundplus/
+        - operator: IONITY
+          basis: NET   # Germany Direct 0,72 €/kWh incl. VAT = 0,6018 × 1,19
+          checked-on: "2026-10-02"
+          source: https://www.ionity.eu/network/access-and-payments
+        - operator: Berliner Stadtwerke GmbH
+          basis: GROSS   # ad hoc AC 0,55 / DC 0,65 €/kWh, brutto
+          checked-on: "2026-10-02"
+          source: https://berlinerstadtwerke.de/faq-beitrag/was-kostet-das-laden-an-den-ladestationen-der-berliner-stadtwerke/
+        - operator: deer GmbH
+          basis: GROSS   # ad hoc AC + DC 0,49 €/kWh
+          checked-on: "2026-10-02"
+          source: https://www.deer-mobility.de/laden-unterwegs/
+        - operator: Stadtwerke Stuttgart GmbH
+          basis: GROSS   # ad hoc 49 / 59 ct/kWh, brutto
+          checked-on: "2026-10-02"
+          source: https://www.stadtwerke-stuttgart.de/privatkunden/e-mobilitaet/oeffentliches-laden/oeffentliche-ladestationen/
+        - operator: "Energie und Wasserversorgung Bonn/Rhein-Sieg GmbH (EnW Bonn/Rhein-Sieg)"
+          basis: GROSS   # direct payment 0,49 / 0,56 €/kWh
+          checked-on: "2026-10-02"
+          source: https://www.stadtwerke-bonn.de/fuer-zuhause/produkte/e-mobility/elektrotankstellen/
+        - operator: Hochtief Ladepartner GmbH
+          basis: NET   # AC ohne Vertrag 52 ct/kWh = 0,44 × 1,19
+          checked-on: "2026-10-02"
+          source: https://hochtief-ladepartner.de/de/privatkunden
+        - operator: Mainova AG
+          basis: GROSS   # ad hoc AC 0,64 / DC 0,76 €/kWh (brutto); feed 0,6426 / 0,7616
+          checked-on: "2026-10-02"
+          source: https://www.mainova.de/de/loesungen/elektromobilitaet/ladestationen
+        - operator: "Braunschweiger Versorgungs-Aktiengesellschaft & Co. KG"
+          basis: GROSS   # Direct Payment AC 0,53 / DC 0,59 EUR/kWh
+          checked-on: "2026-10-02"
+          source: https://www.bs-energy.de/e-mobilitaet/ladeinfrastruktur
+        - operator: Allgäuer Überlandwerk GmbH
+          basis: GROSS   # 1 €/Ladevorgang + 51 ct; DC 57 / 66 ct/kWh
+          checked-on: "2026-10-02"
+          source: https://auew.de/privatkunden/e-mobilitaet/allgaeustrom-stromtankstellen/
+        - operator: SWLB Mobilität GmbH
+          basis: GROSS   # Ad hoc AC 0,59 / Parkhaus 0,49 / DC 0,79; Preisblatt ab 01.07.2025, inkl. MwSt.
+          checked-on: "2026-10-02"
+          source: https://preise.swlb.de/
+        - operator: ecowerk e-charge GmbH
+          basis: GROSS   # Adhoc Tarif 0,42 / 0,49 / 0,58 €, inkl. 19 % MwSt.
+          checked-on: "2026-10-02"
+          source: https://www.ecowerk-echarge.de/ladetarife.html
+        - operator: ovag Energie AG
+          basis: GROSS   # adhoc-Tarif 59 ct/kWh, Preis (brutto)
+          checked-on: "2026-10-02"
+          source: https://www.ovag.de/privatkunden/produkte/elektromobilitaet.html
 
   security:
     jwt-secret: ${JWT_SECRET:change-this-development-secret-to-a-long-random-value}

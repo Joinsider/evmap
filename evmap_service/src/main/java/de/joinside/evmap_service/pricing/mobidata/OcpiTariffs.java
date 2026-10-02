@@ -12,7 +12,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -45,6 +44,8 @@ final class OcpiTariffs {
     static final BigDecimal MAX_PER_HOUR = new BigDecimal("60");
     private static final BigDecimal SIXTY = new BigDecimal("60");
     private static final BigDecimal HUNDRED = new BigDecimal("100");
+    /** Germany's standard rate, which applies to charging; assumed for net-listed operators whose feed has none. */
+    static final BigDecimal GERMAN_VAT = new BigDecimal("0.19");
 
     private OcpiTariffs() {
     }
@@ -93,8 +94,17 @@ final class OcpiTariffs {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record Location(@JsonProperty("operator") Operator operator,
+    record Location(@JsonProperty("country") String country,
+                    @JsonProperty("operator") Operator operator,
                     @JsonProperty("charging_pool") List<ChargeStation> chargingPool) {
+
+        /**
+         * The VAT rate to assume where a feed gives none (chargecloud): 19 % in Germany, the only rate charging is
+         * sold at there; elsewhere none, so a net table entry yields no price.
+         */
+        BigDecimal assumedVatRate() {
+            return "DEU".equals(country) || "DE".equals(country) ? GERMAN_VAT : null;
+        }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -158,32 +168,6 @@ final class OcpiTariffs {
 
     // --- VAT basis ------------------------------------------------------------------------------------
 
-    /** Operators whose publishing basis was checked by hand against their own price pages (phase 5r). */
-    record VatBasisTable(Set<String> netOperators, Set<String> grossOperators) {
-
-        static VatBasisTable of(Collection<String> net, Collection<String> gross) {
-            return new VatBasisTable(normalized(net), normalized(gross));
-        }
-
-        private static Set<String> normalized(Collection<String> names) {
-            Set<String> set = new LinkedHashSet<>();
-            if (names != null) for (String name : names) if (name != null && !name.isBlank()) set.add(key(name));
-            return Set.copyOf(set);
-        }
-
-        static String key(String operatorName) {
-            return operatorName.trim().toLowerCase(Locale.ROOT);
-        }
-
-        TableBasis basisOf(String operatorName) {
-            if (operatorName == null) return TableBasis.UNCHECKED;
-            String key = key(operatorName);
-            if (netOperators.contains(key)) return TableBasis.NET;
-            if (grossOperators.contains(key)) return TableBasis.GROSS;
-            return TableBasis.UNCHECKED;
-        }
-    }
-
     /** What the hand-kept table says about an operator's prices. */
     enum TableBasis { NET, GROSS, UNCHECKED }
 
@@ -201,20 +185,61 @@ final class OcpiTariffs {
         return gross.subtract(cents).abs().compareTo(tolerance) <= 0 ? cents : null;
     }
 
+    /**
+     * Whether {@code value} is demonstrably a gross price dressed as a net one: more than two decimals, and
+     * value ÷ (1 + rate) on whole cents. Mainova publishes 0,6426, which is 0,54 × 1,19 — read as net it would
+     * become 0,76 €. The mirror image of {@link #provenGross}.
+     */
+    static boolean looksGross(BigDecimal value, BigDecimal rate) {
+        int decimals = value.stripTrailingZeros().scale();
+        if (decimals <= 2) return false;
+        BigDecimal net = value.divide(BigDecimal.ONE.add(rate), 8, RoundingMode.HALF_UP);
+        BigDecimal cents = net.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal tolerance = new BigDecimal("0.6").movePointLeft(decimals);
+        return net.subtract(cents).abs().compareTo(tolerance) <= 0;
+    }
+
+    /**
+     * Whether a tariff contradicts what the table says about its operator, which then suspends the entry
+     * (ADR 0022, phase 5r): an operator listed as gross whose tariff the arithmetic proves net, or one listed as
+     * net whose tariff is a whole-cent net price with VAT already added. A tariff that cannot be read, or that
+     * carries an explicit tax flag, contradicts nothing.
+     *
+     * @param assumedRate the rate to use where the tariff names none, see {@link Location#assumedVatRate()}
+     */
+    static boolean contradicts(Tariff tariff, TableBasis listed, BigDecimal assumedRate) {
+        if (listed == TableBasis.UNCHECKED || tariff == null || tariff.taxIncluded() != null) return false;
+        Components components = components(tariff);
+        if (components == null || !components.included.isEmpty()) return false;
+        BigDecimal energy = components.energies.iterator().next();
+        if (energy.signum() == 0) return false;
+        BigDecimal rate = components.rates.isEmpty() ? assumedRate : components.rates.iterator().next();
+        if (rate == null) return false;
+        boolean provenNet = provenGross(energy, rate) != null;
+        return listed == TableBasis.GROSS ? provenNet : !provenNet && looksGross(energy, rate);
+    }
+
+    /** The understood components of a EUR tariff, or {@code null} when anything about it is uncertain. */
+    private static Components components(Tariff tariff) {
+        if (tariff == null || tariff.elements() == null || !"EUR".equals(tariff.currency())) return null;
+        Components components = new Components();
+        for (Element element : tariff.elements())
+            if (!components.add(element)) return null;
+        return components.isConsistent() ? components : null;
+    }
+
     // --- reading one tariff ---------------------------------------------------------------------------
 
     /**
      * @param operatorName the operator of the location the tariff is attached to, for the basis table
      * @param unit         the detected time unit of the tariff's feed
+     * @param assumedRate  the VAT rate for a net-listed operator whose tariff names none, or {@code null}
      * @return the gross price, or {@code null} when anything about it is uncertain
      */
-    static AdHocPrice read(Tariff tariff, String operatorName, TimeUnit unit, VatBasisTable table) {
-        if (tariff == null || tariff.elements() == null || !"EUR".equals(tariff.currency())) return null;
-
-        Components components = new Components();
-        for (Element element : tariff.elements())
-            if (!components.add(element)) return null;
-        if (!components.isConsistent()) return null;
+    static AdHocPrice read(Tariff tariff, String operatorName, TimeUnit unit, VatBasisTable table,
+                           BigDecimal assumedRate) {
+        Components components = components(tariff);
+        if (components == null) return null;
         if (tariff.taxIncluded() != null) components.included = Set.of(tariff.taxIncluded());
 
         BigDecimal energy = components.energies.iterator().next();
@@ -223,7 +248,7 @@ final class OcpiTariffs {
             return new AdHocPrice("EUR", null, null, List.of(), true, components.furtherFees, tariff.lastUpdated());
 
         BigDecimal rate = components.rates.isEmpty() ? null : components.rates.iterator().next();
-        Basis basis = basis(energy, rate, components.included, table.basisOf(operatorName));
+        Basis basis = basis(energy, rate, components.included, table.basisOf(operatorName), assumedRate);
         if (basis == null || !inBand(basis.energy, MIN_ENERGY, MAX_ENERGY)) return null;
 
         BigDecimal session = components.flats.isEmpty() ? null : basis.gross(components.flats.iterator().next());
@@ -344,33 +369,46 @@ final class OcpiTariffs {
         }
     }
 
-    /** How net amounts become gross, once the basis is known. */
-    private record Basis(BigDecimal energy, BigDecimal factor) {
+    /**
+     * How net amounts become gross, once the basis is known.
+     *
+     * @param cents whether every amount is rounded to whole cents: the amounts of a table operator, whose check
+     *              compared them with a price page, and price pages charge whole cents (Mainova publishes
+     *              0,6426 and charges 0,64; ADR 0022, phase 5r). Evidence and explicit flags keep the feed's
+     *              precision.
+     */
+    private record Basis(BigDecimal energy, BigDecimal factor, boolean cents) {
         BigDecimal gross(BigDecimal amount) {
-            return amount.multiply(factor).setScale(4, RoundingMode.HALF_UP).stripTrailingZeros();
+            return amount.multiply(factor).setScale(cents ? 2 : 4, RoundingMode.HALF_UP).stripTrailingZeros();
         }
     }
 
-    private static Basis basis(BigDecimal energy, BigDecimal rate, Set<Boolean> included, TableBasis table) {
+    private static Basis basis(BigDecimal energy, BigDecimal rate, Set<Boolean> included, TableBasis table,
+                               BigDecimal assumedRate) {
         if (!included.isEmpty()) {
-            if (Boolean.TRUE.equals(included.iterator().next())) return new Basis(energy, BigDecimal.ONE);
-            return rate == null ? null : net(energy, rate);
+            if (Boolean.TRUE.equals(included.iterator().next())) return new Basis(energy, BigDecimal.ONE, false);
+            return rate == null ? null : net(energy, rate, false);
         }
         if (rate != null) {
             BigDecimal proven = provenGross(energy, rate);
-            if (proven != null) return new Basis(proven, BigDecimal.ONE.add(rate));
+            if (proven != null) return new Basis(proven, BigDecimal.ONE.add(rate), false);
         }
         return switch (table) {
-            case NET -> rate == null ? null : net(energy, rate);
-            case GROSS -> new Basis(energy, BigDecimal.ONE);
+            // chargecloud names no rate at all; for a checked net operator the country's rate stands in.
+            case NET -> rate != null ? net(energy, rate, true) : assumedRate == null ? null : net(energy, assumedRate, true);
+            case GROSS -> new Basis(cents(energy), BigDecimal.ONE, true);
             case UNCHECKED -> null;
         };
     }
 
     /** A price known to be net: gross rounded to the cent, because no one charges a fraction of one. */
-    private static Basis net(BigDecimal energy, BigDecimal rate) {
+    private static Basis net(BigDecimal energy, BigDecimal rate, boolean cents) {
         BigDecimal factor = BigDecimal.ONE.add(rate);
-        return new Basis(energy.multiply(factor).setScale(2, RoundingMode.HALF_UP).stripTrailingZeros(), factor);
+        return new Basis(cents(energy.multiply(factor)), factor, cents);
+    }
+
+    private static BigDecimal cents(BigDecimal amount) {
+        return amount.setScale(2, RoundingMode.HALF_UP).stripTrailingZeros();
     }
 
     private static BigDecimal perMinute(BigDecimal price, TimeUnit unit, Basis basis) {
