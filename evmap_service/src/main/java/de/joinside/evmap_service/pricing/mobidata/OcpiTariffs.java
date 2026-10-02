@@ -393,9 +393,10 @@ final class OcpiTariffs {
             BigDecimal proven = provenGross(energy, rate);
             if (proven != null) return new Basis(proven, BigDecimal.ONE.add(rate), false);
         }
+        // chargecloud names no rate at all; for a checked net operator the country's rate stands in.
+        BigDecimal netRate = rate != null ? rate : assumedRate;
         return switch (table) {
-            // chargecloud names no rate at all; for a checked net operator the country's rate stands in.
-            case NET -> rate != null ? net(energy, rate, true) : assumedRate == null ? null : net(energy, assumedRate, true);
+            case NET -> netRate == null ? null : net(energy, netRate, true);
             case GROSS -> new Basis(cents(energy), BigDecimal.ONE, true);
             case UNCHECKED -> null;
         };
