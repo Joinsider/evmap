@@ -89,14 +89,14 @@ class HttpsMobilithekBrokerTests {
     @Test
     @DisplayName("asks for gzip, passes the cursor through, and hands back the unpacked package")
     void pullsOnePackage() throws Exception {
-        String url = serve(200, gzip(AfirStatusJsonTests.DELTA));
+        String url = serve(200, gzip(AfirStatusParserTests.DELTA));
         MobilithekBroker broker = HttpsMobilithekBroker.create(
                 properties(url, KEYSTORE.toString(), "", KEYSTORE_PASSWORD), Clock.systemUTC());
 
         try (MobilithekBroker.Response response = broker.next("12345", MobilithekAvailabilityProvider.FROM_THE_START)) {
             assertThat(response.status()).isEqualTo(200);
             assertThat(response.lastModified()).isEqualTo("Fri, 02 Oct 2026 08:00:01 GMT");
-            assertThat(AfirStatusJson.parse(response.body()).chargePoints()).containsOnlyKeys("DEEBWE10011");
+            assertThat(AfirStatusParser.parse(response.body()).chargePoints()).containsOnlyKeys("DEEBWE10011");
         }
         assertThat(seen).containsEntry("query", "subscriptionID=12345")
                 .containsEntry("accept-encoding", "gzip")
@@ -141,12 +141,12 @@ class HttpsMobilithekBrokerTests {
     @Test
     @DisplayName("an uncompressed answer is passed through as it is")
     void plainBody() throws Exception {
-        String url = serve(200, AfirStatusJsonTests.DELTA.getBytes(StandardCharsets.UTF_8), null);
+        String url = serve(200, AfirStatusParserTests.DELTA.getBytes(StandardCharsets.UTF_8), null);
         MobilithekBroker broker = HttpsMobilithekBroker.create(
                 properties(url, KEYSTORE.toString(), "", KEYSTORE_PASSWORD), Clock.systemUTC());
 
         try (MobilithekBroker.Response response = broker.next("12345", MobilithekAvailabilityProvider.FROM_THE_START)) {
-            assertThat(AfirStatusJson.parse(response.body()).chargePoints()).containsOnlyKeys("DEEBWE10011");
+            assertThat(AfirStatusParser.parse(response.body()).chargePoints()).containsOnlyKeys("DEEBWE10011");
         }
     }
 

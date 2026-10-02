@@ -127,8 +127,8 @@ class MobilithekAvailabilityProviderTests {
     @DisplayName("reads a feed from its last full package on and follows the broker's cursor until 304")
     void followsCursor() {
         ScriptedBroker broker = new ScriptedBroker()
-                .answer("111", 200, "Fri, 02 Oct 2026 08:00:00 GMT", AfirStatusJsonTests.SNAPSHOT)
-                .answer("111", 200, "Fri, 02 Oct 2026 08:01:00 GMT", AfirStatusJsonTests.DELTA)
+                .answer("111", 200, "Fri, 02 Oct 2026 08:00:00 GMT", AfirStatusParserTests.SNAPSHOT)
+                .answer("111", 200, "Fri, 02 Oct 2026 08:01:00 GMT", AfirStatusParserTests.DELTA)
                 .answer("111", 304);
         MobilithekAvailabilityProvider provider =
                 new MobilithekAvailabilityProvider(properties(ENBW), broker, new MovableClock());
@@ -158,7 +158,7 @@ class MobilithekAvailabilityProviderTests {
     @DisplayName("a later snapshot replaces the feed, so a charge point it no longer names disappears")
     void snapshotReplaces() {
         ScriptedBroker broker = new ScriptedBroker()
-                .answer("111", 200, "T1", AfirStatusJsonTests.SNAPSHOT)
+                .answer("111", 200, "T1", AfirStatusParserTests.SNAPSHOT)
                 .answer("111", 200, "T2", packageWith("snapshotPull", "DE*EBW*E9999*1", "available", "2026-10-02T10:01:00+02:00"));
         MobilithekAvailabilityProvider provider =
                 new MobilithekAvailabilityProvider(properties(ENBW), broker, new MovableClock());
@@ -172,7 +172,7 @@ class MobilithekAvailabilityProviderTests {
     @DisplayName("204 empties the feed and starts it over from the next full package")
     void emptyBufferClears() {
         ScriptedBroker broker = new ScriptedBroker()
-                .answer("111", 200, "T1", AfirStatusJsonTests.SNAPSHOT)
+                .answer("111", 200, "T1", AfirStatusParserTests.SNAPSHOT)
                 .answer("111", 304);
         MovableClock clock = new MovableClock();
         MobilithekAvailabilityProvider provider = new MobilithekAvailabilityProvider(properties(ENBW), broker, clock);
@@ -215,7 +215,7 @@ class MobilithekAvailabilityProviderTests {
     @DisplayName("a feed that stops answering reads as unknown after stale-after, not as its last state")
     void dropsStaleFeed() {
         ScriptedBroker broker = new ScriptedBroker()
-                .answer("111", 200, "T1", AfirStatusJsonTests.SNAPSHOT);
+                .answer("111", 200, "T1", AfirStatusParserTests.SNAPSHOT);
         MovableClock clock = new MovableClock();
         MobilithekAvailabilityProvider provider = new MobilithekAvailabilityProvider(properties(ENBW), broker, clock);
         provider.poll();
@@ -248,11 +248,36 @@ class MobilithekAvailabilityProviderTests {
         });
     }
 
+    private static String publishedPackage(String publishedAt, String lastUpdated) {
+        return """
+                {"messageContainer": {
+                  "payload": [{"aegiEnergyInfrastructureStatusPublication": {"publicationTime": "%s",
+                    "energyInfrastructureSiteStatus": [{"energyInfrastructureStationStatus": [{"refillPointStatus": [
+                      {"aegiElectricChargingPointStatus": {"reference": {"idG": "DE*ABC*E1"}, "lastUpdated": "%s",
+                        "status": {"value": "available"}}}]}]}]}}],
+                  "exchangeInformation": {"exchangeContext": {"codedExchangeProtocol": {"value": "snapshotPull"}}}}}
+                """.formatted(publishedAt, lastUpdated);
+    }
+
     @Test
-    @DisplayName("statuses older than max-age are not reported: a feed that stopped is not a free charge point")
-    void dropsOldStatuses() {
+    @DisplayName("a status unchanged for days still counts while a recent package confirms it, and shows its age")
+    void ageIsMeasuredFromThePackage() {
         ScriptedBroker broker = new ScriptedBroker()
-                .answer("111", 200, "T1", packageWith("snapshotPull", "DE*ABC*E1", "available", "2026-09-28T10:00:00+02:00"));
+                .answer("111", 200, "T1", publishedPackage("2026-10-02T09:30:00+02:00", "2026-07-18T02:32:29+00:00"));
+        MobilithekAvailabilityProvider provider =
+                new MobilithekAvailabilityProvider(properties(ENBW), broker, new MovableClock());
+
+        provider.poll();
+
+        assertThat(provider.fetch(STUTTGART)).singleElement()
+                .extracting(ChargePointAvailability::observedAt).isEqualTo(Instant.parse("2026-07-18T02:32:29Z"));
+    }
+
+    @Test
+    @DisplayName("a status no package has confirmed for longer than max-age is not reported")
+    void dropsUnconfirmedStatuses() {
+        ScriptedBroker broker = new ScriptedBroker()
+                .answer("111", 200, "T1", publishedPackage("2026-09-28T10:00:00+02:00", "2026-09-28T10:00:00+02:00"));
         MobilithekAvailabilityProvider provider =
                 new MobilithekAvailabilityProvider(properties(ENBW), broker, new MovableClock());
 
@@ -262,10 +287,49 @@ class MobilithekAvailabilityProviderTests {
     }
 
     @Test
+    @DisplayName("a delta confirms only the charge points it names; the others age from their last package")
+    void deltaConfirmsOnlyItsChargePoints() {
+        ScriptedBroker broker = new ScriptedBroker()
+                .answer("111", 200, "T1", publishedPackage("2026-09-29T10:30:00+02:00", "2026-09-29T10:30:00+02:00"))
+                .answer("111", 200, "T2", """
+                        {"messageContainer": {"payload": [{"aegiEnergyInfrastructureStatusPublication": {
+                          "publicationTime": "2026-10-02T10:00:00+02:00",
+                          "aegiElectricChargingPointStatus": {"reference": {"idG": "DE*ABC*E2"}, "status": {"value": "charging"}}}}],
+                          "exchangeInformation": {"exchangeContext": {"codedExchangeProtocol": {"value": "deltaPull"}}}}}
+                        """);
+        MovableClock clock = new MovableClock();
+        MobilithekAvailabilityProvider provider = new MobilithekAvailabilityProvider(properties(ENBW), broker, clock);
+
+        provider.poll();
+        assertThat(provider.fetch(STUTTGART)).hasSize(2);
+
+        // The snapshot was 71 h 32 min old; an hour later it is past max-age, the delta from today is not.
+        clock.advance(Duration.ofHours(1));
+        provider.poll();
+
+        assertThat(provider.fetch(STUTTGART)).extracting(ChargePointAvailability::evseId).containsExactly("DEABCE2");
+    }
+
+    @Test
+    @DisplayName("a publication time in the future counts as the arrival, so it cannot keep a status alive")
+    void futurePublicationTimeIsBounded() {
+        ScriptedBroker broker = new ScriptedBroker()
+                .answer("111", 200, "T1", publishedPackage("2030-01-01T00:00:00Z", "2026-10-02T09:00:00+02:00"));
+        MovableClock clock = new MovableClock();
+        MobilithekAvailabilityProvider provider = new MobilithekAvailabilityProvider(properties(ENBW), broker, clock);
+        provider.poll();
+
+        clock.advance(Duration.ofHours(73));
+        provider.poll();
+
+        assertThat(provider.fetch(STUTTGART)).isEmpty();
+    }
+
+    @Test
     @DisplayName("a broken package costs that round of that feed, not the state it had")
     void keepsStateOnUnreadablePackage() {
         ScriptedBroker broker = new ScriptedBroker()
-                .answer("111", 200, "T1", AfirStatusJsonTests.SNAPSHOT)
+                .answer("111", 200, "T1", AfirStatusParserTests.SNAPSHOT)
                 .answer("111", 304);
         MovableClock clock = new MovableClock();
         MobilithekAvailabilityProvider provider = new MobilithekAvailabilityProvider(properties(ENBW), broker, clock);
@@ -334,7 +398,7 @@ class MobilithekAvailabilityProviderTests {
     @Test
     @DisplayName("when the polling stops, the last round's answer expires after stale-after")
     void answerExpiresWithoutPolling() {
-        ScriptedBroker broker = new ScriptedBroker().answer("111", 200, "T1", AfirStatusJsonTests.SNAPSHOT);
+        ScriptedBroker broker = new ScriptedBroker().answer("111", 200, "T1", AfirStatusParserTests.SNAPSHOT);
         MovableClock clock = new MovableClock();
         MobilithekAvailabilityProvider provider = new MobilithekAvailabilityProvider(properties(ENBW), broker, clock);
         provider.poll();
@@ -348,7 +412,7 @@ class MobilithekAvailabilityProviderTests {
     @DisplayName("a feed that fails — by I/O or by a bug — keeps its state and does not stop the others")
     void containsFailures() {
         ScriptedBroker broker = new ScriptedBroker()
-                .answer("111", 200, "T1", AfirStatusJsonTests.SNAPSHOT)
+                .answer("111", 200, "T1", AfirStatusParserTests.SNAPSHOT)
                 .answer("222", 200, "T1", packageWith("snapshotPull", "DE*EWE*E1*1", "available", "2026-10-02T10:01:00+02:00"));
         MovableClock clock = new MovableClock();
         MobilithekAvailabilityProvider provider =
@@ -365,7 +429,7 @@ class MobilithekAvailabilityProviderTests {
     @Test
     @DisplayName("a package without Last-Modified is applied once and the feed waits for the next round")
     void packageWithoutCursor() {
-        ScriptedBroker broker = new ScriptedBroker().answer("111", 200, null, AfirStatusJsonTests.SNAPSHOT);
+        ScriptedBroker broker = new ScriptedBroker().answer("111", 200, null, AfirStatusParserTests.SNAPSHOT);
         MobilithekAvailabilityProvider provider =
                 new MobilithekAvailabilityProvider(properties(ENBW), broker, new MovableClock());
 
@@ -379,8 +443,8 @@ class MobilithekAvailabilityProviderTests {
     @DisplayName("a feed further behind than max-packages-per-poll is caught up over the next rounds")
     void catchesUpOverRounds() {
         ScriptedBroker broker = new ScriptedBroker()
-                .answer("111", 200, "T1", AfirStatusJsonTests.SNAPSHOT)
-                .answer("111", 200, "T2", AfirStatusJsonTests.DELTA);
+                .answer("111", 200, "T1", AfirStatusParserTests.SNAPSHOT)
+                .answer("111", 200, "T2", AfirStatusParserTests.DELTA);
         MobilithekAvailabilityProvider provider =
                 new MobilithekAvailabilityProvider(properties(1, ENBW), broker, new MovableClock());
 
