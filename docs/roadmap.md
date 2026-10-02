@@ -36,6 +36,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | L2 | Lückenfüller: Schweiz | fertig ⁵ | [#18](https://github.com/Joinsider/evmap/pull/18) | [0012](adr/0012-additional-national-charging-registers.md) |
 | L3 | Lückenfüller: Italien | übersprungen ⁷ | | [0012](adr/0012-additional-national-charging-registers.md) |
 | L4 | Lückenfüller: Spanien | fertig ⁸ | [#22](https://github.com/Joinsider/evmap/pull/22) | [0012](adr/0012-additional-national-charging-registers.md) |
+| L5 | Lückenfüller: Mobilithek (Live-Daten Deutschland), vor 8b | fertig ¹³ | [#34](https://github.com/Joinsider/evmap/pull/34) | [0015](adr/0015-live-availability-national-access-points-with-tomtom-fallback.md) |
 
 ¹ Im Repository fertig; offen sind die 👤-Schritte auf dem VPS (Backup-Ziel, Monitore, erste
 Restore-Probe, `docs/operations/backup-and-restore.md` §5).
@@ -97,6 +98,13 @@ echte Karte ohne Maps-Schlüssel noch nicht gesehen). Offen sind die 👤-Schrit
 und MapKit-JS-Schlüssel anlegen, `MAPKIT_KEY_ID`/`MAPKIT_PRIVATE_KEY` setzen, die Karte einmal auf Desktop und Handy
 ansehen, vor der öffentlichen Freigabe Last und Antwortzeiten prüfen, MapKit JS in der Datenschutzerklärung nennen.
 Als Nächstes: 8b (Mitmachen im Web), danach 5b.
+
+¹³ Im Repository fertig (Backend 584 Tests; Parser und Abruf gegen Schema und Schnittstellenbeschreibung v1.3.2 geprüft,
+noch nicht gegen echte Pakete). Offen sind die 👤-Schritte in `docs/operations/mobilithek.md`: Maschinenkonto anlegen,
+Zertifikat und SMS-Passwort als `MOBILITHEK_KEYSTORE`/`MOBILITHEK_KEYSTORE_PASSWORD` setzen, die 28 dynamischen Angebote
+abonnieren (fünf brauchen die Freigabe des Betreibers) und die Subskriptions-IDs in die Feed-Tabelle eintragen lassen.
+Danach den ersten Tag Logs prüfen: Anteil EVSE-förmiger IDs je Feed (statische Feeds nötig?) und 404 durch
+Zugriffslimits (Push nötig?), ADR 0015, L5 offene Punkte a und b.
 
 Separat angestoßen (Teil von Phase 0): `permitAll` für `/api/v1/stations/**` auf GET beschränken.
 Erledigt mit PR #8 (Commit `3d40492`), vor Beginn von Phase 0 auf `master` geprüft.
@@ -251,7 +259,8 @@ Daten offen verfügbar sind und unter welcher Lizenz; ein Land ohne offene Daten
 und im ADR 0012 vermerkt. Österreich wurde so übersprungen (Stand 2026-09-30), Schweiz ist umgesetzt, Italien wurde
 übersprungen (Stand 2026-10-01), Spanien ist umgesetzt (Stand 2026-10-01). Damit sind alle vier Lückenfüller
 erledigt; danach folgte **Phase 4**, dann **Phase 5** (5a und 5r fertig); als Nächstes **Phase 8** (vor 5b gezogen,
-entschieden 2026-10-02), danach 5b.
+entschieden 2026-10-02), danach 5b. Als zusätzlicher Lückenfüller **L5** kam am 2026-10-02 die Mobilithek (Live-Daten
+Deutschland) hinzu, nachdem die Organisation genehmigt war.
 
 ### Skalierung / Variante C · bei Bedarf
 
@@ -271,7 +280,6 @@ steht; dann gibt es zwei Clients, und das Lastenheft §7 wird entsprechend angep
 - Eigene Turn-by-Turn-Navigation (Valhalla + Ferrostar), dabei neu klären, wie die Live-Belegung
   einfließt. Zusammen damit prüfen, ob iOS und Web komplett auf MapLibre + OpenStreetMap umsteigen
   (Ferrostar baut darauf auf).
-- Mobilithek-Live-Daten, sobald eine Organisation registriert ist (ADR 0015)
 - Nicht gewählt, aber vermerkt: Fotos zu Stationen, Sternebewertungen, Widgets und Live Activity
 
 ## Entschieden am 2026-09-29
@@ -332,6 +340,20 @@ Lückenfüller Italien (2026-10-01, Details in ADR 0012, Abschnitt „Italy skip
 - L3 wird übersprungen. Die PUN hat keinen offenen Export mehr; die Portal-API ist laut Product Owner nur mit
   italienischem Ausweis erreichbar, ihre Lizenz ist nicht ausdrücklich erklärt. Ein Adapter gegen die Portal-API
   wurde verworfen. Italien bleibt über OCM abgedeckt.
+
+Lückenfüller Mobilithek (2026-10-02, Details in ADR 0015, Abschnitt „Mobilithek (L5)“):
+
+- Die Organisation ist genehmigt und der Zugang freigeschaltet. Die Mobilithek-Live-Daten werden deshalb aus den
+  v3-Kandidaten vorgezogen und jetzt als Lückenfüller L5 umgesetzt, vor Phase 8b.
+- Abruf per **Pull** (das Backend fragt jede Subskription jede Minute ab); Push wurde erklärt und bleibt offener Punkt,
+  falls Zugriffslimits der Betreiber greifen.
+- Melden MobiData BW und die Mobilithek denselben Ladepunkt, gewinnt der **neuere Zeitstempel**.
+- **Preise** aus den Mobilithek-Feeds (mit ausdrücklichem `taxIncluded`) kommen nicht in L5, sondern als eigener
+  Schritt unter ADR 0022, sobald echte Daten vorliegen.
+- Abonniert werden **alle 28 dynamischen AFIR-Angebote**; die statischen nur, falls ein Betreiber interne IDs statt
+  EVSE-IDs sendet.
+- **Namensnennung pro Feed**: Betreiber und Lizenz je Abo (z. B. „EnBW AG via Mobilithek“, CC BY 4.0), nicht nur
+  die Plattform.
 
 Lückenfüller Spanien (2026-10-01, Details in ADR 0012, Abschnitt „Spain (L4)“):
 

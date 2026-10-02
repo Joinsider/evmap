@@ -248,6 +248,12 @@ protokolliert. Der Access Token verliert mit dem Konto sofort seine Gültigkeit.
   **keine Koordinaten**, keine Nutzerkennung und keinen Gerätebezug; sie
   verrät lediglich, dass in dieser Minute irgendein Nutzer Frankreich
   betrachtet hat.
+- **Mobilithek (BMV)** — Live-Verfügbarkeit für Deutschland (ADR 0015, L5).
+  Der Server ruft die abonnierten Betreiber-Feeds **unabhängig von der Nutzung**
+  im Minutentakt ab; die Anfragen enthalten weder Koordinaten noch eine
+  Nutzerkennung und verraten nicht einmal, ob gerade jemand die App benutzt.
+  Die Mobilithek erkennt den Abrufer am Maschinenzertifikat der Organisation,
+  nicht an einem Nutzer.
 
 ## 8. Referenzen
 

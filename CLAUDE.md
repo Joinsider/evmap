@@ -149,8 +149,16 @@ The in-process cache is a documented blocker to running a second API replica. Se
 Providers: `availability.mobidata` (MobiData BW, OCPI by bounding box, DE/CH) and `availability.irve`
 (France's national consolidation of `schema-irve-dynamique` — one country-wide CSV without coordinates,
 so it answers every area with all of it, reused for one minute, rows older than 72 h dropped;
-`AvailabilityService` keeps only the EVSE-IDs it asked for). TomTom was rejected (no EVSE-IDs); the
-Mobilithek is blocked on registering an organisation.
+`AvailabilityService` keeps only the EVSE-IDs it asked for) and `availability.mobilithek` (Germany's access point,
+L5: one DATEX II v3 JSON delta feed per operator, pulled with the organisation's machine certificate over mTLS). The
+Mobilithek is the **one provider polled in the background** (`@Scheduled`, every minute, API container only): a delta
+is only correct on top of its snapshot, so its feeds are read continuously from the last full package on and
+`fetch` hands out the in-memory result — do not make the on-demand providers do the same. Feeds and their
+attribution are a table in `application.yaml` (`ShippedMobilithekFeedsTests`); each entry is credited to its
+operator under its own licence (`ChargePointAvailability.attribution`), because CC BY names the operator, not the
+platform. Where two providers report one EVSE-ID the **newer `observedAt` wins**. Certificate: `MOBILITHEK_KEYSTORE`
+(Base64) and `MOBILITHEK_KEYSTORE_PASSWORD`, secrets, never logged; runbook `docs/operations/mobilithek.md`. TomTom
+was rejected (no EVSE-IDs).
 
 **Live status attaches only on an exact EVSE-ID match.** There is no geographic, name-based or fuzzy
 resolution anywhere in this feature, and adding one would be a regression, not a coverage win: it was
