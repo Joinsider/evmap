@@ -34,7 +34,7 @@ export const POWER_STEPS: readonly (number | null)[] = [null, 3, 11, 22, 50, 100
 
 /** The four cases of ADR 0014; only `shown` and `hidden` are offered, the other two are kept when read. */
 export type ProviderPreference = 'shown' | 'hidden' | 'preferred' | 'avoided';
-const PREFERENCES: readonly ProviderPreference[] = ['shown', 'hidden', 'preferred', 'avoided'];
+const PREFERENCES: ReadonlySet<string> = new Set<ProviderPreference>(['shown', 'hidden', 'preferred', 'avoided']);
 export const SELECTABLE_PREFERENCES: readonly ProviderPreference[] = ['shown', 'hidden'];
 
 export interface StationSettings {
@@ -109,7 +109,7 @@ export function stationFilter(settings: StationSettings): StationFilter {
 
 /** Only an empty allowlist matches nothing; such a query is not sent, or it would arrive unrestricted. */
 export function matchesNothing(filter: StationFilter): boolean {
-  return filter.includedProviders !== undefined && filter.includedProviders.length === 0;
+  return filter.includedProviders?.length === 0;
 }
 
 /**
@@ -141,7 +141,7 @@ export function parseSettings(stored: unknown): StationSettings {
 }
 
 function readPreference(value: unknown): ProviderPreference {
-  return PREFERENCES.includes(value as ProviderPreference) ? (value as ProviderPreference) : 'shown';
+  return PREFERENCES.has(value as string) ? (value as ProviderPreference) : 'shown';
 }
 
 /** Stable form for storage and comparison: sorted connectors and keys. */

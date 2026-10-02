@@ -8,6 +8,15 @@
 }
 
 .panel {
+  // A non-modal <dialog open>: undo the user-agent placement and frame.
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: none;
+  color: inherit;
   height: 100%;
   overflow-y: auto;
   box-sizing: border-box;
@@ -106,6 +115,9 @@ small {
 
 .segmented {
   display: inline-flex;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: 0.5rem;
   overflow: hidden;

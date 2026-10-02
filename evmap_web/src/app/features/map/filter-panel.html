@@ -1,4 +1,4 @@
-<aside class="panel" role="dialog" aria-labelledby="filter-title">
+<dialog open class="panel" aria-labelledby="filter-title">
   <header>
     <h2 id="filter-title" i18n="@@filter.title">Filter</h2>
     <button type="button" class="primary" (click)="closed.emit()" i18n="@@filter.done">Fertig</button>
@@ -50,11 +50,11 @@
       @for (provider of listed(); track provider) {
         <li>
           <span class="name">{{ provider }}</span>
-          <span class="segmented" role="group" [attr.aria-label]="provider">
+          <fieldset class="segmented" [attr.aria-label]="provider">
             @for (option of selectable; track option) {
               <button type="button" [attr.aria-pressed]="preference(provider) === option" (click)="setPreference(provider, option)">{{ preferenceLabel(option) }}</button>
             }
-          </span>
+          </fieldset>
           <button type="button" class="link" (click)="remove(provider)" i18n="@@provider.remove">Entfernen</button>
         </li>
       }
@@ -99,4 +99,4 @@
       <button type="button" class="link" (click)="confirmingReset.set(true)" i18n="@@settings.reset">Einstellungen zurücksetzen</button>
     }
   </footer>
-</aside>
+</dialog>

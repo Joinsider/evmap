@@ -27,7 +27,7 @@ export function clusterStations(
 ): StationPin[] {
   if (stations.length === 0) return [];
   const cellHeight = latitudeSpan / ROWS_PER_SCREEN;
-  if (!(cellHeight > 0)) return stations.map((station) => pin(station.id, [station], live));
+  if (Number.isNaN(cellHeight) || cellHeight <= 0) return stations.map((station) => pin(station.id, [station], live));
 
   const cells = new Map<string, StationSummary[]>();
   for (const station of stations) {

@@ -14,7 +14,6 @@ import java.security.interfaces.ECPrivateKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.Date;
 
 /**
  * Signs the token MapKit JS authorizes itself with: an ES256 JWT with the Maps key's id as {@code kid}, the team
@@ -42,8 +41,9 @@ final class MapKitTokenSigner {
         Instant expiresAt = now.plus(properties.lifetime());
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
                 .issuer(properties.teamId())
-                .issueTime(Date.from(now))
-                .expirationTime(Date.from(expiresAt))
+                // Seconds since the epoch, as RFC 7519 writes them; the builder's Date setters would do the same.
+                .claim("iat", now.getEpochSecond())
+                .claim("exp", expiresAt.getEpochSecond())
                 .claim("scope", SCOPE)
                 .claim("origin", properties.origin())
                 .build();

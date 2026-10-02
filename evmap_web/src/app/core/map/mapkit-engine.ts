@@ -9,15 +9,13 @@ const SCRIPT_URL = 'https://cdn.apple-mapkit.com/mk/6/mapkit.core.js';
 const LIBRARIES = ['map', 'annotations', 'services'];
 const INIT_TIMEOUT_MS = 15_000;
 
-/**
- * The global MapKit JS installs. Typed loosely on purpose: the surface used here is small, and `@types/apple-mapkit`
- * would pin a type version to an autoupdating script. Everything that touches it stays in this file.
+/*
+ * MapKit JS objects are typed `any` on purpose: the surface used here is small, and `@types/apple-mapkit` would pin a
+ * type version to an autoupdating script. Everything that touches them stays in this file.
  */
-type MapKit = any;
-
 declare global {
   interface Window {
-    mapkit?: MapKit;
+    mapkit?: any;
   }
 }
 
@@ -30,9 +28,9 @@ declare global {
 export class MapKitEngine extends MapEngine {
   private readonly api = inject(EvmapApi);
   private readonly locale = inject(LOCALE_ID);
-  private ready: Promise<MapKit> | null = null;
+  private ready: Promise<any> | null = null;
 
-  private mapkit(): Promise<MapKit> {
+  private mapkit(): Promise<any> {
     this.ready ??= this.load().catch((error) => {
       // A failed load may be a transient network error; the next map attempt starts over.
       this.ready = null;
@@ -41,7 +39,7 @@ export class MapKitEngine extends MapEngine {
     return this.ready;
   }
 
-  private async load(): Promise<MapKit> {
+  private async load(): Promise<any> {
     // Asked first, so a backend without a Maps key fails here instead of after downloading Apple's script.
     const first = await firstValueFrom(this.api.mapToken());
     if (!window.mapkit) {
@@ -141,7 +139,7 @@ interface MapKitPlace {
   region?: { span?: { latitudeDelta: number; longitudeDelta: number } };
 }
 
-function region(mapkit: MapKit, viewport: Viewport): unknown {
+function region(mapkit: any, viewport: Viewport): unknown {
   return new mapkit.CoordinateRegion(
     new mapkit.Coordinate(viewport.latitude, viewport.longitude),
     new mapkit.CoordinateSpan(viewport.latitudeSpan, viewport.longitudeSpan),
@@ -153,8 +151,8 @@ class MapKitHandle implements MapHandle {
   private readonly drawn = new Map<string, { annotation: unknown; signature: string }>();
 
   constructor(
-    private readonly mapkit: MapKit,
-    private readonly map: MapKit,
+    private readonly mapkit: any,
+    private readonly map: any,
     callbacks: MapCallbacks,
   ) {
     map.addEventListener('region-change-end', () => callbacks.regionChanged(this.viewport()));

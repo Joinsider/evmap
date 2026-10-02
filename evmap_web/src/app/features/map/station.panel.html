@@ -1,4 +1,4 @@
-<aside class="panel" role="dialog" aria-labelledby="station-title">
+<dialog open class="panel" aria-labelledby="station-title">
   <a class="close" routerLink="/" i18n-aria-label="@@station.close" aria-label="Schließen">×</a>
 
   @if (detail.isLoading()) {
@@ -138,4 +138,4 @@
       <p class="credit"><ng-container i18n="@@station.sources">Datenquellen</ng-container>: {{ detail.value().sources.join(', ') }}</p>
     }
   }
-</aside>
+</dialog>
