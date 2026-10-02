@@ -87,6 +87,9 @@ ungeprüften Ladepunkten sind 14 eingetragen, 9 Plattformen übersprungen und 27
 `docs/operations/price-basis-operators.md`). Mit Preis über die Tabelle: 15.576 statt 2.064 Ladepunkte; insgesamt 44 %
 statt 30 % der deutschen Ladepunkte mit Tarif. Offen ist der Gerätetest nach dem Ausrollen (z. B. Berliner Stadtwerke,
 TankE, IONITY). Erneute Prüfung fällig am 2027-04-02; die API warnt beim Start.
+Nachtrag 2026-10-02 (offene Punkte von 5r): zweite Runde für die Betreiber 51–100, 16 weitere eingetragen; mit Preis über
+die Tabelle jetzt 17.351 Ladepunkte, 46 % der deutschen Ladepunkte mit Tarif. 👤 Die Texte für OCPDB (Kommentar zu #278,
+neues Issue zur Minuten-Einheit) in `docs/operations/ocpdb-upstream-issues.md` selbst posten.
 
 Separat angestoßen (Teil von Phase 0): `permitAll` für `/api/v1/stations/**` auf GET beschränken.
 Erledigt mit PR #8 (Commit `3d40492`), vor Beginn von Phase 0 auf `master` geprüft.
@@ -358,6 +361,17 @@ Phase 5r (2026-10-02, Details in ADR 0022, Abschnitt „Phase 5r decisions“):
   und als WARN geloggt. Erneute Prüfung nach sechs Monaten.
 - Beträge von Tabellenbetreibern werden auf ganze Cent gerundet (Mainova 0,6426 → 0,64 €); E-Werk Mittelbaden rundet
   AC und DC unterschiedlich und bleibt ohne Eintrag.
+
+Offene Punkte von Phase 5r (2026-10-02, Details in ADR 0022, Abschnitt „Phase 5r open points“):
+
+- OCPDB-Fehler werden upstream gemeldet: Die Texte liegen in `docs/operations/ocpdb-upstream-issues.md`, der Product
+  Owner postet sie selbst.
+- Zweite Recherche-Runde für die Betreiber 51–100 (nach ungeprüften Ladepunkten), Verfahren wie in 5r.
+- Ein Eintrag klärt nur die MwSt-Basis: Weicht der Feed eines eingetragenen Betreibers von dessen Preisseite ab (alter
+  Preis, App-Preis, Startgebühr), wird die Zahl aus dem Feed gezeigt („laut Betreiber“ mit Datum). Frage einmal
+  nicht verstanden, mit Beispielen (Weinheim, Kiel) neu gestellt.
+- Betreiber mit ungerundeten Bruttopreisen (eins energie, 58,31 ct) werden eingetragen und auf ganze Cent gerundet
+  gezeigt.
 
 Phase 4 (2026-10-01, Details in ADR 0017, Abschnitt „Phase 4 decisions“):
 

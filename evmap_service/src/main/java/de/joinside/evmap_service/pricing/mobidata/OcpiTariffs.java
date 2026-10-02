@@ -268,6 +268,8 @@ final class OcpiTariffs {
         final Set<BigDecimal> energies = new LinkedHashSet<>();
         final Set<BigDecimal> flats = new LinkedHashSet<>();
         final Map<Integer, BigDecimal> timeFees = new TreeMap<>();
+        /** Every time price by its first minute, zeros included, to catch two prices for one moment. */
+        private final Map<Integer, BigDecimal> timeAt = new HashMap<>();
         final Set<BigDecimal> rates = new LinkedHashSet<>();
         Set<Boolean> included = new LinkedHashSet<>();
         boolean furtherFees;
@@ -306,11 +308,17 @@ final class OcpiTariffs {
             return true;
         }
 
-        /** Two different fees from the same minute are two prices for one moment: uncertain. */
+        /**
+         * Two different fees from the same minute are two prices for one moment: uncertain. That includes a zero
+         * next to a non-zero one — OCPDB writes a night without blocking fee and a daytime fee as two unrestricted
+         * elements once their time of day is lost (Allgäuer Überlandwerk: 0,00 and 0,05 €/min, both from minute 0),
+         * and showing the fee from the first minute would be wrong.
+         */
         private boolean addTimeFee(int fromMinute, BigDecimal price) {
-            if (price.signum() == 0) return true;
-            BigDecimal previous = timeFees.putIfAbsent(fromMinute, price.stripTrailingZeros());
-            return previous == null || previous.compareTo(price) == 0;
+            BigDecimal previous = timeAt.putIfAbsent(fromMinute, price.stripTrailingZeros());
+            if (previous != null && previous.compareTo(price) != 0) return false;
+            if (price.signum() != 0) timeFees.put(fromMinute, price.stripTrailingZeros());
+            return true;
         }
 
         /**
