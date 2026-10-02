@@ -10,7 +10,7 @@ COPY src src
 RUN npm run build
 
 # Unprivileged variant: runs as uid 101 and listens on 8080, like the API. Alpine per ADR 0005.
-FROM nginxinc/nginx-unprivileged:1.29-alpine
+FROM nginxinc/nginx-unprivileged:1.31-alpine
 COPY --from=build /build/dist/evmap_web/browser /usr/share/nginx/html
 COPY docker/default.conf.template /etc/nginx/templates/default.conf.template
 COPY docker/route-notice.html /usr/share/nginx/route-notice.html
