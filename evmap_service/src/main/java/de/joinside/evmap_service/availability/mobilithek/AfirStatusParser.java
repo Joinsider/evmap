@@ -76,6 +76,7 @@ final class AfirStatusParser {
      */
     private static final Pattern HEX_HASH = Pattern.compile("^[0-9A-F]{24,}$");
 
+
     /**
      * An EVSE-ID in its starred spelling inside a longer id. GP JOULE wraps theirs as
      * {@code cp-DE*CNT*EP90046*002*1-1}; the stars make the embedded id unambiguous, so it is taken literally and
@@ -171,26 +172,14 @@ final class AfirStatusParser {
             Reported reported = new Reported(live, observedAt != null ? observedAt : publicationTime);
             Reported held = chargePoints.merge(evseId, reported,
                     (old, candidate) -> Observations.newer(old, candidate, Reported::observedAt));
-            if (held == reported && otherIdSamples.size() < OTHER_ID_SAMPLES && !EVSE_ID_SHAPE.matcher(evseId).matches()
+            if (held == reported && otherIdSamples.size() < OTHER_ID_SAMPLES && !isEvseShaped(evseId)
                     && !otherIdSamples.contains(id.trim()))
                 otherIdSamples.add(id.trim());
         }
 
         Package toPackage() {
-            int evseShaped = (int) chargePoints.keySet().stream().filter(id -> EVSE_ID_SHAPE.matcher(id).matches()).count();
+            int evseShaped = (int) chargePoints.keySet().stream().filter(AfirStatusParser::isEvseShaped).count();
             return new Package(delta, chargePoints, ignored, evseShaped, List.copyOf(otherIdSamples), publicationTime);
-        }
-
-        /** The normalized EVSE-ID of a published id: the id itself, or the starred EVSE-ID embedded in it. */
-        private static String evseIdOf(String id) {
-            String normalized = EvseIds.normalize(id);
-            if (normalized == null || isEvseShaped(normalized)) return normalized;
-            Matcher embedded = EMBEDDED_EVSE_ID.matcher(id);
-            return embedded.find() ? EvseIds.normalize(embedded.group(1)) : normalized;
-        }
-
-        private static boolean isEvseShaped(String normalizedId) {
-            return EVSE_ID_SHAPE.matcher(normalizedId).matches() && !HEX_HASH.matcher(normalizedId).matches();
         }
 
         private static Instant instant(String text) {
@@ -332,6 +321,10 @@ final class AfirStatusParser {
             }
             reader.chargePoint(id, status, operationStatus, lastUpdated);
         }
+    }
+
+    private static boolean isEvseShaped(String normalizedId) {
+        return EVSE_ID_SHAPE.matcher(normalizedId).matches() && !HEX_HASH.matcher(normalizedId).matches();
     }
 
     private static String blankToNull(String text) {
