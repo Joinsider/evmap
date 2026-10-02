@@ -1,6 +1,6 @@
 # 23. User web app
 
-- Status: Accepted 2026-10-02 — part 8a (map and station, read-only) implemented on `claude/kind-tesla-0rm3p2`;
+- Status: Accepted 2026-10-02 — part 8a (map and station, read-only) implemented on `claude/kind-tesla-0rm3p2` ([#29](https://github.com/Joinsider/evmap/pull/29));
   8b (taking part: comments, reports, blocks, favorites, station reports) open
 - Date: 2026-10-02
 - Deciders: Johannes Popp

@@ -29,7 +29,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | 5b | Ladekarten und Preis mit eigenen Karten | offen | | [0022](adr/0022-prices-at-the-station.md) |
 | 6 | Routenplaner Stufe 2 | offen | | 0017 |
 | 7 | Routenplaner Stufe 3 | offen | | 0017 |
-| 8a | Nutzer-Web-App: Karte und Station (lesend), vor 5b gezogen | in Arbeit | `claude/kind-tesla-0rm3p2` | [0023](adr/0023-user-web-app.md) |
+| 8a | Nutzer-Web-App: Karte und Station (lesend), vor 5b gezogen | fertig ¹² | [#29](https://github.com/Joinsider/evmap/pull/29) | [0023](adr/0023-user-web-app.md) |
 | 8b | Nutzer-Web-App: Mitmachen (Kommentare, Melden, Favoriten) | offen | | [0023](adr/0023-user-web-app.md) |
 | 9 | CarPlay als Lade-App | offen | | neu |
 | L1 | Lückenfüller: Österreich | übersprungen ⁴ | | [0012](adr/0012-additional-national-charging-registers.md) |
@@ -91,6 +91,12 @@ TankE, IONITY). Erneute Prüfung fällig am 2027-04-02; die API warnt beim Start
 Nachtrag 2026-10-02 (offene Punkte von 5r, [#28](https://github.com/Joinsider/evmap/pull/28)): zweite Runde für die Betreiber 51–100, 16 weitere eingetragen; mit Preis über
 die Tabelle jetzt 17.351 Ladepunkte, 46 % der deutschen Ladepunkte mit Tarif. 👤 Die Texte für OCPDB (Kommentar zu #278,
 neues Issue zur Minuten-Einheit) in `docs/operations/ocpdb-upstream-issues.md` selbst posten.
+
+¹² Im Repository fertig (Backend 521 Tests, Web 100 Tests, Oberfläche im Browser gegen eine gemockte API geprüft; die
+echte Karte ohne Maps-Schlüssel noch nicht gesehen). Offen sind die 👤-Schritte in `docs/operations/web-map.md`: Maps-ID
+und MapKit-JS-Schlüssel anlegen, `MAPKIT_KEY_ID`/`MAPKIT_PRIVATE_KEY` setzen, die Karte einmal auf Desktop und Handy
+ansehen, vor der öffentlichen Freigabe Last und Antwortzeiten prüfen, MapKit JS in der Datenschutzerklärung nennen.
+Als Nächstes: 8b (Mitmachen im Web), danach 5b.
 
 Separat angestoßen (Teil von Phase 0): `permitAll` für `/api/v1/stations/**` auf GET beschränken.
 Erledigt mit PR #8 (Commit `3d40492`), vor Beginn von Phase 0 auf `master` geprüft.
