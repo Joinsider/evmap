@@ -8,6 +8,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -62,7 +63,7 @@ class MobilithekAvailabilityProviderTests {
 
     /** Plays back scripted answers per subscription and records every cursor it was asked with. */
     private static final class ScriptedBroker implements MobilithekBroker {
-        private final Map<String, Deque<Response>> script = new HashMap<>();
+        private final Map<String, Deque<Object>> script = new HashMap<>();
         final List<String> requests = new ArrayList<>();
 
         ScriptedBroker answer(String subscriptionId, int status, String lastModified, String body) {
@@ -71,25 +72,45 @@ class MobilithekAvailabilityProviderTests {
             return this;
         }
 
+        /** The next request for {@code subscriptionId} throws {@code failure} instead of answering. */
+        ScriptedBroker fail(String subscriptionId, Exception failure) {
+            script.computeIfAbsent(subscriptionId, key -> new ArrayDeque<>()).add(failure);
+            return this;
+        }
+
         ScriptedBroker answer(String subscriptionId, int status) {
             return answer(subscriptionId, status, null, "");
         }
 
         @Override
-        public Response next(String subscriptionId, String ifModifiedSince) {
+        public Response next(String subscriptionId, String ifModifiedSince) throws IOException {
             requests.add(subscriptionId + "@" + ifModifiedSince);
-            Deque<Response> answers = script.get(subscriptionId);
+            Deque<Object> answers = script.get(subscriptionId);
             // Anything not scripted is "nothing new", which is what an idle broker says.
-            return answers == null || answers.isEmpty()
+            Object next = answers == null || answers.isEmpty()
                     ? new Response(304, null, InputStream.nullInputStream())
                     : answers.poll();
+            if (next instanceof IOException failure) throw failure;
+            if (next instanceof RuntimeException failure) throw failure;
+            return (Response) next;
         }
     }
 
     private static MobilithekProperties properties(MobilithekProperties.Feed... feeds) {
+        return properties(50, feeds);
+    }
+
+    private static MobilithekProperties properties(int maxPackagesPerPoll, MobilithekProperties.Feed... feeds) {
         return new MobilithekProperties(true, "https://broker.invalid/datexv3", "/run/secrets/mobilithek.p12", "", "",
+                List.of("DE", " "), Duration.ofSeconds(60), maxPackagesPerPoll, Duration.ofHours(72),
+                Duration.ofMinutes(10), Duration.ofHours(1), Duration.ofSeconds(30), List.of(feeds));
+    }
+
+    /** The shipped shape with a real certificate source, for the constructor that loads it. */
+    private static MobilithekProperties withCertificate(boolean enabled, String path, String base64) {
+        return new MobilithekProperties(enabled, "https://broker.invalid/datexv3", path, base64, "test-only-password",
                 List.of("DE"), Duration.ofSeconds(60), 50, Duration.ofHours(72), Duration.ofMinutes(10),
-                Duration.ofHours(1), Duration.ofSeconds(30), List.of(feeds));
+                Duration.ofHours(1), Duration.ofSeconds(30), List.of(ENBW));
     }
 
     private static String packageWith(String protocol, String evseId, String status, String lastUpdated) {
@@ -289,5 +310,100 @@ class MobilithekAvailabilityProviderTests {
         assertThat(provider.covers("FR")).isFalse();
         assertThat(provider.fetch(STUTTGART)).isEmpty();
         assertThat(provider.source()).isEqualTo("Mobilithek");
+    }
+
+    @Test
+    @DisplayName("loads the machine certificate itself and switches on with a subscribed feed")
+    void loadsCertificate() {
+        MobilithekAvailabilityProvider provider = new MobilithekAvailabilityProvider(
+                withCertificate(true, "src/test/resources/mobilithek/test-machine-certificate.p12", ""));
+
+        assertThat(provider.enabled()).isTrue();
+        assertThat(provider.attribution().name()).isEqualTo("Mobilithek");
+    }
+
+    @Test
+    @DisplayName("an unreadable certificate from either source, or a disabled provider, leaves it off")
+    void offWhenCertificateUnusable() {
+        assertThat(new MobilithekAvailabilityProvider(withCertificate(true, "", "bm90IGEga2V5c3RvcmU=")).enabled()).isFalse();
+        assertThat(new MobilithekAvailabilityProvider(withCertificate(true, "/nonexistent.p12", "")).enabled()).isFalse();
+        assertThat(new MobilithekAvailabilityProvider(
+                withCertificate(false, "src/test/resources/mobilithek/test-machine-certificate.p12", "")).enabled()).isFalse();
+    }
+
+    @Test
+    @DisplayName("when the polling stops, the last round's answer expires after stale-after")
+    void answerExpiresWithoutPolling() {
+        ScriptedBroker broker = new ScriptedBroker().answer("111", 200, "T1", AfirStatusJsonTests.SNAPSHOT);
+        MovableClock clock = new MovableClock();
+        MobilithekAvailabilityProvider provider = new MobilithekAvailabilityProvider(properties(ENBW), broker, clock);
+        provider.poll();
+
+        clock.advance(Duration.ofMinutes(11));
+
+        assertThat(provider.fetch(STUTTGART)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a feed that fails — by I/O or by a bug — keeps its state and does not stop the others")
+    void containsFailures() {
+        ScriptedBroker broker = new ScriptedBroker()
+                .answer("111", 200, "T1", AfirStatusJsonTests.SNAPSHOT)
+                .answer("222", 200, "T1", packageWith("snapshotPull", "DE*EWE*E1*1", "available", "2026-10-02T10:01:00+02:00"));
+        MovableClock clock = new MovableClock();
+        MobilithekAvailabilityProvider provider =
+                new MobilithekAvailabilityProvider(properties(ENBW, EWE), broker, clock);
+        provider.poll();
+
+        broker.fail("111", new IOException("connection reset")).fail("222", new IllegalStateException("bug"));
+        clock.advance(Duration.ofMinutes(1));
+        provider.poll();
+
+        assertThat(provider.fetch(STUTTGART)).hasSize(6);
+    }
+
+    @Test
+    @DisplayName("a package without Last-Modified is applied once and the feed waits for the next round")
+    void packageWithoutCursor() {
+        ScriptedBroker broker = new ScriptedBroker().answer("111", 200, null, AfirStatusJsonTests.SNAPSHOT);
+        MobilithekAvailabilityProvider provider =
+                new MobilithekAvailabilityProvider(properties(ENBW), broker, new MovableClock());
+
+        provider.poll();
+
+        assertThat(broker.requests).containsExactly("111@" + MobilithekAvailabilityProvider.FROM_THE_START);
+        assertThat(provider.fetch(STUTTGART)).hasSize(5);
+    }
+
+    @Test
+    @DisplayName("a feed further behind than max-packages-per-poll is caught up over the next rounds")
+    void catchesUpOverRounds() {
+        ScriptedBroker broker = new ScriptedBroker()
+                .answer("111", 200, "T1", AfirStatusJsonTests.SNAPSHOT)
+                .answer("111", 200, "T2", AfirStatusJsonTests.DELTA);
+        MobilithekAvailabilityProvider provider =
+                new MobilithekAvailabilityProvider(properties(1, ENBW), broker, new MovableClock());
+
+        provider.poll();
+        assertThat(broker.requests).hasSize(1);
+        provider.poll();
+
+        assertThat(broker.requests).containsExactly(
+                "111@" + MobilithekAvailabilityProvider.FROM_THE_START, "111@T1");
+        assertThat(provider.fetch(STUTTGART)).filteredOn(entry -> entry.evseId().equals("DEEBWE10011"))
+                .extracting(ChargePointAvailability::status).containsExactly(LiveAvailability.OCCUPIED);
+    }
+
+    @Test
+    @DisplayName("204 on a feed that never delivered is simply nothing")
+    void emptyBufferOnNewFeed() {
+        ScriptedBroker broker = new ScriptedBroker().answer("111", 204);
+        MobilithekAvailabilityProvider provider =
+                new MobilithekAvailabilityProvider(properties(ENBW), broker, new MovableClock());
+
+        provider.poll();
+
+        assertThat(provider.fetch(STUTTGART)).isEmpty();
+        assertThat(provider.enabled()).isTrue();
     }
 }

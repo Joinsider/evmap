@@ -131,4 +131,45 @@ class AvailabilityServiceTests {
                     .containsExactly("Operator via Mobilithek");
         }
     }
+
+    @Test
+    @DisplayName("a provider that throws costs its own answer only; entries without an id are skipped")
+    void containsProviderFailure() {
+        ChargePointDirectory directory = mock(ChargePointDirectory.class);
+        when(directory.location(STATION)).thenReturn(Optional.of(
+                new ChargePointDirectory.StationLocation(STATION, 48.77, 9.18, "DE")));
+        when(directory.forStation(STATION)).thenReturn(List.of(chargePoint("DEEBWE1")));
+        AvailabilityProvider throwing = new AvailabilityProvider() {
+            @Override
+            public String source() {
+                return "Throwing";
+            }
+
+            @Override
+            public Attribution attribution() {
+                return new Attribution("Throwing", "-", "https://throwing.example");
+            }
+
+            @Override
+            public boolean covers(String countryCode) {
+                return true;
+            }
+
+            @Override
+            public List<ChargePointAvailability> fetch(GeoBounds bounds) {
+                throw new IllegalStateException("provider bug");
+            }
+        };
+        AvailabilityProvider withoutId = new FixedProvider("NoId", new Attribution("NoId", "-", "https://noid.example"),
+                new ChargePointAvailability(null, LiveAvailability.AVAILABLE, OBSERVED));
+        AvailabilityProvider working = new FixedProvider("Working", new Attribution("Working", "-", "https://working.example"),
+                new ChargePointAvailability("DEEBWE1", LiveAvailability.OCCUPIED, OBSERVED));
+        AvailabilityProperties properties = new AvailabilityProperties(true, Duration.ofSeconds(60), 500, 300, 1.5, 5000);
+
+        StationAvailability answer = new AvailabilityService(List.of(throwing, withoutId, working), directory, properties)
+                .forStation(STATION).orElseThrow();
+
+        assertThat(answer.status()).isEqualTo(LiveAvailability.OCCUPIED);
+        assertThat(answer.sources()).extracting(Attribution::name).containsExactly("Working");
+    }
 }

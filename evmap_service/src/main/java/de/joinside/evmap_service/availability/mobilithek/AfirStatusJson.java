@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import de.joinside.evmap_service.availability.LiveAvailability;
+import de.joinside.evmap_service.availability.Observations;
 import de.joinside.evmap_service.sync.EvseIds;
 
 import java.io.IOException;
@@ -80,62 +81,69 @@ final class AfirStatusJson {
     }
 
     static Package parse(InputStream json) throws IOException {
-        Map<String, Reported> chargePoints = new LinkedHashMap<>();
-        boolean delta = true;
-        Instant publicationTime = null;
-        int ignored = 0;
-
+        PackageReader reader = new PackageReader();
         try (JsonParser parser = MAPPER.createParser(json)) {
-            for (JsonToken token = parser.nextToken(); token != null; token = parser.nextToken()) {
-                if (token != JsonToken.FIELD_NAME) continue;
-                String field = parser.currentName();
-                switch (field) {
-                    case ELECTRIC_CHARGING_POINT_STATUS, REFILL_POINT_STATUS -> {
-                        parser.nextToken();
-                        JsonNode node = MAPPER.readTree(parser);
-                        for (JsonNode status : node.isArray() ? node : List.of(node))
-                            if (!add(chargePoints, status, publicationTime)) ignored++;
-                    }
-                    case CODED_EXCHANGE_PROTOCOL -> {
-                        parser.nextToken();
-                        String protocol = textOf(MAPPER.readTree(parser));
-                        if (protocol != null) delta = DELTA_PULL.equals(protocol) || DELTA_PUSH.equals(protocol);
-                    }
-                    case PUBLICATION_TIME -> {
-                        if (parser.nextToken() == JsonToken.VALUE_STRING && publicationTime == null)
-                            publicationTime = instant(parser.getText());
-                    }
-                    default -> {
-                        // Descend: everything else is either a container on the way down or a value nobody reads.
-                    }
+            for (JsonToken token = parser.nextToken(); token != null; token = parser.nextToken())
+                if (token == JsonToken.FIELD_NAME) reader.read(parser.currentName(), parser);
+        }
+        return reader.toPackage();
+    }
+
+    /** What has been read of one package so far, while the parser streams through it. */
+    private static final class PackageReader {
+        private final Map<String, Reported> chargePoints = new LinkedHashMap<>();
+        private boolean delta = true;
+        private Instant publicationTime;
+        private int ignored;
+
+        /** Reads the value of {@code field} if it is one of the few this app needs; descends otherwise. */
+        void read(String field, JsonParser parser) throws IOException {
+            switch (field) {
+                case ELECTRIC_CHARGING_POINT_STATUS, REFILL_POINT_STATUS -> readStatuses(nextTree(parser));
+                case CODED_EXCHANGE_PROTOCOL -> readProtocol(textOf(nextTree(parser)));
+                case PUBLICATION_TIME -> readPublicationTime(parser);
+                default -> {
+                    // Everything else is either a container on the way down or a value nobody reads.
                 }
             }
         }
 
-        int evseShaped = 0;
-        for (String id : chargePoints.keySet())
-            if (EVSE_ID_SHAPE.matcher(id).matches()) evseShaped++;
-        return new Package(delta, chargePoints, ignored, evseShaped);
+        private void readStatuses(JsonNode node) {
+            for (JsonNode status : node.isArray() ? node : List.of(node))
+                if (!add(status)) ignored++;
+        }
+
+        private void readProtocol(String protocol) {
+            if (protocol != null) delta = DELTA_PULL.equals(protocol) || DELTA_PUSH.equals(protocol);
+        }
+
+        /** The first publication time is the one the statuses after it fall back on. */
+        private void readPublicationTime(JsonParser parser) throws IOException {
+            JsonToken value = parser.nextToken();
+            if (publicationTime == null && value == JsonToken.VALUE_STRING) publicationTime = instant(parser.getText());
+        }
+
+        /** @return whether the status was kept */
+        private boolean add(JsonNode status) {
+            String evseId = EvseIds.normalize(textOf(status.path("reference").path("idG")));
+            String live = toLiveAvailability(textOf(status.path("status")), textOf(status.path("operationStatus")));
+            if (evseId == null || live == null) return false;
+
+            Instant observedAt = instant(textOf(status.path("lastUpdated")));
+            Reported reported = new Reported(live, observedAt != null ? observedAt : publicationTime);
+            chargePoints.merge(evseId, reported, (held, candidate) -> Observations.newer(held, candidate, Reported::observedAt));
+            return true;
+        }
+
+        Package toPackage() {
+            int evseShaped = (int) chargePoints.keySet().stream().filter(id -> EVSE_ID_SHAPE.matcher(id).matches()).count();
+            return new Package(delta, chargePoints, ignored, evseShaped);
+        }
     }
 
-    /** @return whether the status was kept */
-    private static boolean add(Map<String, Reported> into, JsonNode status, Instant publicationTime) {
-        String evseId = EvseIds.normalize(textOf(status.path("reference").path("idG")));
-        if (evseId == null) return false;
-        String live = toLiveAvailability(textOf(status.path("status")), textOf(status.path("operationStatus")));
-        if (live == null) return false;
-
-        Instant observedAt = instant(textOf(status.path("lastUpdated")));
-        if (observedAt == null) observedAt = publicationTime;
-        Reported reported = new Reported(live, observedAt);
-        into.merge(evseId, reported, AfirStatusJson::newer);
-        return true;
-    }
-
-    private static Reported newer(Reported held, Reported candidate) {
-        if (candidate.observedAt() == null) return held;
-        if (held.observedAt() == null) return candidate;
-        return candidate.observedAt().isAfter(held.observedAt()) ? candidate : held;
+    private static JsonNode nextTree(JsonParser parser) throws IOException {
+        parser.nextToken();
+        return MAPPER.readTree(parser);
     }
 
     /**
@@ -185,10 +193,10 @@ final class AfirStatusJson {
         if (text == null) return null;
         try {
             return OffsetDateTime.parse(text).toInstant();
-        } catch (DateTimeException offsetMissing) {
+        } catch (DateTimeException _) {
             try {
                 return LocalDateTime.parse(text).atZone(PUBLISHER_ZONE).toInstant();
-            } catch (DateTimeException unreadable) {
+            } catch (DateTimeException _) {
                 return null;
             }
         }
