@@ -1,6 +1,6 @@
 # 23. User web app
 
-- Status: Accepted 2026-10-02 — part 8a (map and station, read-only) in progress on `claude/kind-tesla-0rm3p2`;
+- Status: Accepted 2026-10-02 — part 8a (map and station, read-only) implemented on `claude/kind-tesla-0rm3p2`;
   8b (taking part: comments, reports, blocks, favorites, station reports) open
 - Date: 2026-10-02
 - Deciders: Johannes Popp
@@ -94,6 +94,56 @@ option, the product owner kept the decision of ADR 0018: the backend signs.
 - MapKit JS cannot run in unit tests; the map page is tested against the `MapEngine` fake, and the real map is
   checked by hand once the key exists.
 - Every map view counts against Apple's quota of 250.000 a day. A token reload every 30 minutes is not a map view.
+
+## What phase 8a built (2026-10-02)
+
+**Backend** (`api.map`): `MapKitProperties` (`evmap.mapkit.*`, env `MAPKIT_TEAM_ID` → defaults to `APPLE_TEAM_ID`,
+`MAPKIT_KEY_ID`, `MAPKIT_PRIVATE_KEY`, `MAPKIT_ORIGIN`), `MapKitTokenSigner` (ES256 via Nimbus, `typ: JWT`, `kid`,
+`iss`, `iat`, `exp`, `scope`, `origin`; the key is parsed at startup, so a bad one fails the deployment, never echoing
+it), `MapTokenController` (`GET /api/v1/map/token` → `{token, expiresAt}`, `Cache-Control: no-store`, 404 without a
+key). `SecurityConfiguration` permits the GET only. Both compose files pass the variables. Tests:
+`MapTokenControllerTests` (signature, every claim, escaped newlines, 404, malformed key),
+`SecurityConfigurationTests` (public GET, no POST). Backend: 521 tests, the 84 PostGIS ones skipped locally without a
+container runtime and run on CI.
+
+**Web** (`evmap_web`):
+- `EvmapApi` gained `stations`, `station`, `stationAvailability`, `availabilityInBounds`, `chargePoints`,
+  `comments`, `operators`, `mapToken`, with the wire types in `models.ts`.
+- `core/map`: `MapEngine` (create, autocomplete, resolve) and `MapKitEngine`: fetches the token first (so a backend
+  without a key fails before Apple's script is downloaded), loads `mk/6/mapkit.core.js`, `mapkit.init` with an
+  `authorizationCallback` that refetches on expiry, loads `map,annotations,services`, gives up after 15 s.
+  Annotations are diffed by id, so a reload replaces only changed pins; a selection is consumed at once.
+- `features/map/domain`: `viewport`, `clusters`, `power-tier`, `station-settings`, `prices`, `availability`,
+  `format` — the iOS logic with the same thresholds, each with Vitest tests.
+- `MapPage` (start page): viewport loading with coverage check and cancellation, the 100 kW overview floor, the
+  600-row notice, live counts per pin, cluster tap zooms to a quarter span, pin colour legend, "map not available"
+  notice. `PlaceSearch`, `FilterPanel` (connectors, power steps, operational only, the provider list with the global
+  switch and the directory search, reset with confirmation), `StationPanel` under `/station/:id` (address, operator,
+  power tier, service state, "ab" price, live occupancy with age, EVSE-IDs and credit, connectors, price groups with
+  disclaimer and credits, comments read-only, data sources). A station opened by link is brought into view.
+- `StationSettingsStore`: `localStorage` key `evmap.stationSettings.v1`, lenient parsing, works without storage.
+- The placeholder home page is gone; nginx's CSP opens Apple's MapKit hosts. 100 web tests; production build for
+  `de` and `en` with every string translated.
+- Checked in a headless Chromium against the production build with a mocked API: map notice, filter panel, station
+  panel in German and English, light and dark, desktop and phone width. The real map was not seen: there is no Maps
+  key in the building session (the real MapKit script was loaded with a fake token and ended, as it should, on the
+  "not available" notice).
+
+### Deviations from the plan
+
+- `availabilityOnly` filters on the client, as on iOS: the backend query has no such parameter.
+- Dates in the English build use Angular's `en` (US) format; there is one English build, not one per region.
+- Comments show a hint that writing them is possible in the iPhone app for now; 8b replaces it.
+
+### 👤 Steps for the product owner
+
+1. Create a Maps ID and a MapKit JS key in the Apple developer portal and set `MAPKIT_KEY_ID` and
+   `MAPKIT_PRIVATE_KEY` in `deploy/.env` (`docs/operations/web-map.md`).
+2. Roll out the API and web images of this release; check `/api/v1/map/token` and the map on `/de/`.
+3. Look at the real map once on desktop and phone (pins, cluster tap, search, station panel) — the part no test in
+   this phase could see.
+4. Before announcing the web app: check response times and load in Uptime Kuma.
+5. Name MapKit JS (Apple) in the published privacy policy (`docs/privacy/data-processing.md`).
 
 ## Open points
 

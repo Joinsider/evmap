@@ -1,5 +1,6 @@
 package de.joinside.evmap_service.api.map;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
@@ -21,6 +22,7 @@ class MapTokenController {
     private final MapKitTokenSigner signer;
     private final Clock clock;
 
+    @Autowired
     MapTokenController(MapKitProperties properties) {
         this(properties, Clock.systemUTC());
     }
