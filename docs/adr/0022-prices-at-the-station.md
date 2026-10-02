@@ -1,7 +1,8 @@
 # 22. Prices at the station
 
 - Status: Accepted 2026-10-01 — part 5a (operator per charge point, ad-hoc prices) implemented on
-  `feature/phase-5a-prices-at-station`; 5r (net/gross check per operator) and 5b (charging cards) open
+  `feature/phase-5a-prices-at-station`; 5r (net/gross check per operator) in progress on
+  `feature/phase-5r-vat-basis`; 5b (charging cards) open
 - Date: 2026-10-01
 - Deciders: Johannes Popp
 
@@ -198,6 +199,32 @@ with its own "Stand" date; "further fees possible"; charging-card disclaimer; cr
 
 None to deploy: no key, no account. Device test after the rollout: a German station with live tariff (EnBW or Lidl),
 a French one with a register price, and a Spanish bundled station with two operators.
+
+## Phase 5r decisions (2026-10-02)
+
+Before asking, the whole OCPDB was read on 2026-10-02 (100.948 locations, 1.029 tariffs): of 95.970 charge points
+with a single tariff, 26.774 got a price from the arithmetic evidence, **63.356 had none because their operator was
+unchecked** (551 operators), 5.799 have a tariff `OcpiTariffs` does not understand. The gap is concentrated: the
+top 30 operators hold 69 % of it, the top 50 79 %, the top 100 91 %. Three findings shaped the questions:
+chargecloud's feed carries **no VAT rate on any tariff** (25.583 of the 63.356), some round-looking values are
+**gross hidden as net × 1,19** (Mainova 0,6426 = 0,54 × 1,19), and several "operators" are **platforms** whose site
+hosts set their own price (ChargePoint, smopi, Spirii, Ecotap, 50five, Backcharge).
+
+Agreed with the product owner, one question at a time:
+
+- **Scope: the top 50 operators** by unchecked charge points (~50.000, 79 %). The rest follows when needed. The
+  research runs in parallel, one small agent per five operators (owner's request).
+- **When an operator counts as checked:** an ad-hoc price on the operator's **own official page** matches a feed
+  value exactly, as gross or as net × 1,19 rounded to the cent — then it is entered. A **third-party source**
+  (comparison site, press, forum screenshot) only if it is **at most two months old**, and such entries are
+  **spot-checked by the owner** before they ship. Near misses are not entered.
+- **No VAT rate in the feed:** for an operator checked as net, **19 % is assumed for German charge points**; without
+  a table entry such a tariff still shows no price.
+- **Platforms** are entered only if they declare officially that all their published prices are gross (or net);
+  otherwise they are skipped and listed below.
+- **Keeping the table true:** every entry carries its **check date and source**. If the feed contradicts an entry
+  (listed gross, but one of the operator's tariffs is demonstrably net by the arithmetic evidence), the entry is
+  **suspended** for that operator and logged at WARN. Entries are re-checked after six months.
 
 ## Open points
 

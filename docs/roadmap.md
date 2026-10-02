@@ -25,7 +25,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | 3 | Favoriten und Fehler melden | fertig ⁶ | [#20](https://github.com/Joinsider/evmap/pull/20) | [0021](adr/0021-favorites-and-station-reports.md) |
 | 4 | Routenplaner Stufe 1 | fertig ⁹ | [#23](https://github.com/Joinsider/evmap/pull/23) | [0017](adr/0017-route-planning-with-charging-stops.md) |
 | 5a | Preise an der Station: Betreiber pro Ladepunkt, Ad-hoc-Preise | fertig ¹⁰ | [#26](https://github.com/Joinsider/evmap/pull/26) | [0022](adr/0022-prices-at-the-station.md) |
-| 5r | Netto/Brutto-Prüfung pro Betreiber (direkt nach 5a) | offen | | [0022](adr/0022-prices-at-the-station.md) |
+| 5r | Netto/Brutto-Prüfung pro Betreiber (direkt nach 5a) | in Arbeit | `feature/phase-5r-vat-basis` | [0022](adr/0022-prices-at-the-station.md) |
 | 5b | Ladekarten und Preis mit eigenen Karten | offen | | [0022](adr/0022-prices-at-the-station.md) |
 | 6 | Routenplaner Stufe 2 | offen | | 0017 |
 | 7 | Routenplaner Stufe 3 | offen | | 0017 |
@@ -337,6 +337,19 @@ Phase 5 (2026-10-01, Details in ADR 0022):
   automatisch erkannt und ein Wechsel geloggt.
 - Anzeige auf der Stationsseite je Ladepunkt-Gruppe und als „ab“-Preis oben auf der Stationsseite (nicht in der
   Infokarte: die öffnet sich für Stationen nicht, Frage korrigiert und neu beantwortet); keine Preise an den Pins.
+
+Phase 5r (2026-10-02, Details in ADR 0022, Abschnitt „Phase 5r decisions“):
+
+- Geprüft werden die 50 Betreiber mit den meisten ungeprüften Ladepunkten (~79 % der Lücke von 63.356 Ladepunkten);
+  die Recherche läuft parallel über mehrere kleine Agenten.
+- Eingetragen wird ein Betreiber, wenn ein Ad-hoc-Preis auf seiner offiziellen Seite exakt einem Feed-Wert entspricht
+  (brutto oder netto × 1,19). Drittquellen nur, wenn höchstens zwei Monate alt, und dann mit Stichproben durch den
+  Product Owner.
+- Der chargecloud-Feed hat keinen MwSt.-Satz: für als netto geprüfte Betreiber gilt bei deutschen Ladepunkten 19 %.
+- Plattformen (ChargePoint, smopi, Spirii …) nur, wenn sie offiziell eine einheitliche Netto- oder Bruttoangabe
+  erklären; sonst übersprungen.
+- Jeder Eintrag trägt Prüfdatum und Quelle; widerspricht der Feed einem Eintrag, wird er für den Betreiber ausgesetzt
+  und als WARN geloggt. Erneute Prüfung nach sechs Monaten.
 
 Phase 4 (2026-10-01, Details in ADR 0017, Abschnitt „Phase 4 decisions“):
 
