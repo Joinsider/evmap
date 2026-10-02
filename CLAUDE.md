@@ -172,7 +172,8 @@ is dropped, not guessed. OCPDB drops DATEX's `taxIncluded` (binary-butterfly/ocp
 only when its net price × (1 + VAT) lands on whole cents, or its operator is in the dated table
 `evmap.pricing.mobidata.vat-basis` (`VatBasisTable`, phase 5r): entered only on an exact match with the operator's
 official ad-hoc price, amounts shown in whole cents, 19 % assumed for net operators of the rate-less chargecloud feed,
-an entry the feed contradicts suspended at runtime (WARN). Runbook and evidence: `docs/operations/price-basis-operators.md`;
+an entry the feed contradicts suspended at runtime (WARN); an entry settles only the VAT basis, the
+feed's amounts are shown as delivered (owner, 2026-10-02). Runbook and evidence: `docs/operations/price-basis-operators.md`;
 `ShippedVatBasisTableTests` binds the real file. An explicit `tax_included` will win once OCPDB delivers it. OCPDB also maps DATEX per-minute prices into
 OCPI `TIME` unconverted, so the time unit is detected per feed from the median on every refresh and a change is
 logged at WARN — never hard-code "per minute". Open Charge Map's `UsageCost` is deliberately not read.

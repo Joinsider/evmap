@@ -192,6 +192,11 @@ class OcpiTariffsTests {
         // two different fees from the same minute
         assertThat(read(tariff("s", element(energy), after(60, component("TIME", "0.1", "19")),
                 after(60, component("TIME", "0.2", "19"))), "Lidl", NO_TABLE)).isNull();
+        // no fee and a fee from the same minute — a lost time of day (Allgäuer Überlandwerk, 2026-10-02)
+        assertThat(read(tariff("datex2_chargecloud", element(component("ENERGY", "0.51", null)),
+                        element(component("TIME", "0.0", null)), element(component("TIME", "0.05", null)),
+                        after(10800, component("TIME", "0.05", null))),
+                "Allgäuer Überlandwerk GmbH", table("Allgäuer Überlandwerk GmbH", TableBasis.GROSS))).isNull();
         // no energy price at all (E.ON's time-only tariffs)
         assertThat(read(tariff("s", element(component("TIME", "0.1", "19"))), "E.ON Drive", NO_TABLE)).isNull();
         // another currency

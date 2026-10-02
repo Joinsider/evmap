@@ -2,7 +2,8 @@
 
 - Status: Accepted 2026-10-01 — part 5a (operator per charge point, ad-hoc prices) implemented on
   `feature/phase-5a-prices-at-station`; 5r (net/gross check per operator) implemented on
-  `feature/phase-5r-vat-basis`; 5b (charging cards) open
+  `feature/phase-5r-vat-basis`, its open points 1 and 2 on `claude/vibrant-cannon-0qy3ym` (2026-10-02);
+  5b (charging cards) open
 - Date: 2026-10-01
 - Deciders: Johannes Popp
 
@@ -265,14 +266,58 @@ Nothing to configure. Review the evidence list in the PR; after the rollout, a d
 listed operator (e.g. Berliner Stadtwerke 0,55 €/kWh AC, TankE 0,49 €/kWh, IONITY 0,72 €/kWh). Watch the API log for
 `contradicts its VAT basis entry`. Re-check due **2027-04-02** (startup warns).
 
+## Phase 5r open points (2026-10-02)
+
+Both open points of 5r were put to the product owner on 2026-10-02, one at a time.
+
+**Upstream fixes (open point 1): issue texts, posted by the owner.** OCPDB 2.16.2 (2026-09-28) still drops
+`taxIncluded` (#278 open, no comment) and still maps DATEX `pricePerMinute` onto OCPI `TIME` unconverted (the export
+mapper even maps `TIME` back to `pricePerMinute`). `docs/operations/ocpdb-upstream-issues.md` holds a comment for #278
+with our measurements and a new issue on the time unit; the owner posts both, because they appear under their name.
+Nothing in EVMap waits for them: an explicit flag already wins, and the time unit is detected per feed.
+
+**Operator table (open point 2): a second round for operators 51–100.** The gap was ranked again from the whole OCPDB
+(unchanged: 63.356 charge points, 551 operators); the first round had covered ranks 1–51, so this round took 52–101
+(50 operators, 7.315 charge points, ~12 % of the gap), with the 5r brief and ten agents. Every candidate was then
+fetched again by hand *and* checked against the feed's structure, which refuted one agent verdict: Mer Germany's
+0,58 sits on 400 kW points while its other tariffs are proven net, so a gross entry would have been suspended at once.
+
+Two questions came out of the research and were decided:
+
+- **The entry settles the VAT basis, not the feed's content.** Where an entered operator's feed differs from its
+  price page — an outdated amount (Weinheim DC 0,65 € in the feed, 0,69 € on the page), a value the page names as the
+  app price (Kiel 0,46 €), a start fee or a blocking-fee minute — the feed is shown as delivered, as "Ad-hoc-Preis
+  laut Betreiber" with its date: it is the operator's own AFIR publication and may be station-specific. The owner
+  first did not follow the question; it was asked again with these two examples. Rejected: a list of confirmed page
+  prices per entry (only matching tariffs shown) and leaving such operators out.
+- **Unrounded gross pages are entered rounded.** eins energie publishes 58,31 / 66,64 ct gross (49 / 56 net × 1,19);
+  it is entered and shown as 0,58 / 0,67 €. Rejected: a per-entry "unrounded" switch, and leaving it out like
+  E-Werk Mittelbaden (which mixes rounded and unrounded prices and stays out).
+
+**Found on the way: a tariff that contradicts itself.** Some chargecloud tariffs carry a zero and a non-zero time fee
+from the same minute as two unrestricted elements (Allgäuer Überlandwerk: 0,00 and 0,05 €/min) — a time of day lost
+on import. `OcpiTariffs` dropped zero fees before checking for two prices at one moment, so the fee was shown from
+the first minute. It now counts the zero, and such a tariff shows no price (297 charge points of Allgäuer
+Überlandwerk, 114 of MWEnergy, 125 of Lingen). This is the existing rule ("two prices for one moment: uncertain"),
+not a new one.
+
+**Result.** 16 operators entered (Münster, Electra, Ingolstadt, JOLT, Kiel, eins, Bamberg, Bocholt, öPA, Dachau,
+Bruchsal, PGG Baden-Baden, Landsberg, Weinheim, Lingen, MWEnergy; Electra, JOLT and Dachau net), 10 platforms skipped,
+24 unclear. Charge points priced via the table: 15.576 → 17.351; German charge points with a tariff that show a price:
+44,2 % → 46,0 %. No entry is contradicted on the live data. Evidence per operator and what differs from the page:
+`docs/operations/price-basis-operators.md`, "Second round". Backend tests: the self-contradicting fee in
+`OcpiTariffsTests`; `ShippedVatBasisTableTests` binds the 31 entries.
+
 ## Open points
 
-1. **Upstream fixes in OCPDB.** Options: (a) comment on #278 and open an issue for the `pricePerMinute` → `TIME`
-   unit (recommended; the owner posts it, it is public); (b) send a pull request; (c) leave it, the detection copes.
-2. **Operator table beyond phase 5r.** 27 of the top 50 stayed unclear and operators 51–551 (~21 % of the gap) were
-   not researched. Options: (a) research them when monitoring or users show a need (recommended); (b) a second
-   round now for operators 51–100 (+12 % of the gap); (c) contact the large unclear ones (Aral pulse, Techem) and ask
-   for their ad-hoc price page.
+1. **Upstream fixes in OCPDB.** Decided 2026-10-02: (a) — the texts are drafted in
+   `docs/operations/ocpdb-upstream-issues.md` (a comment on #278 with our measurements, a new issue on the
+   `pricePerMinute` → `TIME` unit); the owner posts them. Still unfixed in OCPDB 2.16.2. Closed on our side once posted.
+2. **Operator table beyond phase 5r.** Decided 2026-10-02: (b) — a second round for operators 51–100, see
+   "Phase 5r open points" above. Done: 16 more operators entered. Operators 101–551 (~9 % of the gap) and the 70
+   unclear or platform operators of both rounds remain; options for later: (a) a further round when monitoring or
+   users show a need, and the re-check on 2027-04-02 (recommended); (b) ask LadeVerbundPlus for its shared ad-hoc
+   price, which would settle several members at once.
 3. **Charging cards (5b)** — curated list (who maintains it, admin UI or repository file), own tariffs (device
    or account), price filter and map display.
 
