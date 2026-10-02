@@ -354,6 +354,10 @@ Lückenfüller Mobilithek (2026-10-02, Details in ADR 0015, Abschnitt „Mobilit
   EVSE-IDs sendet.
 - **Namensnennung pro Feed**: Betreiber und Lizenz je Abo (z. B. „EnBW AG via Mobilithek“, CC BY 4.0), nicht nur
   die Plattform.
+- Nach dem ersten Lauf (2026-10-02): Betreiber, die in den Live-Feeds nur interne IDs senden (Wirelane, eRound), werden
+  über ihre **statischen Feeds** auf EVSE-IDs übersetzt; eigener Schritt nach dem XML-Fix.
+- Das **Höchstalter** (72 h) eines Mobilithek-Status zählt ab dem Paket, das ihn zuletzt bestätigt hat, nicht ab
+  `lastUpdated` (letzte Änderung). Frankreich bleibt unverändert.
 
 Lückenfüller Spanien (2026-10-01, Details in ADR 0012, Abschnitt „Spain (L4)“):
 

@@ -402,14 +402,15 @@ each of ladenetz.de, Wirelane and eRound was fetched with the machine certificat
 a. **Push delivery** — worth it only if pull hits the operators' access quotas (404 in the logs) or one minute of
    delay proves too much. Options: (1) stay with pull; (2) push endpoint with client-certificate check at the proxy,
    pull only for the replay after a restart.
-b. **Static AFIR feeds** — needed: Wirelane and eRound publish internal ids (see "First run"). Options: (1) subscribe
-   their static feeds and translate `idG` to the EVSE-ID inside the provider; (2) leave them unmatched.
+b. ~~**Static AFIR feeds**~~ — decided 2026-10-02: the static feeds of operators that publish internal ids
+   (Wirelane, eRound, and whichever the first full day shows) are subscribed and read only to translate `idG` into
+   the EVSE-ID; matching stays exact. Built as its own step after the XML fix.
 c. **Mobilithek prices** — separate step under ADR 0022 (decision 4).
 d. **Second API replica** — the in-process state now has a subscription cursor per feed; two replicas would each poll
    (doubling quota use) but stay correct. Unchanged blocker, see open point 4.
-e. **What `max-age` measures for the Mobilithek** — today the charge point's `lastUpdated`, as for France. Options:
-   (1) keep it; (2) measure from the package that last confirmed the charge point, since the broker's validity window
-   and `stale-after` already catch a feed that stopped.
+e. ~~**What `max-age` measures for the Mobilithek**~~ — decided 2026-10-02: from the package that last confirmed the
+   charge point (its publication time, bounded by its arrival), not from `lastUpdated`. A snapshot confirms every
+   charge point in it, a delta only those it names. The client keeps showing `lastUpdated`. France is unchanged.
 
 ## Corrections (2026-08-24)
 

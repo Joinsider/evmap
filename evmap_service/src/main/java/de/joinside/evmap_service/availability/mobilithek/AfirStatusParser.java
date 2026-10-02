@@ -98,9 +98,11 @@ final class AfirStatusParser {
      * @param evseShaped      how many of {@code chargePoints} have the shape of an EVSE-ID — the number that decides
      *                        whether the static feeds are needed to translate internal ids (ADR 0015, L5 open point b)
      * @param otherIdSamples  up to three ids that do not have that shape, as published, for the log
+     * @param publishedAt     the package's own publication time, or {@code null} when it states none — what confirms
+     *                        every status in it, however long ago that status last changed
      */
     record Package(boolean delta, Map<String, Reported> chargePoints, int ignored, int evseShaped,
-                   List<String> otherIdSamples) {
+                   List<String> otherIdSamples, Instant publishedAt) {
     }
 
     /** One charge point's status as the package reports it, before attribution is attached. */
@@ -166,7 +168,7 @@ final class AfirStatusParser {
 
         Package toPackage() {
             int evseShaped = (int) chargePoints.keySet().stream().filter(AfirStatusParser::isEvseShaped).count();
-            return new Package(delta, chargePoints, ignored, evseShaped, List.copyOf(otherIdSamples));
+            return new Package(delta, chargePoints, ignored, evseShaped, List.copyOf(otherIdSamples), publicationTime);
         }
 
         private static Instant instant(String text) {

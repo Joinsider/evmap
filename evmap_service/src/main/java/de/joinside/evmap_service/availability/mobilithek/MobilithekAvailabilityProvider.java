@@ -45,6 +45,12 @@ import java.util.stream.Collectors;
  * <p>
  * Every entry carries its feed's {@link Attribution}, because the operators license their data individually and
  * CC BY requires naming them (ADR 0015, L5 decision 6).
+ * <p>
+ * {@code max-age} is measured from the package that last confirmed a charge point, not from its {@code lastUpdated}:
+ * that is the time of the last <em>change</em>, and a charge point that stays free for days is still reported
+ * free in every snapshot (product owner, 2026-10-02; Wirelane carried a {@code lastUpdated} older than 72 h for
+ * 4.034 of 4.081 charge points in a fresh snapshot). A feed that stopped is caught by the broker's validity window
+ * and {@code stale-after}. The client still shows {@code lastUpdated}, so a long-unchanged status reads as such.
  */
 @Component
 @EnableConfigurationProperties(MobilithekProperties.class)
@@ -68,7 +74,7 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
     private static final class FeedState {
         final MobilithekProperties.Feed feed;
         final Attribution credit;
-        final Map<String, AfirStatusParser.Reported> chargePoints = new HashMap<>();
+        final Map<String, Held> chargePoints = new HashMap<>();
         String cursor = FROM_THE_START;
         Instant lastSuccess;
         Instant backedOffUntil;
@@ -77,6 +83,10 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
             this.feed = feed;
             this.credit = new Attribution(feed.publisher() + " via Mobilithek", feed.licence(), feed.url());
         }
+    }
+
+    /** One charge point's status and when a package last confirmed it. */
+    private record Held(AfirStatusParser.Reported reported, Instant confirmedAt) {
     }
 
     /** The merged answer of the last round, replaced wholesale so a reader sees one round or the next. */
@@ -198,7 +208,7 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
             try (MobilithekBroker.Response response = broker.next(feed.feed.subscriptionId(), feed.cursor)) {
                 switch (response.status()) {
                     case 200 -> {
-                        apply(feed, AfirStatusParser.parse(response.body()));
+                        apply(feed, AfirStatusParser.parse(response.body()), now);
                         feed.lastSuccess = now;
                         if (response.lastModified() == null) {
                             // Without a cursor the next request would return the same package again.
@@ -245,15 +255,18 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
                 feed.feed.publisher(), properties.maxPackagesPerPoll());
     }
 
-    private static void apply(FeedState feed, AfirStatusParser.Package received) {
+    private static void apply(FeedState feed, AfirStatusParser.Package received, Instant now) {
+        // A publication time from the future would keep a status alive past max-age; the arrival bounds it.
+        Instant confirmedAt = received.publishedAt() != null && received.publishedAt().isBefore(now)
+                ? received.publishedAt() : now;
         if (received.delta()) {
             // Packages arrive in delivery order, so the newer package wins even where its timestamp is older.
-            feed.chargePoints.putAll(received.chargePoints());
+            received.chargePoints().forEach((evseId, reported) -> feed.chargePoints.put(evseId, new Held(reported, confirmedAt)));
             log.debug("Mobilithek feed {}: delta with {} charge point(s)", feed.feed.publisher(), received.chargePoints().size());
             return;
         }
         feed.chargePoints.clear();
-        feed.chargePoints.putAll(received.chargePoints());
+        received.chargePoints().forEach((evseId, reported) -> feed.chargePoints.put(evseId, new Held(reported, confirmedAt)));
         // The samples show whether a feed whose ids are not EVSE-shaped uses internal ids (static feed needed) or
         // only another spelling of the EVSE-ID. Charge point ids are public infrastructure data, not personal.
         log.info("Mobilithek feed {}: snapshot with {} charge point(s), {} of them shaped like an EVSE-ID, {} ignored{}",
@@ -271,11 +284,12 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
         Map<String, ChargePointAvailability> merged = new HashMap<>();
         for (FeedState feed : feeds.values()) {
             if (feed.lastSuccess == null || feed.lastSuccess.plus(properties.staleAfter()).isBefore(now)) continue;
-            feed.chargePoints.forEach((evseId, reported) -> {
-                if (reported.observedAt() != null && reported.observedAt().isBefore(notBefore)) return;
+            feed.chargePoints.forEach((evseId, held) -> {
+                if (held.confirmedAt().isBefore(notBefore)) return;
+                AfirStatusParser.Reported reported = held.reported();
                 merged.merge(evseId,
                         new ChargePointAvailability(evseId, reported.status(), reported.observedAt(), feed.credit),
-                        (held, candidate) -> Observations.newer(held, candidate, ChargePointAvailability::observedAt));
+                        (kept, candidate) -> Observations.newer(kept, candidate, ChargePointAvailability::observedAt));
             });
         }
         return new Answer(now, List.copyOf(merged.values()));

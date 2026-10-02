@@ -248,14 +248,78 @@ class MobilithekAvailabilityProviderTests {
         });
     }
 
+    private static String publishedPackage(String publishedAt, String lastUpdated) {
+        return """
+                {"messageContainer": {
+                  "payload": [{"aegiEnergyInfrastructureStatusPublication": {"publicationTime": "%s",
+                    "energyInfrastructureSiteStatus": [{"energyInfrastructureStationStatus": [{"refillPointStatus": [
+                      {"aegiElectricChargingPointStatus": {"reference": {"idG": "DE*ABC*E1"}, "lastUpdated": "%s",
+                        "status": {"value": "available"}}}]}]}]}}],
+                  "exchangeInformation": {"exchangeContext": {"codedExchangeProtocol": {"value": "snapshotPull"}}}}}
+                """.formatted(publishedAt, lastUpdated);
+    }
+
     @Test
-    @DisplayName("statuses older than max-age are not reported: a feed that stopped is not a free charge point")
-    void dropsOldStatuses() {
+    @DisplayName("a status unchanged for days still counts while a recent package confirms it, and shows its age")
+    void ageIsMeasuredFromThePackage() {
         ScriptedBroker broker = new ScriptedBroker()
-                .answer("111", 200, "T1", packageWith("snapshotPull", "DE*ABC*E1", "available", "2026-09-28T10:00:00+02:00"));
+                .answer("111", 200, "T1", publishedPackage("2026-10-02T09:30:00+02:00", "2026-07-18T02:32:29+00:00"));
         MobilithekAvailabilityProvider provider =
                 new MobilithekAvailabilityProvider(properties(ENBW), broker, new MovableClock());
 
+        provider.poll();
+
+        assertThat(provider.fetch(STUTTGART)).singleElement()
+                .extracting(ChargePointAvailability::observedAt).isEqualTo(Instant.parse("2026-07-18T02:32:29Z"));
+    }
+
+    @Test
+    @DisplayName("a status no package has confirmed for longer than max-age is not reported")
+    void dropsUnconfirmedStatuses() {
+        ScriptedBroker broker = new ScriptedBroker()
+                .answer("111", 200, "T1", publishedPackage("2026-09-28T10:00:00+02:00", "2026-09-28T10:00:00+02:00"));
+        MobilithekAvailabilityProvider provider =
+                new MobilithekAvailabilityProvider(properties(ENBW), broker, new MovableClock());
+
+        provider.poll();
+
+        assertThat(provider.fetch(STUTTGART)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a delta confirms only the charge points it names; the others age from their last package")
+    void deltaConfirmsOnlyItsChargePoints() {
+        ScriptedBroker broker = new ScriptedBroker()
+                .answer("111", 200, "T1", publishedPackage("2026-09-29T10:30:00+02:00", "2026-09-29T10:30:00+02:00"))
+                .answer("111", 200, "T2", """
+                        {"messageContainer": {"payload": [{"aegiEnergyInfrastructureStatusPublication": {
+                          "publicationTime": "2026-10-02T10:00:00+02:00",
+                          "aegiElectricChargingPointStatus": {"reference": {"idG": "DE*ABC*E2"}, "status": {"value": "charging"}}}}],
+                          "exchangeInformation": {"exchangeContext": {"codedExchangeProtocol": {"value": "deltaPull"}}}}}
+                        """);
+        MovableClock clock = new MovableClock();
+        MobilithekAvailabilityProvider provider = new MobilithekAvailabilityProvider(properties(ENBW), broker, clock);
+
+        provider.poll();
+        assertThat(provider.fetch(STUTTGART)).hasSize(2);
+
+        // The snapshot was 71 h 32 min old; an hour later it is past max-age, the delta from today is not.
+        clock.advance(Duration.ofHours(1));
+        provider.poll();
+
+        assertThat(provider.fetch(STUTTGART)).extracting(ChargePointAvailability::evseId).containsExactly("DEABCE2");
+    }
+
+    @Test
+    @DisplayName("a publication time in the future counts as the arrival, so it cannot keep a status alive")
+    void futurePublicationTimeIsBounded() {
+        ScriptedBroker broker = new ScriptedBroker()
+                .answer("111", 200, "T1", publishedPackage("2030-01-01T00:00:00Z", "2026-10-02T09:00:00+02:00"));
+        MovableClock clock = new MovableClock();
+        MobilithekAvailabilityProvider provider = new MobilithekAvailabilityProvider(properties(ENBW), broker, clock);
+        provider.poll();
+
+        clock.advance(Duration.ofHours(73));
         provider.poll();
 
         assertThat(provider.fetch(STUTTGART)).isEmpty();
