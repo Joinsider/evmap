@@ -1,6 +1,6 @@
 # EVMap Roadmap
 
-Stand: 2026-09-30 · abgestimmt mit Johannes Popp · Umsetzung überwiegend durch Claude Code
+Stand: 2026-10-02 · abgestimmt mit Johannes Popp · Umsetzung überwiegend durch Claude Code
 
 Diese Roadmap legt fest, **was** als Nächstes kommt und **in welcher Reihenfolge**. Das *Warum* und
 *Wie* eines Features steht im jeweiligen ADR. Jede Phase bekommt ihr ADR spätestens zu Beginn der
@@ -25,7 +25,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | 3 | Favoriten und Fehler melden | fertig ⁶ | [#20](https://github.com/Joinsider/evmap/pull/20) | [0021](adr/0021-favorites-and-station-reports.md) |
 | 4 | Routenplaner Stufe 1 | fertig ⁹ | [#23](https://github.com/Joinsider/evmap/pull/23) | [0017](adr/0017-route-planning-with-charging-stops.md) |
 | 5a | Preise an der Station: Betreiber pro Ladepunkt, Ad-hoc-Preise | fertig ¹⁰ | [#26](https://github.com/Joinsider/evmap/pull/26) | [0022](adr/0022-prices-at-the-station.md) |
-| 5r | Netto/Brutto-Prüfung pro Betreiber (direkt nach 5a) | offen | | [0022](adr/0022-prices-at-the-station.md) |
+| 5r | Netto/Brutto-Prüfung pro Betreiber (direkt nach 5a) | fertig ¹¹ | [#27](https://github.com/Joinsider/evmap/pull/27) | [0022](adr/0022-prices-at-the-station.md) |
 | 5b | Ladekarten und Preis mit eigenen Karten | offen | | [0022](adr/0022-prices-at-the-station.md) |
 | 6 | Routenplaner Stufe 2 | offen | | 0017 |
 | 7 | Routenplaner Stufe 3 | offen | | 0017 |
@@ -81,6 +81,12 @@ CDLA-Permissive-2.0) und Tarifquellen steht als Notiz im ADR und fließt in Phas
 keine neuen 👤-Schritte. Offen ist der Gerätetest nach dem Ausrollen (deutsche Station mit Live-Tarif, französische mit
 Registerpreis, spanische Station mit zwei Betreibern). Deutsche Tarife erscheinen bisher nur, wo der Bruttopreis belegt
 ist oder der Betreiber geprüft wurde (nur Allego); die übrigen Betreiber prüft Phase 5r.
+
+¹¹ Im Repository fertig (Backend 535 Tests), keine neuen 👤-Schritte. Von den 50 Betreibern mit den meisten
+ungeprüften Ladepunkten sind 14 eingetragen, 9 Plattformen übersprungen und 27 unklar (Nachweise in
+`docs/operations/price-basis-operators.md`). Mit Preis über die Tabelle: 15.576 statt 2.064 Ladepunkte; insgesamt 44 %
+statt 30 % der deutschen Ladepunkte mit Tarif. Offen ist der Gerätetest nach dem Ausrollen (z. B. Berliner Stadtwerke,
+TankE, IONITY). Erneute Prüfung fällig am 2027-04-02; die API warnt beim Start.
 
 Separat angestoßen (Teil von Phase 0): `permitAll` für `/api/v1/stations/**` auf GET beschränken.
 Erledigt mit PR #8 (Commit `3d40492`), vor Beginn von Phase 0 auf `master` geprüft.
@@ -228,7 +234,7 @@ Reihenfolge: **Österreich → Schweiz → Italien → Spanien**. Vor jedem Adap
 Daten offen verfügbar sind und unter welcher Lizenz; ein Land ohne offene Daten wird übersprungen
 und im ADR 0012 vermerkt. Österreich wurde so übersprungen (Stand 2026-09-30), Schweiz ist umgesetzt, Italien wurde
 übersprungen (Stand 2026-10-01), Spanien ist umgesetzt (Stand 2026-10-01). Damit sind alle vier Lückenfüller
-erledigt; danach folgte **Phase 4**, jetzt **Phase 5** (5a → 5r → 5b).
+erledigt; danach folgte **Phase 4**, jetzt **Phase 5** (5a und 5r fertig, als Nächstes 5b).
 
 ### Skalierung / Variante C · bei Bedarf
 
@@ -337,6 +343,21 @@ Phase 5 (2026-10-01, Details in ADR 0022):
   automatisch erkannt und ein Wechsel geloggt.
 - Anzeige auf der Stationsseite je Ladepunkt-Gruppe und als „ab“-Preis oben auf der Stationsseite (nicht in der
   Infokarte: die öffnet sich für Stationen nicht, Frage korrigiert und neu beantwortet); keine Preise an den Pins.
+
+Phase 5r (2026-10-02, Details in ADR 0022, Abschnitt „Phase 5r decisions“):
+
+- Geprüft werden die 50 Betreiber mit den meisten ungeprüften Ladepunkten (~79 % der Lücke von 63.356 Ladepunkten);
+  die Recherche läuft parallel über mehrere kleine Agenten.
+- Eingetragen wird ein Betreiber, wenn ein Ad-hoc-Preis auf seiner offiziellen Seite exakt einem Feed-Wert entspricht
+  (brutto oder netto × 1,19). Drittquellen nur, wenn höchstens zwei Monate alt, und dann mit Stichproben durch den
+  Product Owner.
+- Der chargecloud-Feed hat keinen MwSt.-Satz: für als netto geprüfte Betreiber gilt bei deutschen Ladepunkten 19 %.
+- Plattformen (ChargePoint, smopi, Spirii …) nur, wenn sie offiziell eine einheitliche Netto- oder Bruttoangabe
+  erklären; sonst übersprungen.
+- Jeder Eintrag trägt Prüfdatum und Quelle; widerspricht der Feed einem Eintrag, wird er für den Betreiber ausgesetzt
+  und als WARN geloggt. Erneute Prüfung nach sechs Monaten.
+- Beträge von Tabellenbetreibern werden auf ganze Cent gerundet (Mainova 0,6426 → 0,64 €); E-Werk Mittelbaden rundet
+  AC und DC unterschiedlich und bleibt ohne Eintrag.
 
 Phase 4 (2026-10-01, Details in ADR 0017, Abschnitt „Phase 4 decisions“):
 

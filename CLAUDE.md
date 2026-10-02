@@ -169,9 +169,11 @@ exact EVSE-ID join, nothing written to `master.*` — plus the register prices `
 price is certain). `GET /api/v1/stations/{id}/charge-points` merges both, the live tariff first. **The product owner's
 rule: a price shown wrongly is worse than none.** Every price is gross; an amount whose VAT basis is not established
 is dropped, not guessed. OCPDB drops DATEX's `taxIncluded` (binary-butterfly/ocpdb#278), so a German tariff is shown
-only when its net price × (1 + VAT) lands on whole cents, or its operator is in
-`evmap.pricing.mobidata.net-price-operators` / `gross-price-operators` (checked by hand against official price
-pages); an explicit `tax_included` will win once OCPDB delivers it. OCPDB also maps DATEX per-minute prices into
+only when its net price × (1 + VAT) lands on whole cents, or its operator is in the dated table
+`evmap.pricing.mobidata.vat-basis` (`VatBasisTable`, phase 5r): entered only on an exact match with the operator's
+official ad-hoc price, amounts shown in whole cents, 19 % assumed for net operators of the rate-less chargecloud feed,
+an entry the feed contradicts suspended at runtime (WARN). Runbook and evidence: `docs/operations/price-basis-operators.md`;
+`ShippedVatBasisTableTests` binds the real file. An explicit `tax_included` will win once OCPDB delivers it. OCPDB also maps DATEX per-minute prices into
 OCPI `TIME` unconverted, so the time unit is detected per feed from the median on every refresh and a change is
 logged at WARN — never hard-code "per minute". Open Charge Map's `UsageCost` is deliberately not read.
 `master.charge_point.operator_name` is the operator of a charge point where it differs from the station's (bundled

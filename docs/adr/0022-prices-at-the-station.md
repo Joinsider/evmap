@@ -1,7 +1,8 @@
 # 22. Prices at the station
 
 - Status: Accepted 2026-10-01 — part 5a (operator per charge point, ad-hoc prices) implemented on
-  `feature/phase-5a-prices-at-station`; 5r (net/gross check per operator) and 5b (charging cards) open
+  `feature/phase-5a-prices-at-station`; 5r (net/gross check per operator) implemented on
+  `feature/phase-5r-vat-basis`; 5b (charging cards) open
 - Date: 2026-10-01
 - Deciders: Johannes Popp
 
@@ -199,12 +200,79 @@ with its own "Stand" date; "further fees possible"; charging-card disclaimer; cr
 None to deploy: no key, no account. Device test after the rollout: a German station with live tariff (EnBW or Lidl),
 a French one with a register price, and a Spanish bundled station with two operators.
 
+## Phase 5r decisions (2026-10-02)
+
+Before asking, the whole OCPDB was read on 2026-10-02 (100.948 locations, 1.029 tariffs): of 95.970 charge points
+with a single tariff, 26.774 got a price from the arithmetic evidence, **63.356 had none because their operator was
+unchecked** (551 operators), 5.799 have a tariff `OcpiTariffs` does not understand. The gap is concentrated: the
+top 30 operators hold 69 % of it, the top 50 79 %, the top 100 91 %. Three findings shaped the questions:
+chargecloud's feed carries **no VAT rate on any tariff** (25.583 of the 63.356), some round-looking values are
+**gross hidden as net × 1,19** (Mainova 0,6426 = 0,54 × 1,19), and several "operators" are **platforms** whose site
+hosts set their own price (ChargePoint, smopi, Spirii, Ecotap, 50five, Backcharge).
+
+Agreed with the product owner, one question at a time:
+
+- **Scope: the top 50 operators** by unchecked charge points (~50.000, 79 %). The rest follows when needed. The
+  research runs in parallel, one small agent per five operators (owner's request).
+- **When an operator counts as checked:** an ad-hoc price on the operator's **own official page** matches a feed
+  value exactly, as gross or as net × 1,19 rounded to the cent — then it is entered. A **third-party source**
+  (comparison site, press, forum screenshot) only if it is **at most two months old**, and such entries are
+  **spot-checked by the owner** before they ship. Near misses are not entered.
+- **No VAT rate in the feed:** for an operator checked as net, **19 % is assumed for German charge points**; without
+  a table entry such a tariff still shows no price.
+- **Platforms** are entered only if they declare officially that all their published prices are gross (or net);
+  otherwise they are skipped and listed below.
+- **Keeping the table true:** every entry carries its **check date and source**. If the feed contradicts an entry
+  (listed gross, but one of the operator's tariffs is demonstrably net by the arithmetic evidence), the entry is
+  **suspended** for that operator and logged at WARN. Entries are re-checked after six months.
+- **Rounding** (asked after the research found it): every amount of a table operator is shown **in whole cents**,
+  as its price page charges it — Mainova publishes 0,6426 (= 0,54 × 1,19) and charges 0,64 €. E-Werk Mittelbaden
+  shows AC unrounded (47,60 ct = 0,40 × 1,19) but DC rounded (65,00 ct for 0,6545) and therefore stays out. Rejected:
+  leaving amounts unrounded (Mainova would show 0,643 €) and a rounding setting per entry (would still not fit E-Werk).
+
+## What phase 5r built (2026-10-02)
+
+**Research.** Ten agents, five operators each, searched the official price pages of the top 50 (brief: exact match
+only, third-party sources at most two months old, platforms only with an official statement). Every accepted source
+was fetched again and compared by hand. Result: **14 operators entered** (TankE, N-ERGIE, Berliner Stadtwerke, deer,
+Stadtwerke Stuttgart, EnW Bonn/Rhein-Sieg, Mainova, BS|ENERGY, Allgäuer Überlandwerk, SWLB, ecowerk and ovag gross;
+IONITY and Hochtief Ladepartner net), **9 platforms skipped** (ChargePoint, MENNEKES, Spirii, Ecotap, energielösung,
+smopi, FIRMENLADEN, 50five, Backcharge), **27 unclear** — mostly operators that publish no ad-hoc price at all, and a
+few near misses. No third-party source met the two-month rule, so no spot check is pending. Charge points priced via
+the table: 2.064 → 15.576; all German charge points with a tariff that show a price: 30 % → 44 %. On the live data
+of 2026-10-02 no entry is contradicted. Per-operator evidence and the re-check procedure:
+`docs/operations/price-basis-operators.md`.
+
+**Code.** `VatBasisTable` (own class: dated entries, validation at startup, suspension, entries due for re-check)
+replaces the two name lists; the property is now `evmap.pricing.mobidata.vat-basis` (operator, basis, checked-on,
+source) plus `recheck-after` (P6M). `OcpiTariffs.contradicts` and `looksGross` are the self-check, which
+`MobiDataBwPriceProvider` runs over all locations of an area *before* reading any price, so no price of a suspended
+operator leaves that area. `Location.assumedVatRate()` gives 19 % for German locations, used only for a net entry
+whose tariff names no rate. Table amounts are rounded to whole cents (`Basis.cents`).
+
+**Tests.** Backend 535 (`VatBasisTableTests`, `ShippedVatBasisTableTests` binding the real `application.yaml`,
+contradictions, cent rounding and the assumed rate in `OcpiTariffsTests`, suspension end to end in
+`MobiDataBwPriceProviderTests`). No iOS change: the API payload is unchanged.
+
+### Deviations from the plan
+
+- Allego stays as the product owner checked it on 2026-10-01; it was not researched again.
+- The cent rounding was not planned; the research found Mainova's sub-cent values and the owner decided.
+
+### 👤 Steps for the product owner
+
+Nothing to configure. Review the evidence list in the PR; after the rollout, a device test at a station of a newly
+listed operator (e.g. Berliner Stadtwerke 0,55 €/kWh AC, TankE 0,49 €/kWh, IONITY 0,72 €/kWh). Watch the API log for
+`contradicts its VAT basis entry`. Re-check due **2027-04-02** (startup warns).
+
 ## Open points
 
 1. **Upstream fixes in OCPDB.** Options: (a) comment on #278 and open an issue for the `pricePerMinute` → `TIME`
    unit (recommended; the owner posts it, it is public); (b) send a pull request; (c) leave it, the detection copes.
-2. **Operator table (phase 5r).** Which operators, in which order: by unresolved connectors (ChargePoint, Aral
-   pulse, Mennekes, Allego, Techem, TankE, N-ERGIE, IONITY, …).
+2. **Operator table beyond phase 5r.** 27 of the top 50 stayed unclear and operators 51–551 (~21 % of the gap) were
+   not researched. Options: (a) research them when monitoring or users show a need (recommended); (b) a second
+   round now for operators 51–100 (+12 % of the gap); (c) contact the large unclear ones (Aral pulse, Techem) and ask
+   for their ad-hoc price page.
 3. **Charging cards (5b)** — curated list (who maintains it, admin UI or repository file), own tariffs (device
    or account), price filter and map display.
 
