@@ -108,10 +108,10 @@ export class RestEvmapApi extends EvmapApi {
       .set('longitude', query.longitude)
       .set('radiusKm', Math.ceil(query.radiusKm))
       .set('limit', query.limit);
-    for (const connector of [...query.connectorTypes].sort()) params = params.append('connectorType', connector);
+    for (const connector of [...query.connectorTypes].sort((a, b) => a.localeCompare(b))) params = params.append('connectorType', connector);
     if (query.minPowerKw !== undefined) params = params.set('minPowerKw', query.minPowerKw);
-    for (const name of [...query.excludeOperators].sort()) params = params.append('excludeOperator', name);
-    for (const name of [...(query.includeOperators ?? [])].sort()) params = params.append('includeOperator', name);
+    for (const name of [...query.excludeOperators].sort((a, b) => a.localeCompare(b))) params = params.append('excludeOperator', name);
+    for (const name of [...(query.includeOperators ?? [])].sort((a, b) => a.localeCompare(b))) params = params.append('includeOperator', name);
     return this.http.get<StationSummary[]>('/api/v1/stations', { params });
   }
 

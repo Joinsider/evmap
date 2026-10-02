@@ -85,12 +85,14 @@ export class PlaceSearch implements OnDestroy {
       this.suggestions.set([]);
       return;
     }
-    this.timer = setTimeout(async () => {
-      const results = await this.engine.autocomplete(text.trim(), this.near()).catch(() => []);
-      if (generation !== this.generation) return;
-      this.suggestions.set(results);
-      this.notFound.set(results.length === 0);
-    }, SEARCH_DEBOUNCE_MS);
+    this.timer = setTimeout(() => void this.lookUp(text.trim(), generation), SEARCH_DEBOUNCE_MS);
+  }
+
+  private async lookUp(text: string, generation: number) {
+    const results = await this.engine.autocomplete(text, this.near()).catch(() => []);
+    if (generation !== this.generation) return;
+    this.suggestions.set(results);
+    this.notFound.set(results.length === 0);
   }
 
   protected async choose(suggestion: PlaceSuggestion) {

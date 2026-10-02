@@ -68,7 +68,11 @@ export class MapPage implements AfterViewInit, OnDestroy {
     });
   }
 
-  async ngAfterViewInit() {
+  ngAfterViewInit() {
+    void this.start();
+  }
+
+  private async start() {
     try {
       this.handle = await this.engine.create(this.canvas().nativeElement, START_VIEWPORT, {
         regionChanged: (viewport) => this.regionChanged(viewport),

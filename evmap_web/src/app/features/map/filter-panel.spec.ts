@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { throwError } from 'rxjs';
 import { EvmapApi } from '../../core/api/evmap-api';
 import { FakeEvmapApi } from '../../testing/fake-evmap-api';
 import { SETTINGS_KEY, StationSettingsStore } from './data/station-settings.store';
@@ -84,5 +85,55 @@ describe('FilterPanel', () => {
     expect(api.operatorQueries.at(-1)).toBe('ion');
     expect(root.textContent).toContain('Suchergebnisse');
     expect(root.querySelector('.directory')!.textContent).not.toContain('EnBW');
+  });
+
+  it('switches a connector off again, takes the availability switch and snaps an off-step power down', async () => {
+    TestBed.inject(StationSettingsStore).update((settings) => ({ ...settings, connectorTypes: ['CCS'], minimumPowerKw: 120 }));
+    const { fixture, root, store } = await open();
+    expect(root.querySelector('output')!.textContent).toBe('100 kW');
+
+    const label = (text: string) => Array.from(root.querySelectorAll<HTMLLabelElement>('label')).find((l) => l.textContent!.includes(text))!.querySelector('input')!;
+    label('CCS (Combo 2)').click();
+    label('Nur betriebsbereite').click();
+    const slider = root.querySelector<HTMLInputElement>('input[type=range]')!;
+    slider.value = '0';
+    slider.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(store.settings()).toMatchObject({ connectorTypes: [], availabilityOnly: true, minimumPowerKw: null });
+    expect(root.querySelector('output')!.textContent).toBe('Beliebig');
+  });
+
+  it('explains the allowlist once every other network is hidden', async () => {
+    const { fixture, root, store } = await open();
+    const unlisted = Array.from(root.querySelectorAll<HTMLLabelElement>('label')).find((l) => l.textContent!.includes('Alle übrigen'))!.querySelector('input')!;
+    unlisted.click();
+    fixture.detectChanges();
+
+    expect(store.settings().unlistedProviders).toBe('hidden');
+    expect(root.textContent).toContain('Die Karte zeigt nur die Anbieter aus dieser Liste');
+  });
+
+  it('says when the directory finds nothing or cannot be reached', async () => {
+    const { fixture, root } = await open();
+    const search = root.querySelector<HTMLInputElement>('input[type=search]')!;
+    search.value = 'zzz';
+    search.dispatchEvent(new Event('input'));
+    await wait(300);
+    fixture.detectChanges();
+    expect(root.textContent).toContain('Keine Anbieter gefunden.');
+
+    api.operators = () => throwError(() => new Error('500'));
+    search.value = 'abc';
+    search.dispatchEvent(new Event('input'));
+    await wait(300);
+    fixture.detectChanges();
+    expect(root.textContent).toContain('Die Anbieter konnten nicht geladen werden.');
+  });
+
+  it('names the two reserved preferences too, for values a later version stored', async () => {
+    const { fixture } = await open();
+    const panel = fixture.componentInstance as unknown as { preferenceLabel(p: string): string };
+    expect(['shown', 'hidden', 'preferred', 'avoided'].map((p) => panel.preferenceLabel(p))).toEqual(['Anzeigen', 'Nicht anzeigen', 'Bevorzugen', 'Meiden']);
   });
 });

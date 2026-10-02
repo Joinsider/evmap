@@ -101,5 +101,5 @@ export function fromPrice(prices: StationChargePoints, locale: string): string |
 /** Register sources credited by their token, minus the live sources the response credits in full. */
 export function registerSources(prices: StationChargePoints, groups: readonly PriceGroup[]): string[] {
   const live = new Set(prices.sources.map((source) => source.name));
-  return [...new Set(groups.map((group) => group.price.source).filter((source): source is string => !!source && !live.has(source)))].sort();
+  return [...new Set(groups.map((group) => group.price.source).filter((source): source is string => !!source && !live.has(source)))].sort((a, b) => a.localeCompare(b));
 }

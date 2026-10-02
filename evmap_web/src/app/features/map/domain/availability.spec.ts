@@ -21,4 +21,9 @@ describe('availability', () => {
     expect(isKnown({ ...live, status: 'UNKNOWN' })).toBe(false);
     expect(isKnown({ ...live, available: 0, occupied: 0, outOfOrder: 0 })).toBe(false);
   });
+
+  it('names every known service and live state', () => {
+    expect(['MAINTENANCE', 'OUT_OF_SERVICE'].map(serviceStateLabel)).toEqual(['In Wartung', 'Außer Betrieb']);
+    expect(['AVAILABLE', 'OCCUPIED', 'OUT_OF_ORDER', 'UNKNOWN'].map((raw) => liveLabel(liveState(raw)))).toEqual(['Frei', 'Belegt', 'Gestört', 'Unbekannt']);
+  });
 });

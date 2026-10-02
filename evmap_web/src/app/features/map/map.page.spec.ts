@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
+import { throwError } from 'rxjs';
 import { EvmapApi } from '../../core/api/evmap-api';
 import { StationSummary } from '../../core/api/models';
 import { MapEngine } from '../../core/map/map-engine';
@@ -8,6 +9,7 @@ import { FakeMapEngine } from '../../testing/fake-map-engine';
 import { StationSettingsStore } from './data/station-settings.store';
 import { withPreference, withUnlistedProviders } from './domain/station-settings';
 import { MapPage } from './map.page';
+import { StationSelection } from './station-selection';
 
 const station = (id: string, latitude: number, longitude: number, maxPowerKw?: number): StationSummary => ({
   id,
@@ -114,5 +116,61 @@ describe('MapPage', () => {
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Die Karte ist gerade nicht verfügbar');
     expect(api.stationQueries).toEqual([]);
+  });
+
+  it('reloads when the filter panel closes, and moves to a searched place without loading by itself', async () => {
+    const fixture = await open();
+    const page = fixture.componentInstance as unknown as { closeFilter(): void; placeChosen(place: object): void; openFilter(): void };
+
+    page.openFilter();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('app-filter-panel')).not.toBeNull();
+    page.closeFilter();
+    expect(api.stationQueries).toHaveLength(2);
+
+    page.placeChosen({ name: 'Stuttgart', latitude: 48.78, longitude: 9.18 });
+    expect(engine.moves.at(-1)).toEqual({ viewport: { latitude: 48.78, longitude: 9.18, latitudeSpan: 0.05, longitudeSpan: 0.05 }, animated: true });
+    expect(api.stationQueries).toHaveLength(2);
+  });
+
+  it('says when stations fail to load and tries again on the next camera change', async () => {
+    const failing = api.stations.bind(api);
+    api.stations = (query) => {
+      api.stationQueries.push(query);
+      return throwError(() => new Error('503'));
+    };
+    const fixture = await open();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Stationen konnten nicht geladen werden.');
+
+    api.stations = failing;
+    engine.settle({ ...engine.current!, latitude: engine.current!.latitude + 0.01 });
+    expect(api.stationQueries).toHaveLength(2);
+  });
+
+  it('keeps the pins when live availability fails, and counts free charge points when it answers', async () => {
+    api.stationList = [station('a', 48.78, 9.18)];
+    api.liveInBounds = [{ stationId: 'a', status: 'AVAILABLE', available: 3, occupied: 0, outOfOrder: 0, unknown: 0, chargePoints: [], sources: [] }];
+    await open();
+    expect(engine.pins[0].liveAvailable).toBe(3);
+
+    api.availabilityInBounds = () => throwError(() => new Error('502'));
+    engine.settle({ latitude: 48.78, longitude: 9.18, latitudeSpan: 0.2, longitudeSpan: 0.3 });
+    expect(engine.pins.map((pin) => pin.id)).toEqual(['a']);
+  });
+
+  it('brings a station opened by link into view, but leaves the camera alone when it is already visible', async () => {
+    const fixture = await open();
+    const selection = fixture.debugElement.injector.get(StationSelection);
+
+    selection.position.set({ latitude: 51, longitude: 10 });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(engine.moves).toEqual([]);
+
+    selection.position.set({ latitude: 40, longitude: -3.7 });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(engine.moves).toEqual([{ viewport: { latitude: 40, longitude: -3.7, latitudeSpan: 0.05, longitudeSpan: 0.05 }, animated: false }]);
   });
 });

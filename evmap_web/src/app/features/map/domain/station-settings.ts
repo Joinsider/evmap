@@ -91,7 +91,7 @@ export function withUnlistedProviders(settings: StationSettings, unlisted: Provi
 }
 
 export function configuredProviders(settings: StationSettings): string[] {
-  return Object.keys(settings.providerPreferences).sort();
+  return Object.keys(settings.providerPreferences).sort((a, b) => a.localeCompare(b));
 }
 
 /** The one place the settings vocabulary becomes query terms. */
@@ -99,11 +99,11 @@ export function stationFilter(settings: StationSettings): StationFilter {
   const entries = Object.entries(settings.providerPreferences);
   const allowlist = hides(settings.unlistedProviders);
   return {
-    connectorTypes: [...settings.connectorTypes].sort(),
+    connectorTypes: [...settings.connectorTypes].sort((a, b) => a.localeCompare(b)),
     minimumPowerKw: settings.minimumPowerKw ?? undefined,
     availabilityOnly: settings.availabilityOnly,
-    excludedProviders: allowlist ? [] : entries.filter(([, preference]) => hides(preference)).map(([name]) => name).sort(),
-    includedProviders: allowlist ? entries.filter(([, preference]) => !hides(preference)).map(([name]) => name).sort() : undefined,
+    excludedProviders: allowlist ? [] : entries.filter(([, preference]) => hides(preference)).map(([name]) => name).sort((a, b) => a.localeCompare(b)),
+    includedProviders: allowlist ? entries.filter(([, preference]) => !hides(preference)).map(([name]) => name).sort((a, b) => a.localeCompare(b)) : undefined,
   };
 }
 
@@ -147,7 +147,7 @@ function readPreference(value: unknown): ProviderPreference {
 /** Stable form for storage and comparison: sorted connectors and keys. */
 export function normalize(settings: StationSettings): StationSettings {
   return {
-    connectorTypes: [...settings.connectorTypes].sort(),
+    connectorTypes: [...settings.connectorTypes].sort((a, b) => a.localeCompare(b)),
     minimumPowerKw: settings.minimumPowerKw,
     availabilityOnly: settings.availabilityOnly,
     providerPreferences: Object.fromEntries(Object.entries(settings.providerPreferences).sort(([a], [b]) => a.localeCompare(b))),
