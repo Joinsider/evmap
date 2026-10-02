@@ -318,6 +318,21 @@ class AfirStatusParserTests {
         assertThat(empty.chargePoints()).isEmpty();
     }
 
+    @Test
+    @DisplayName("a UUID or hash that happens to fit the EVSE-ID pattern is not counted as one")
+    void hashesAreNotEvseIds() throws IOException {
+        AfirStatusParser.Package received = parse("""
+                {"messageContainer": {"payload": [{"aegiRefillPointStatus": [
+                  {"reference": {"idG": "ae0b0ee4-f1d7-5222-a96c-81937bc19220"}, "status": {"value": "available"}},
+                  {"reference": {"idG": "ce113e32a1c94734e9133eb30ac8886f"}, "status": {"value": "available"}},
+                  {"reference": {"idG": "DE*EBW*E912316*1"}, "status": {"value": "available"}}]}]}}
+                """);
+
+        assertThat(received.evseShaped()).isEqualTo(1);
+        assertThat(received.otherIdSamples())
+                .containsExactly("ae0b0ee4-f1d7-5222-a96c-81937bc19220", "ce113e32a1c94734e9133eb30ac8886f");
+    }
+
     @ParameterizedTest(name = "{0} / {1} -> {2}")
     @CsvSource(nullValues = "null", value = {
             "available,       null,                   AVAILABLE",

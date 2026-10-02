@@ -67,6 +67,13 @@ final class AfirStatusParser {
      */
     private static final Pattern EVSE_ID_SHAPE = Pattern.compile("^[A-Z]{2}[A-Z0-9]{3}E[A-Z0-9]+$");
 
+    /**
+     * A UUID or hash with its dashes removed. Wirelane and eRound publish such internal ids, and one in a few dozen
+     * happens to fit {@link #EVSE_ID_SHAPE} — {@code ae0b0ee4…} reads as {@code AE}, {@code 0B0}, {@code E…}. A real
+     * EVSE-ID is far shorter than 24 characters.
+     */
+    private static final Pattern HEX_HASH = Pattern.compile("^[0-9A-F]{24,}$");
+
     /** How many ids of another shape a package reports for the log, so a feed's id scheme can be judged. */
     private static final int OTHER_ID_SAMPLES = 3;
 
@@ -152,13 +159,13 @@ final class AfirStatusParser {
             Reported reported = new Reported(live, observedAt != null ? observedAt : publicationTime);
             Reported held = chargePoints.merge(evseId, reported,
                     (old, candidate) -> Observations.newer(old, candidate, Reported::observedAt));
-            if (held == reported && otherIdSamples.size() < OTHER_ID_SAMPLES && !EVSE_ID_SHAPE.matcher(evseId).matches()
+            if (held == reported && otherIdSamples.size() < OTHER_ID_SAMPLES && !isEvseShaped(evseId)
                     && !otherIdSamples.contains(id.trim()))
                 otherIdSamples.add(id.trim());
         }
 
         Package toPackage() {
-            int evseShaped = (int) chargePoints.keySet().stream().filter(id -> EVSE_ID_SHAPE.matcher(id).matches()).count();
+            int evseShaped = (int) chargePoints.keySet().stream().filter(AfirStatusParser::isEvseShaped).count();
             return new Package(delta, chargePoints, ignored, evseShaped, List.copyOf(otherIdSamples));
         }
 
@@ -301,6 +308,10 @@ final class AfirStatusParser {
             }
             reader.chargePoint(id, status, operationStatus, lastUpdated);
         }
+    }
+
+    private static boolean isEvseShaped(String normalizedId) {
+        return EVSE_ID_SHAPE.matcher(normalizedId).matches() && !HEX_HASH.matcher(normalizedId).matches();
     }
 
     private static String blankToNull(String text) {
