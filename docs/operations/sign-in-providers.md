@@ -83,9 +83,10 @@ Deleting an account works without any of this. Two settings make it complete:
    the primary App ID `de.joinside.EVMap` *and* be enabled for the Services ID (section 4, step 2),
    because it signs for both the bundle id (app) and the Services ID (web).
    Apple users who signed in before this phase have no stored token until their next Apple sign-in.
-2. **Privacy policy link.** Publish the policy wherever you like and set
-   `PRIVACY_POLICY_URL=https://…` in `deploy/.env`. The iOS settings, the account screen and the web
-   footer then link to it; without it they show no link. App Store Connect needs the same URL.
+2. **Privacy policy link.** The policy is the web client's own page (ADR 0024). Set
+   `PRIVACY_POLICY_URL=https://evmap.joinside.de/de/datenschutz` in `deploy/.env`; the iOS settings then
+   link to it, without it they show no link. App Store Connect needs the same URL. The web client links to
+   its page regardless. Operator details and proxy logs: `docs/operations/legal-pages.md`.
 
 ## 6. Making an account admin
 

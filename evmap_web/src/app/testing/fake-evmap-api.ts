@@ -6,13 +6,13 @@ import {
   BlockedAuthor,
   Contributions,
   GeoBounds,
-  Legal,
   MapToken,
   Operator,
   ProviderToken,
   ReportedComment,
   ReportedStation,
   SignInProvider,
+  SiteOperator,
   StationAvailability,
   StationChargePoints,
   StationComment,
@@ -36,7 +36,14 @@ export class FakeEvmapApi extends EvmapApi {
   contributionsData: Contributions = { comments: [], reports: [], stationReports: [] };
   stationReports: ReportedStation[] = [];
   blockList: BlockedAuthor[] = [];
-  legalData: Legal = {};
+  /** `null` stands in for a deployment without operator details (404). */
+  operatorData: SiteOperator | null = {
+    name: 'Erika Mustermann',
+    street: 'Heidestraße 17',
+    city: '51147 Köln',
+    country: 'Deutschland',
+    email: 'kontakt@evmap.example',
+  };
   reported: ReportedComment[] = [];
   exportBlob = new Blob(['{}'], { type: 'application/json' });
   /** Calls that changed something, in order, for assertions. */
@@ -109,8 +116,8 @@ export class FakeEvmapApi extends EvmapApi {
     return of(undefined);
   }
 
-  legal(): Observable<Legal> {
-    return of(this.legalData);
+  siteOperator(): Observable<SiteOperator> {
+    return this.operatorData ? of(this.operatorData) : throwError(() => new Error('404'));
   }
 
   adminReports(): Observable<ReportedComment[]> {

@@ -5,13 +5,13 @@ import {
   BlockedAuthor,
   Contributions,
   GeoBounds,
-  Legal,
   MapToken,
   Operator,
   ProviderToken,
   ReportedComment,
   ReportedStation,
   SignInProvider,
+  SiteOperator,
   StationAvailability,
   StationChargePoints,
   StationComment,
@@ -55,7 +55,11 @@ export abstract class EvmapApi {
 
   abstract unblock(id: string): Observable<void>;
 
-  abstract legal(): Observable<Legal>;
+  /**
+   * The operator's details for the Impressum and the privacy policy. Served by the web container from its
+   * environment, not by the API, so the legal pages stay up when the API is down (ADR 0024).
+   */
+  abstract siteOperator(): Observable<SiteOperator>;
 
   abstract adminReports(): Observable<ReportedComment[]>;
 

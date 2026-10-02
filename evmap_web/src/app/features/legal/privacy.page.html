@@ -1,0 +1,88 @@
+<article class="card legal">
+  <h1 i18n="@@privacy.title">Datenschutzerklärung</h1>
+  <p class="as-of" i18n="@@privacy.asOf">Stand: 2. Oktober 2026</p>
+  <p class="translation-note" i18n="@@legal.translationNote">Diese Seite gibt es auch auf Englisch; maßgeblich ist die deutsche Fassung.</p>
+  <p i18n="@@privacy.scope">Diese Datenschutzerklärung gilt für die Website von EVMap und für die EVMap-App für iOS.</p>
+
+  <h2 i18n="@@privacy.summary">Das Wichtigste in Kürze</h2>
+  <ul>
+    <li i18n="@@privacy.summary.noAccount">Karte, Suche und Stationsdetails funktionieren ohne Konto.</li>
+    <li i18n="@@privacy.summary.noTracking">Kein Tracking, keine Analyse-Werkzeuge, keine Werbung. Wir speichern nur, was für die Funktionen nötig ist, deshalb gibt es auch kein Cookie-Banner.</li>
+    <li i18n="@@privacy.summary.noLocation">Deinen Standort und deine Routen speichern wir nicht.</li>
+    <li i18n="@@privacy.summary.noName">Wenn du dich anmeldest, kennen wir keinen Namen, nur eine Kennung des Anmeldedienstes und deine E-Mail-Adresse.</li>
+    <li i18n="@@privacy.summary.selfService">Du kannst deine Daten jederzeit selbst herunterladen und dein Konto selbst löschen.</li>
+  </ul>
+
+  <h2 i18n="@@privacy.controller">1. Verantwortlicher</h2>
+  <p i18n="@@privacy.controllerIntro">Verantwortlich für die Verarbeitung personenbezogener Daten ist:</p>
+  <app-operator-address [operator]="operator()" />
+  <p i18n="@@privacy.controllerContact">Für Fragen zum Datenschutz und zur Ausübung deiner Rechte genügt eine E-Mail an die oben genannte Adresse.</p>
+
+  <h2 i18n="@@privacy.hosting">2. Server und Zugriffsprotokolle</h2>
+  <p i18n="@@privacy.hostingBody">Website, App-Schnittstelle und Datenbank laufen auf einem eigenen Server in Deutschland, den wir selbst betreiben; ein Hosting-Dienstleister ist nicht beteiligt.</p>
+  <p i18n="@@privacy.logsBody">Bei jedem Aufruf übermitteln dein Browser oder die App technisch notwendige Angaben: IP-Adresse, Zeitpunkt, aufgerufene Adresse, Statuscode, übertragene Datenmenge und die Kennung des Browsers bzw. der App. In den Zugriffsprotokollen speichern wir die IP-Adresse nur gekürzt (bei IPv4 ohne die letzte Stelle, bei IPv6 nur die ersten 48 Bit). Die Protokolle werden fortlaufend überschrieben.</p>
+  <p i18n="@@privacy.errorLogsBody">Löst eine Anfrage einen Fehler aus, kann das Fehlerprotokoll des Webservers die vollständige IP-Adresse enthalten. Es wird nach spätestens 14 Tagen gelöscht. Die Anwendung selbst protokolliert bei Anmeldung und Kontolöschung nur eine interne Kontonummer, nie E-Mail-Adresse, Standort, Route oder Kommentartexte.</p>
+  <p i18n="@@privacy.logsBasis">Zweck ist der sichere und stabile Betrieb, einschließlich Fehlersuche und Abwehr von Missbrauch. Rechtsgrundlage ist unser berechtigtes Interesse daran (Art. 6 Abs. 1 lit. f DSGVO).</p>
+
+  <h2 i18n="@@privacy.stations">3. Ladestationen suchen</h2>
+  <p i18n="@@privacy.stationsBody">Um dir Ladestationen anzuzeigen, sendet die Website bzw. die App den sichtbaren Kartenausschnitt und deine Filter an unseren Server. In der App kann das dein Standort sein, wenn du die Standortfreigabe von iOS erlaubst. Diese Angaben verwenden wir nur für die jeweilige Anfrage; wir speichern sie nicht und legen keinen Standortverlauf an.</p>
+  <p i18n="@@privacy.stationsBasis">Rechtsgrundlage ist unser berechtigtes Interesse, die gewünschte Suche zu beantworten (Art. 6 Abs. 1 lit. f DSGVO), für den Standort deines Geräts deine Einwilligung über die Standortfreigabe (Art. 6 Abs. 1 lit. a DSGVO). Du kannst sie jederzeit in den Einstellungen von iOS widerrufen.</p>
+  <p i18n="@@privacy.liveBody">Belegung und Preise fragt unser Server bei MobiData BW (Land Baden-Württemberg) und bei transport.data.gouv.fr (Frankreich) ab. Diese Dienste erhalten von uns höchstens einen Kartenausschnitt, nie deine IP-Adresse, eine Kennung oder Kontodaten.</p>
+
+  <h2 i18n="@@privacy.maps">4. Karte und Ortssuche (Apple)</h2>
+  <p i18n="@@privacy.mapsWebBody">Die Karte und die Ortssuche der Website stellt Apple bereit (MapKit JS). Öffnest du die Karte, lädt dein Browser Programmcode, Kartenbilder und Suchergebnisse direkt von Servern von Apple. Apple erhält dabei deine IP-Adresse, die angezeigten Kartenausschnitte und den Text, den du in die Ortssuche eingibst. Wir erhalten diese Angaben nicht und geben Apple keine Konto- oder Sitzungsdaten. Das Kartenskript wird nur auf der Kartenseite geladen.</p>
+  <p i18n="@@privacy.mapsAppBody">Die App nutzt für Karte, Ortssuche, Orte in der Umgebung und Routenberechnung Apple Maps, das Teil von iOS ist.</p>
+  <p i18n="@@privacy.mapsProvider">Anbieter ist Apple Distribution International Ltd., Hollyhill Industrial Estate, Hollyhill, Cork, Irland. Dabei können Daten an Apple Inc. in den USA übermittelt werden. Apple Inc. ist nach dem EU-US Data Privacy Framework zertifiziert; die Übermittlung stützt sich auf den Angemessenheitsbeschluss der EU-Kommission (Art. 45 DSGVO).</p>
+  <p i18n="@@privacy.mapsBasis">Rechtsgrundlage ist unser berechtigtes Interesse an einer funktionierenden Karte (Art. 6 Abs. 1 lit. f DSGVO).</p>
+  <p><a href="https://www.apple.com/legal/privacy/" target="_blank" rel="noopener" i18n="@@privacy.mapsLink">Datenschutzrichtlinie von Apple</a></p>
+
+  <h2 i18n="@@privacy.routes">5. Routenplanung (App)</h2>
+  <p i18n="@@privacy.routesBody">Für die Suche nach Ladestationen entlang einer Route sendet die App eine vereinfachte Fassung der Route an unseren Server. Wir verwenden sie nur für diese Anfrage; sie wird weder gespeichert noch protokolliert. Geplante Routen, gespeicherte Orte und gespeicherte Routen bleiben auf deinem Gerät. Wenn du eine Route teilst, steht sie im Link selbst; deinen aktuellen Standort schreibt die App nie hinein.</p>
+  <p i18n="@@privacy.routesBasis">Rechtsgrundlage ist die Bereitstellung der von dir genutzten Funktion (Art. 6 Abs. 1 lit. b DSGVO).</p>
+
+  <h2 i18n="@@privacy.storage">6. Speicher im Browser und auf deinem Gerät</h2>
+  <p i18n="@@privacy.storageIntro">Die Website legt nur diese Einträge in deinem Browser ab:</p>
+  <ul>
+    <li i18n="@@privacy.storage.session">Cookie „evmap_session“: hält dich nach der Anmeldung angemeldet. Für Skripte nicht lesbar, gültig bis zur Abmeldung, höchstens 12 Stunden.</li>
+    <li i18n="@@privacy.storage.xsrf">Cookie „XSRF-TOKEN“: schützt angemeldete Aktionen vor untergeschobenen Anfragen fremder Websites. Gültig, bis du den Browser schließt.</li>
+    <li i18n="@@privacy.storage.settings">Lokaler Speicher „evmap.stationSettings.v1“: deine Filter und die Auswahl der Ladenetze, damit sie beim nächsten Besuch wieder gelten. Bleibt, bis du die Einstellungen zurücksetzt oder die Website-Daten löschst.</li>
+    <li i18n="@@privacy.storage.signIn">Sitzungsspeicher während einer Anmeldung: zwei Zufallswerte, die den Anmeldeablauf absichern. Sie werden bei der Rückkehr vom Anmeldedienst gelöscht.</li>
+  </ul>
+  <p i18n="@@privacy.storageBasis">Diese Einträge sind für die von dir gewünschten Funktionen unbedingt erforderlich (§ 25 Abs. 2 Nr. 2 TDDDG). Eine Einwilligung ist dafür nicht nötig.</p>
+  <p i18n="@@privacy.storageApp">Die App speichert auf deinem Gerät deine Einstellungen, deinen Suchverlauf, Favoriten, Routen und gespeicherte Orte sowie nach der Anmeldung ein Zugangstoken. Suchverlauf, Routen und Orte verlassen dein Gerät nicht. Sie verschwinden, wenn du sie löschst oder die App entfernst.</p>
+
+  <h2 i18n="@@privacy.account">7. Anmeldung und Benutzerkonto</h2>
+  <p i18n="@@privacy.accountBody">Für Kommentare, Meldungen und Favoriten auf mehreren Geräten brauchst du ein Konto. Du meldest dich mit Apple, Google oder GitHub an; ein Passwort bei uns gibt es nicht. Vom Anmeldedienst erhalten und speichern wir eine Kennung deines dortigen Kontos, deine E-Mail-Adresse und die Angabe, ob der Dienst sie bestätigt hat. Einen Namen fragen wir nicht ab; schickt Apple ihn trotzdem mit, verwerfen wir ihn.</p>
+  <p i18n="@@privacy.accountEmail">Die E-Mail-Adresse verwenden wir nur, um Anmeldungen verschiedener Dienste mit derselben bestätigten Adresse zu einem Konto zusammenzuführen. Wir schreiben dir keine E-Mails, zeigen die Adresse niemandem außer dir und protokollieren sie nicht. Eine von Apple weitergeleitete Adresse („E-Mail-Adresse verbergen“) wird mit nichts verknüpft.</p>
+  <p i18n="@@privacy.accountApple">Bei einer Anmeldung mit Apple speichern wir zusätzlich ein verschlüsseltes Token. Damit widerrufen wir die Anmeldung bei Apple, wenn du dein Konto löschst; das verlangt Apple.</p>
+  <p i18n="@@privacy.accountProviders">Bei der Anmeldung erfährt der jeweilige Dienst, dass du dich bei EVMap anmeldest. Anbieter sind Apple Distribution International Ltd. (Cork, Irland), Google Ireland Limited (Gordon House, Barrow Street, Dublin 4, Irland) und GitHub, Inc. (88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, USA). Bei Google und GitHub können Daten in die USA übermittelt werden; Google LLC und GitHub, Inc. sind nach dem EU-US Data Privacy Framework zertifiziert (Art. 45 DSGVO).</p>
+  <p i18n="@@privacy.accountBasis">Rechtsgrundlage ist die Bereitstellung deines Kontos (Art. 6 Abs. 1 lit. b DSGVO). Wir speichern die Daten, bis du dein Konto löschst.</p>
+
+  <h2 i18n="@@privacy.contributions">8. Deine Beiträge</h2>
+  <ul>
+    <li i18n="@@privacy.contributions.comments">Kommentare zu Ladestationen (Text, optional bezahlter Preis und Erfahrung) sind für alle sichtbar, aber ohne Namen oder Konto. Wir speichern, zu welchem Konto ein Kommentar gehört, damit du ihn bearbeiten und löschen kannst.</li>
+    <li i18n="@@privacy.contributions.reports">Meldungen von Kommentaren und Fehlermeldungen zu Stationen (Grund, optional ein Freitext) sehen die Administratoren, aber nicht, wer gemeldet hat.</li>
+    <li i18n="@@privacy.contributions.blocks">Blockierst du jemanden, gilt das nur für dich; die blockierte Person erfährt davon nichts.</li>
+    <li i18n="@@privacy.contributions.favorites">Favoriten speichern wir mit Konto auf unserem Server, damit du sie auf allen Geräten hast; ohne Konto bleiben sie auf deinem Gerät.</li>
+  </ul>
+  <p i18n="@@privacy.contributionsBasis">Rechtsgrundlage ist die Bereitstellung dieser Funktionen (Art. 6 Abs. 1 lit. b DSGVO), für Moderation und Fehlermeldungen unser berechtigtes Interesse an sicheren Beiträgen und richtigen Stationsdaten (Art. 6 Abs. 1 lit. f DSGVO). Die Daten bleiben gespeichert, bis du sie löschst, die Station aus den Registern verschwindet oder du dein Konto löschst.</p>
+
+  <h2 i18n="@@privacy.backups">9. Datensicherung</h2>
+  <p i18n="@@privacy.backupsBody">Wir sichern die Datenbank jede Nacht verschlüsselt auf einem zweiten, ebenfalls selbst betriebenen Server. Sicherungen bewahren wir höchstens etwa drei Monate auf. Gelöschte Daten können bis dahin in älteren Sicherungen enthalten sein; wir verwenden sie nur, um nach einem Datenverlust den Betrieb wiederherzustellen. Rechtsgrundlage ist unser berechtigtes Interesse an der Verfügbarkeit des Dienstes (Art. 6 Abs. 1 lit. f, Art. 32 DSGVO).</p>
+
+  <h2 i18n="@@privacy.noSharing">10. Kein Tracking, keine Weitergabe</h2>
+  <p i18n="@@privacy.noSharingBody">Wir setzen keine Analyse- oder Tracking-Werkzeuge ein, zeigen keine Werbung und bilden keine Profile. Die App enthält keine Werkzeuge anderer Anbieter zur Analyse oder Fehlerberichterstattung; ihre Protokolle bleiben auf deinem Gerät. Wir verkaufen keine Daten und geben sie nur an die oben genannten Dienste weiter. Eine automatisierte Entscheidungsfindung findet nicht statt.</p>
+  <p i18n="@@privacy.voluntary">Du bist nicht verpflichtet, uns Daten bereitzustellen. Ohne Konto kannst du lediglich keine Beiträge schreiben und Favoriten nicht geräteübergreifend nutzen.</p>
+
+  <h2 i18n="@@privacy.rights">11. Deine Rechte</h2>
+  <p i18n="@@privacy.rightsIntro">Du hast das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung der Verarbeitung (Art. 18) und Datenübertragbarkeit (Art. 20). Eine erteilte Einwilligung kannst du jederzeit mit Wirkung für die Zukunft widerrufen (Art. 7 Abs. 3).</p>
+  <p i18n="@@privacy.rightsSelfService">Deine Daten herunterladen und dein Konto löschen kannst du selbst, auf der Website unter „Mein Konto“ und in der App unter Einstellungen › Konto. Das Löschen wirkt sofort und vollständig; nur ältere Sicherungen enthalten die Daten noch bis zu drei Monate.</p>
+  <p><a routerLink="/account" i18n="@@privacy.accountLink">Zu „Mein Konto“</a></p>
+  <h3 i18n="@@privacy.objection">Widerspruchsrecht</h3>
+  <p i18n="@@privacy.objectionBody">Soweit wir Daten auf Grundlage berechtigter Interessen verarbeiten (Art. 6 Abs. 1 lit. f DSGVO), kannst du aus Gründen, die sich aus deiner besonderen Situation ergeben, jederzeit widersprechen (Art. 21 DSGVO).</p>
+  <h3 i18n="@@privacy.complaint">Beschwerderecht</h3>
+  <p i18n="@@privacy.complaintBody">Du kannst dich bei einer Datenschutz-Aufsichtsbehörde beschweren (Art. 77 DSGVO), etwa bei der Behörde deines Wohnorts.</p>
+
+  <h2 i18n="@@privacy.changes">12. Änderungen</h2>
+  <p i18n="@@privacy.changesBody">Wenn sich EVMap ändert, passen wir diese Datenschutzerklärung an. Es gilt die jeweils hier veröffentlichte Fassung.</p>
+</article>

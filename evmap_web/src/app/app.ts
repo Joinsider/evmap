@@ -3,7 +3,6 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
 import { AuthService } from './core/auth/auth.service';
-import { LegalService } from './core/legal.service';
 
 @Component({
   selector: 'app-root',
@@ -34,16 +33,15 @@ import { LegalService } from './core/legal.service';
       <!-- Each language is its own build under /de/ and /en/; switching loads the page anew. -->
       <a href="/de/" hreflang="de" lang="de">Deutsch</a>
       <a href="/en/" hreflang="en" lang="en">English</a>
-      @if (privacyPolicyUrl(); as url) {
-        <a [href]="url" target="_blank" rel="noopener" i18n="@@footer.privacy">Datenschutz</a>
-      }
+      <!-- On every page, the map included: an Impressum has to be reachable at all times (§ 5 DDG, ADR 0024). -->
+      <a routerLink="/impressum" routerLinkActive="active" i18n="@@footer.imprint">Impressum</a>
+      <a routerLink="/datenschutz" routerLinkActive="active" i18n="@@footer.privacy">Datenschutz</a>
     </footer>
   `,
   styleUrl: './app.scss',
 })
 export class App {
   protected readonly auth = inject(AuthService);
-  protected readonly privacyPolicyUrl = inject(LegalService).privacyPolicyUrl;
   private readonly router = inject(Router);
 
   /** The map fills the space between header and footer; every other page keeps the reading width. */

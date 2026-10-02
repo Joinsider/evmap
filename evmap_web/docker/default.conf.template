@@ -8,11 +8,27 @@ map $http_accept_language $evmap_locale {
     "~^en" en;
 }
 
+# Access log without full IP addresses (ADR 0024): the visitor's address is the last X-Forwarded-For entry, the
+# one the reverse proxy appended (remote_addr is the proxy; earlier entries come from the client and prove nothing). IPv4 loses its last octet, IPv6 keeps its /48 prefix (or less when
+# written compressed), anything else is logged as "-". The privacy policy promises exactly this.
+map $http_x_forwarded_for $evmap_client {
+    "" $remote_addr;
+    "~(?<evmap_last>[^,\s]+)\s*$" $evmap_last;
+}
+map $evmap_client $evmap_client_anon {
+    "~^(?<evmap_v4>\d+\.\d+\.\d+)\.\d+$" $evmap_v4.0;
+    "~^(?<evmap_v6>[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}):" $evmap_v6::;
+    "~^(?<evmap_v6s>[0-9a-fA-F]{1,4}(:[0-9a-fA-F]{1,4})?)::" $evmap_v6s::;
+    default -;
+}
+log_format evmap_anon '$evmap_client_anon [$time_local] "$request" $status $body_bytes_sent $request_time "$http_user_agent"';
+
 server {
     listen 8080;
     server_name _;
     root /usr/share/nginx/html;
     server_tokens off;
+    access_log /var/log/nginx/access.log evmap_anon;
     # Relative Location headers: behind the TLS reverse proxy nginx does not know the public host and port.
     absolute_redirect off;
 
@@ -48,6 +64,14 @@ server {
     location = /route {
         default_type text/html;
         alias /usr/share/nginx/route-notice.html;
+    }
+
+    # Name, address and contact of the operator for the Impressum and the privacy policy (ADR 0024), written at
+    # container start from OPERATOR_*; absent (404) without them. Revalidated, so an address change shows at once.
+    location = /site-operator.json {
+        default_type application/json;
+        alias /tmp/evmap/site-operator.json;
+        expires -1;
     }
 
     location = /healthz {

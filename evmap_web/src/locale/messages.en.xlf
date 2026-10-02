@@ -1093,5 +1093,545 @@
         <target>Charge points without a known price: <ph id="0" equiv="count" disp="count"/></target>
       </segment>
     </unit>
+    <unit id="footer.imprint">
+      <segment>
+        <source>Impressum</source>
+        <target>Legal notice</target>
+      </segment>
+    </unit>
+    <unit id="imprint.title">
+      <segment>
+        <source>Impressum</source>
+        <target>Legal notice (Impressum)</target>
+      </segment>
+    </unit>
+    <unit id="legal.translationNote">
+      <segment>
+        <source>Diese Seite gibt es auch auf Englisch; maßgeblich ist die deutsche Fassung.</source>
+        <target>This page is a translation; the German version is binding.</target>
+      </segment>
+    </unit>
+    <unit id="imprint.provider">
+      <segment>
+        <source>Angaben gemäß § 5 DDG</source>
+        <target>Information pursuant to § 5 DDG</target>
+      </segment>
+    </unit>
+    <unit id="imprint.project">
+      <segment>
+        <source>Über EVMap</source>
+        <target>About EVMap</target>
+      </segment>
+    </unit>
+    <unit id="imprint.projectBody">
+      <segment>
+        <source>EVMap ist ein privates, nicht-kommerzielles Projekt: eine Karte der Ladestationen für Elektroautos in Europa, als Website und als App für iOS. Es gibt keine Werbung und keine kostenpflichtigen Angebote.</source>
+        <target>EVMap is a private, non-commercial project: a map of charging stations for electric cars in Europe, as a website and as an app for iOS. There is no advertising and nothing to pay for.</target>
+      </segment>
+    </unit>
+    <unit id="imprint.liability">
+      <segment>
+        <source>Haftung für Inhalte</source>
+        <target>Liability for content</target>
+      </segment>
+    </unit>
+    <unit id="imprint.liabilityBody">
+      <segment>
+        <source>Die Angaben zu Ladestationen, Belegung und Preisen stammen aus öffentlichen Registern, offenen Datenquellen und von Nutzerinnen und Nutzern. Wir führen sie sorgfältig zusammen, prüfen sie aber nicht im Einzelfall. Für Richtigkeit, Vollständigkeit und Aktualität, insbesondere von Belegung und Preisen, können wir keine Gewähr übernehmen. Maßgeblich ist immer die Angabe an der Ladesäule.</source>
+        <target>Information on charging stations, availability and prices comes from public registers, open data sources and from users. We merge it carefully but do not check every entry. We cannot guarantee that it is correct, complete or up to date, particularly availability and prices. What the charging station itself shows always prevails.</target>
+      </segment>
+    </unit>
+    <unit id="imprint.commentsBody">
+      <segment>
+        <source>Kommentare geben die Meinung ihrer Verfasser wieder. Wenn dir ein rechtswidriger Beitrag auffällt, melde ihn bitte über die Melden-Funktion oder per E-Mail; wir entfernen ihn nach Kenntnis umgehend.</source>
+        <target>Comments reflect the opinion of their authors. If you come across unlawful content, please report it with the report function or by e-mail; we remove it promptly once we know about it.</target>
+      </segment>
+    </unit>
+    <unit id="imprint.linksBody">
+      <segment>
+        <source>Für die Inhalte verlinkter fremder Websites sind ausschließlich deren Betreiber verantwortlich.</source>
+        <target>The operators of linked third-party websites are solely responsible for their content.</target>
+      </segment>
+    </unit>
+    <unit id="imprint.sources">
+      <segment>
+        <source>Datenquellen und Lizenzen</source>
+        <target>Data sources and licences</target>
+      </segment>
+    </unit>
+    <unit id="imprint.sourcesIntro">
+      <segment>
+        <source>Die Quelle jeder Ladestation steht in ihren Details. EVMap verwendet Daten aus:</source>
+        <target>The source of every charging station is shown in its details. EVMap uses data from:</target>
+      </segment>
+    </unit>
+    <unit id="imprint.source.bnetza">
+      <segment>
+        <source>Deutschland: Ladesäulenregister der Bundesnetzagentur (Bundesnetzagentur.de), CC BY 4.0</source>
+        <target>Germany: charging station register of the Bundesnetzagentur (Bundesnetzagentur.de), CC BY 4.0</target>
+      </segment>
+    </unit>
+    <unit id="imprint.source.irve">
+      <segment>
+        <source>Frankreich: Base nationale des IRVE, Etalab / data.gouv.fr, Licence Ouverte</source>
+        <target>France: Base nationale des IRVE, Etalab / data.gouv.fr, Licence Ouverte</target>
+      </segment>
+    </unit>
+    <unit id="imprint.source.diemo">
+      <segment>
+        <source>Schweiz und Liechtenstein: ich-tanke-strom.ch, Bundesamt für Energie (BFE)</source>
+        <target>Switzerland and Liechtenstein: ich-tanke-strom.ch, Swiss Federal Office of Energy (SFOE)</target>
+      </segment>
+    </unit>
+    <unit id="imprint.source.miterd">
+      <segment>
+        <source>Spanien: DGT / MITERD, über den nationalen Zugangspunkt der DGT, CC BY</source>
+        <target>Spain: DGT / MITERD, through the DGT national access point, CC BY</target>
+      </segment>
+    </unit>
+    <unit id="imprint.source.ocm">
+      <segment>
+        <source>Weitere Länder: Open Charge Map und ihre Datenlieferanten, nur Daten unter offenen Lizenzen</source>
+        <target>Other countries: Open Charge Map and its data providers, openly licensed data only</target>
+      </segment>
+    </unit>
+    <unit id="imprint.source.mobidata">
+      <segment>
+        <source>Belegung und Preise in Deutschland: MobiData BW (OCPDB), Datenlizenz Deutschland – Namensnennung – Version 2.0</source>
+        <target>Availability and prices in Germany: MobiData BW (OCPDB), Data licence Germany – attribution – version 2.0</target>
+      </segment>
+    </unit>
+    <unit id="imprint.source.irveLive">
+      <segment>
+        <source>Belegung in Frankreich: transport.data.gouv.fr, Licence Ouverte</source>
+        <target>Availability in France: transport.data.gouv.fr, Licence Ouverte</target>
+      </segment>
+    </unit>
+    <unit id="imprint.source.maps">
+      <segment>
+        <source>Karte und Ortssuche: Apple Maps</source>
+        <target>Map and place search: Apple Maps</target>
+      </segment>
+    </unit>
+    <unit id="imprint.privacy">
+      <segment>
+        <source>Datenschutz</source>
+        <target>Privacy</target>
+      </segment>
+    </unit>
+    <unit id="imprint.privacyLink">
+      <segment>
+        <source>Zur Datenschutzerklärung</source>
+        <target>Go to the privacy policy</target>
+      </segment>
+    </unit>
+    <unit id="legal.email">
+      <segment>
+        <source>E-Mail:</source>
+        <target>E-mail:</target>
+      </segment>
+    </unit>
+    <unit id="legal.phone">
+      <segment>
+        <source>Telefon:</source>
+        <target>Phone:</target>
+      </segment>
+    </unit>
+    <unit id="legal.operatorMissing">
+      <segment>
+        <source>Die Angaben zum Betreiber konnten nicht geladen werden.</source>
+        <target>The operator details could not be loaded.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.title">
+      <segment>
+        <source>Datenschutzerklärung</source>
+        <target>Privacy policy</target>
+      </segment>
+    </unit>
+    <unit id="privacy.asOf">
+      <segment>
+        <source>Stand: 2. Oktober 2026</source>
+        <target>As of 2 October 2026</target>
+      </segment>
+    </unit>
+    <unit id="privacy.scope">
+      <segment>
+        <source>Diese Datenschutzerklärung gilt für die Website von EVMap und für die EVMap-App für iOS.</source>
+        <target>This privacy policy applies to the EVMap website and to the EVMap app for iOS.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.summary">
+      <segment>
+        <source>Das Wichtigste in Kürze</source>
+        <target>In brief</target>
+      </segment>
+    </unit>
+    <unit id="privacy.summary.noAccount">
+      <segment>
+        <source>Karte, Suche und Stationsdetails funktionieren ohne Konto.</source>
+        <target>The map, search and station details work without an account.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.summary.noTracking">
+      <segment>
+        <source>Kein Tracking, keine Analyse-Werkzeuge, keine Werbung. Wir speichern nur, was für die Funktionen nötig ist, deshalb gibt es auch kein Cookie-Banner.</source>
+        <target>No tracking, no analytics, no advertising. We only store what the features need, which is why there is no cookie banner either.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.summary.noLocation">
+      <segment>
+        <source>Deinen Standort und deine Routen speichern wir nicht.</source>
+        <target>We do not store your location or your routes.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.summary.noName">
+      <segment>
+        <source>Wenn du dich anmeldest, kennen wir keinen Namen, nur eine Kennung des Anmeldedienstes und deine E-Mail-Adresse.</source>
+        <target>When you sign in, we do not know your name, only an identifier from the sign-in service and your e-mail address.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.summary.selfService">
+      <segment>
+        <source>Du kannst deine Daten jederzeit selbst herunterladen und dein Konto selbst löschen.</source>
+        <target>You can download your data and delete your account yourself at any time.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.controller">
+      <segment>
+        <source>1. Verantwortlicher</source>
+        <target>1. Controller</target>
+      </segment>
+    </unit>
+    <unit id="privacy.controllerIntro">
+      <segment>
+        <source>Verantwortlich für die Verarbeitung personenbezogener Daten ist:</source>
+        <target>The controller responsible for processing personal data is:</target>
+      </segment>
+    </unit>
+    <unit id="privacy.controllerContact">
+      <segment>
+        <source>Für Fragen zum Datenschutz und zur Ausübung deiner Rechte genügt eine E-Mail an die oben genannte Adresse.</source>
+        <target>For questions about privacy and to exercise your rights, an e-mail to the address above is all it takes.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.hosting">
+      <segment>
+        <source>2. Server und Zugriffsprotokolle</source>
+        <target>2. Server and access logs</target>
+      </segment>
+    </unit>
+    <unit id="privacy.hostingBody">
+      <segment>
+        <source>Website, App-Schnittstelle und Datenbank laufen auf einem eigenen Server in Deutschland, den wir selbst betreiben; ein Hosting-Dienstleister ist nicht beteiligt.</source>
+        <target>The website, the app interface and the database run on our own server in Germany, which we operate ourselves; no hosting provider is involved.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.logsBody">
+      <segment>
+        <source>Bei jedem Aufruf übermitteln dein Browser oder die App technisch notwendige Angaben: IP-Adresse, Zeitpunkt, aufgerufene Adresse, Statuscode, übertragene Datenmenge und die Kennung des Browsers bzw. der App. In den Zugriffsprotokollen speichern wir die IP-Adresse nur gekürzt (bei IPv4 ohne die letzte Stelle, bei IPv6 nur die ersten 48 Bit). Die Protokolle werden fortlaufend überschrieben.</source>
+        <target>With every request, your browser or the app transmits technically necessary information: IP address, time, requested address, status code, amount of data transferred and the identifier of the browser or app. In the access logs we store the IP address only in shortened form (IPv4 without the last part, IPv6 only the first 48 bits). The logs are overwritten continuously.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.errorLogsBody">
+      <segment>
+        <source>Löst eine Anfrage einen Fehler aus, kann das Fehlerprotokoll des Webservers die vollständige IP-Adresse enthalten. Es wird nach spätestens 14 Tagen gelöscht. Die Anwendung selbst protokolliert bei Anmeldung und Kontolöschung nur eine interne Kontonummer, nie E-Mail-Adresse, Standort, Route oder Kommentartexte.</source>
+        <target>If a request causes an error, the web server's error log may contain the full IP address. It is deleted after 14 days at the latest. When you sign in or delete your account, the application itself logs only an internal account number, never an e-mail address, location, route or comment text.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.logsBasis">
+      <segment>
+        <source>Zweck ist der sichere und stabile Betrieb, einschließlich Fehlersuche und Abwehr von Missbrauch. Rechtsgrundlage ist unser berechtigtes Interesse daran (Art. 6 Abs. 1 lit. f DSGVO).</source>
+        <target>The purpose is secure and stable operation, including troubleshooting and preventing abuse. The legal basis is our legitimate interest in this (Art. 6(1)(f) GDPR).</target>
+      </segment>
+    </unit>
+    <unit id="privacy.stations">
+      <segment>
+        <source>3. Ladestationen suchen</source>
+        <target>3. Searching for charging stations</target>
+      </segment>
+    </unit>
+    <unit id="privacy.stationsBody">
+      <segment>
+        <source>Um dir Ladestationen anzuzeigen, sendet die Website bzw. die App den sichtbaren Kartenausschnitt und deine Filter an unseren Server. In der App kann das dein Standort sein, wenn du die Standortfreigabe von iOS erlaubst. Diese Angaben verwenden wir nur für die jeweilige Anfrage; wir speichern sie nicht und legen keinen Standortverlauf an.</source>
+        <target>To show you charging stations, the website or the app sends the visible map area and your filters to our server. In the app this can be your location, if you allow iOS location access. We use this information only for the request at hand; we do not store it and keep no location history.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.stationsBasis">
+      <segment>
+        <source>Rechtsgrundlage ist unser berechtigtes Interesse, die gewünschte Suche zu beantworten (Art. 6 Abs. 1 lit. f DSGVO), für den Standort deines Geräts deine Einwilligung über die Standortfreigabe (Art. 6 Abs. 1 lit. a DSGVO). Du kannst sie jederzeit in den Einstellungen von iOS widerrufen.</source>
+        <target>The legal basis is our legitimate interest in answering the search you asked for (Art. 6(1)(f) GDPR), and for your device's location your consent through location access (Art. 6(1)(a) GDPR). You can withdraw it at any time in the iOS settings.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.liveBody">
+      <segment>
+        <source>Belegung und Preise fragt unser Server bei MobiData BW (Land Baden-Württemberg) und bei transport.data.gouv.fr (Frankreich) ab. Diese Dienste erhalten von uns höchstens einen Kartenausschnitt, nie deine IP-Adresse, eine Kennung oder Kontodaten.</source>
+        <target>Our server fetches availability and prices from MobiData BW (State of Baden-Württemberg) and from transport.data.gouv.fr (France). These services receive at most a map area from us, never your IP address, an identifier or account data.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.maps">
+      <segment>
+        <source>4. Karte und Ortssuche (Apple)</source>
+        <target>4. Map and place search (Apple)</target>
+      </segment>
+    </unit>
+    <unit id="privacy.mapsWebBody">
+      <segment>
+        <source>Die Karte und die Ortssuche der Website stellt Apple bereit (MapKit JS). Öffnest du die Karte, lädt dein Browser Programmcode, Kartenbilder und Suchergebnisse direkt von Servern von Apple. Apple erhält dabei deine IP-Adresse, die angezeigten Kartenausschnitte und den Text, den du in die Ortssuche eingibst. Wir erhalten diese Angaben nicht und geben Apple keine Konto- oder Sitzungsdaten. Das Kartenskript wird nur auf der Kartenseite geladen.</source>
+        <target>The website's map and place search are provided by Apple (MapKit JS). When you open the map, your browser loads program code, map images and search results directly from Apple's servers. Apple receives your IP address, the map areas shown and the text you type into the place search. We do not receive this information and give Apple no account or session data. The map script is loaded only on the map page.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.mapsAppBody">
+      <segment>
+        <source>Die App nutzt für Karte, Ortssuche, Orte in der Umgebung und Routenberechnung Apple Maps, das Teil von iOS ist.</source>
+        <target>For the map, place search, nearby places and route calculation, the app uses Apple Maps, which is part of iOS.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.mapsProvider">
+      <segment>
+        <source>Anbieter ist Apple Distribution International Ltd., Hollyhill Industrial Estate, Hollyhill, Cork, Irland. Dabei können Daten an Apple Inc. in den USA übermittelt werden. Apple Inc. ist nach dem EU-US Data Privacy Framework zertifiziert; die Übermittlung stützt sich auf den Angemessenheitsbeschluss der EU-Kommission (Art. 45 DSGVO).</source>
+        <target>The provider is Apple Distribution International Ltd., Hollyhill Industrial Estate, Hollyhill, Cork, Ireland. Data may be transferred to Apple Inc. in the USA. Apple Inc. is certified under the EU-US Data Privacy Framework; the transfer is based on the European Commission's adequacy decision (Art. 45 GDPR).</target>
+      </segment>
+    </unit>
+    <unit id="privacy.mapsBasis">
+      <segment>
+        <source>Rechtsgrundlage ist unser berechtigtes Interesse an einer funktionierenden Karte (Art. 6 Abs. 1 lit. f DSGVO).</source>
+        <target>The legal basis is our legitimate interest in a working map (Art. 6(1)(f) GDPR).</target>
+      </segment>
+    </unit>
+    <unit id="privacy.mapsLink">
+      <segment>
+        <source>Datenschutzrichtlinie von Apple</source>
+        <target>Apple's privacy policy</target>
+      </segment>
+    </unit>
+    <unit id="privacy.routes">
+      <segment>
+        <source>5. Routenplanung (App)</source>
+        <target>5. Route planning (app)</target>
+      </segment>
+    </unit>
+    <unit id="privacy.routesBody">
+      <segment>
+        <source>Für die Suche nach Ladestationen entlang einer Route sendet die App eine vereinfachte Fassung der Route an unseren Server. Wir verwenden sie nur für diese Anfrage; sie wird weder gespeichert noch protokolliert. Geplante Routen, gespeicherte Orte und gespeicherte Routen bleiben auf deinem Gerät. Wenn du eine Route teilst, steht sie im Link selbst; deinen aktuellen Standort schreibt die App nie hinein.</source>
+        <target>To search for charging stations along a route, the app sends a simplified version of the route to our server. We use it only for that request; it is neither stored nor logged. Planned routes, saved places and saved routes stay on your device. When you share a route, it is contained in the link itself; the app never writes your current location into it.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.routesBasis">
+      <segment>
+        <source>Rechtsgrundlage ist die Bereitstellung der von dir genutzten Funktion (Art. 6 Abs. 1 lit. b DSGVO).</source>
+        <target>The legal basis is providing the feature you use (Art. 6(1)(b) GDPR).</target>
+      </segment>
+    </unit>
+    <unit id="privacy.storage">
+      <segment>
+        <source>6. Speicher im Browser und auf deinem Gerät</source>
+        <target>6. Storage in your browser and on your device</target>
+      </segment>
+    </unit>
+    <unit id="privacy.storageIntro">
+      <segment>
+        <source>Die Website legt nur diese Einträge in deinem Browser ab:</source>
+        <target>The website stores only these entries in your browser:</target>
+      </segment>
+    </unit>
+    <unit id="privacy.storage.session">
+      <segment>
+        <source>Cookie „evmap_session“: hält dich nach der Anmeldung angemeldet. Für Skripte nicht lesbar, gültig bis zur Abmeldung, höchstens 12 Stunden.</source>
+        <target>Cookie “evmap_session”: keeps you signed in after signing in. Not readable by scripts, valid until you sign out, at most 12 hours.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.storage.xsrf">
+      <segment>
+        <source>Cookie „XSRF-TOKEN“: schützt angemeldete Aktionen vor untergeschobenen Anfragen fremder Websites. Gültig, bis du den Browser schließt.</source>
+        <target>Cookie “XSRF-TOKEN”: protects signed-in actions against requests forged by other websites. Valid until you close the browser.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.storage.settings">
+      <segment>
+        <source>Lokaler Speicher „evmap.stationSettings.v1“: deine Filter und die Auswahl der Ladenetze, damit sie beim nächsten Besuch wieder gelten. Bleibt, bis du die Einstellungen zurücksetzt oder die Website-Daten löschst.</source>
+        <target>Local storage “evmap.stationSettings.v1”: your filters and your choice of charging networks, so they apply again on your next visit. Kept until you reset the settings or clear the website data.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.storage.signIn">
+      <segment>
+        <source>Sitzungsspeicher während einer Anmeldung: zwei Zufallswerte, die den Anmeldeablauf absichern. Sie werden bei der Rückkehr vom Anmeldedienst gelöscht.</source>
+        <target>Session storage during a sign-in: two random values that secure the sign-in flow. They are deleted when you return from the sign-in service.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.storageBasis">
+      <segment>
+        <source>Diese Einträge sind für die von dir gewünschten Funktionen unbedingt erforderlich (§ 25 Abs. 2 Nr. 2 TDDDG). Eine Einwilligung ist dafür nicht nötig.</source>
+        <target>These entries are strictly necessary for the features you asked for (§ 25(2) no. 2 TDDDG). No consent is needed for them.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.storageApp">
+      <segment>
+        <source>Die App speichert auf deinem Gerät deine Einstellungen, deinen Suchverlauf, Favoriten, Routen und gespeicherte Orte sowie nach der Anmeldung ein Zugangstoken. Suchverlauf, Routen und Orte verlassen dein Gerät nicht. Sie verschwinden, wenn du sie löschst oder die App entfernst.</source>
+        <target>On your device, the app stores your settings, your search history, favourites, routes and saved places and, after signing in, an access token. Search history, routes and places never leave your device. They disappear when you delete them or remove the app.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.account">
+      <segment>
+        <source>7. Anmeldung und Benutzerkonto</source>
+        <target>7. Sign-in and user account</target>
+      </segment>
+    </unit>
+    <unit id="privacy.accountBody">
+      <segment>
+        <source>Für Kommentare, Meldungen und Favoriten auf mehreren Geräten brauchst du ein Konto. Du meldest dich mit Apple, Google oder GitHub an; ein Passwort bei uns gibt es nicht. Vom Anmeldedienst erhalten und speichern wir eine Kennung deines dortigen Kontos, deine E-Mail-Adresse und die Angabe, ob der Dienst sie bestätigt hat. Einen Namen fragen wir nicht ab; schickt Apple ihn trotzdem mit, verwerfen wir ihn.</source>
+        <target>You need an account for comments, reports and favourites across several devices. You sign in with Apple, Google or GitHub; there is no password with us. From the sign-in service we receive and store an identifier of your account there, your e-mail address and whether the service has verified it. We do not ask for a name; if Apple sends one anyway, we discard it.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.accountEmail">
+      <segment>
+        <source>Die E-Mail-Adresse verwenden wir nur, um Anmeldungen verschiedener Dienste mit derselben bestätigten Adresse zu einem Konto zusammenzuführen. Wir schreiben dir keine E-Mails, zeigen die Adresse niemandem außer dir und protokollieren sie nicht. Eine von Apple weitergeleitete Adresse („E-Mail-Adresse verbergen“) wird mit nichts verknüpft.</source>
+        <target>We use the e-mail address only to merge sign-ins from different services that share the same verified address into one account. We do not send you e-mails, show the address to no one but you and do not log it. An address forwarded by Apple (“Hide My Email”) is linked to nothing.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.accountApple">
+      <segment>
+        <source>Bei einer Anmeldung mit Apple speichern wir zusätzlich ein verschlüsseltes Token. Damit widerrufen wir die Anmeldung bei Apple, wenn du dein Konto löschst; das verlangt Apple.</source>
+        <target>When you sign in with Apple, we also store an encrypted token. We use it to revoke the sign-in at Apple when you delete your account; Apple requires this.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.accountProviders">
+      <segment>
+        <source>Bei der Anmeldung erfährt der jeweilige Dienst, dass du dich bei EVMap anmeldest. Anbieter sind Apple Distribution International Ltd. (Cork, Irland), Google Ireland Limited (Gordon House, Barrow Street, Dublin 4, Irland) und GitHub, Inc. (88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, USA). Bei Google und GitHub können Daten in die USA übermittelt werden; Google LLC und GitHub, Inc. sind nach dem EU-US Data Privacy Framework zertifiziert (Art. 45 DSGVO).</source>
+        <target>When you sign in, the respective service learns that you are signing in to EVMap. The providers are Apple Distribution International Ltd. (Cork, Ireland), Google Ireland Limited (Gordon House, Barrow Street, Dublin 4, Ireland) and GitHub, Inc. (88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, USA). With Google and GitHub, data may be transferred to the USA; Google LLC and GitHub, Inc. are certified under the EU-US Data Privacy Framework (Art. 45 GDPR).</target>
+      </segment>
+    </unit>
+    <unit id="privacy.accountBasis">
+      <segment>
+        <source>Rechtsgrundlage ist die Bereitstellung deines Kontos (Art. 6 Abs. 1 lit. b DSGVO). Wir speichern die Daten, bis du dein Konto löschst.</source>
+        <target>The legal basis is providing your account (Art. 6(1)(b) GDPR). We store the data until you delete your account.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.contributions">
+      <segment>
+        <source>8. Deine Beiträge</source>
+        <target>8. Your contributions</target>
+      </segment>
+    </unit>
+    <unit id="privacy.contributions.comments">
+      <segment>
+        <source>Kommentare zu Ladestationen (Text, optional bezahlter Preis und Erfahrung) sind für alle sichtbar, aber ohne Namen oder Konto. Wir speichern, zu welchem Konto ein Kommentar gehört, damit du ihn bearbeiten und löschen kannst.</source>
+        <target>Comments on charging stations (text, optionally the price paid and your experience) are visible to everyone, but without a name or account. We store which account a comment belongs to so that you can edit and delete it.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.contributions.reports">
+      <segment>
+        <source>Meldungen von Kommentaren und Fehlermeldungen zu Stationen (Grund, optional ein Freitext) sehen die Administratoren, aber nicht, wer gemeldet hat.</source>
+        <target>Reports of comments and error reports on stations (reason, optionally a free text) are seen by the administrators, but not who reported them.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.contributions.blocks">
+      <segment>
+        <source>Blockierst du jemanden, gilt das nur für dich; die blockierte Person erfährt davon nichts.</source>
+        <target>If you block someone, it applies only to you; the blocked person is not told.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.contributions.favorites">
+      <segment>
+        <source>Favoriten speichern wir mit Konto auf unserem Server, damit du sie auf allen Geräten hast; ohne Konto bleiben sie auf deinem Gerät.</source>
+        <target>With an account, we store favourites on our server so you have them on all your devices; without an account they stay on your device.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.contributionsBasis">
+      <segment>
+        <source>Rechtsgrundlage ist die Bereitstellung dieser Funktionen (Art. 6 Abs. 1 lit. b DSGVO), für Moderation und Fehlermeldungen unser berechtigtes Interesse an sicheren Beiträgen und richtigen Stationsdaten (Art. 6 Abs. 1 lit. f DSGVO). Die Daten bleiben gespeichert, bis du sie löschst, die Station aus den Registern verschwindet oder du dein Konto löschst.</source>
+        <target>The legal basis is providing these features (Art. 6(1)(b) GDPR), and for moderation and error reports our legitimate interest in safe contributions and correct station data (Art. 6(1)(f) GDPR). The data is kept until you delete it, the station disappears from the registers or you delete your account.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.backups">
+      <segment>
+        <source>9. Datensicherung</source>
+        <target>9. Backups</target>
+      </segment>
+    </unit>
+    <unit id="privacy.backupsBody">
+      <segment>
+        <source>Wir sichern die Datenbank jede Nacht verschlüsselt auf einem zweiten, ebenfalls selbst betriebenen Server. Sicherungen bewahren wir höchstens etwa drei Monate auf. Gelöschte Daten können bis dahin in älteren Sicherungen enthalten sein; wir verwenden sie nur, um nach einem Datenverlust den Betrieb wiederherzustellen. Rechtsgrundlage ist unser berechtigtes Interesse an der Verfügbarkeit des Dienstes (Art. 6 Abs. 1 lit. f, Art. 32 DSGVO).</source>
+        <target>Every night we back up the database, encrypted, to a second server that we also operate ourselves. We keep backups for about three months at most. Deleted data may remain in older backups until then; we use them only to restore operation after a data loss. The legal basis is our legitimate interest in the availability of the service (Art. 6(1)(f), Art. 32 GDPR).</target>
+      </segment>
+    </unit>
+    <unit id="privacy.noSharing">
+      <segment>
+        <source>10. Kein Tracking, keine Weitergabe</source>
+        <target>10. No tracking, no sharing</target>
+      </segment>
+    </unit>
+    <unit id="privacy.noSharingBody">
+      <segment>
+        <source>Wir setzen keine Analyse- oder Tracking-Werkzeuge ein, zeigen keine Werbung und bilden keine Profile. Die App enthält keine Werkzeuge anderer Anbieter zur Analyse oder Fehlerberichterstattung; ihre Protokolle bleiben auf deinem Gerät. Wir verkaufen keine Daten und geben sie nur an die oben genannten Dienste weiter. Eine automatisierte Entscheidungsfindung findet nicht statt.</source>
+        <target>We use no analytics or tracking tools, show no advertising and build no profiles. The app contains no third-party analytics or crash-reporting tools; its logs stay on your device. We do not sell data and share it only with the services named above. There is no automated decision-making.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.voluntary">
+      <segment>
+        <source>Du bist nicht verpflichtet, uns Daten bereitzustellen. Ohne Konto kannst du lediglich keine Beiträge schreiben und Favoriten nicht geräteübergreifend nutzen.</source>
+        <target>You are not obliged to provide us with any data. Without an account, you just cannot write contributions or use favourites across devices.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.rights">
+      <segment>
+        <source>11. Deine Rechte</source>
+        <target>11. Your rights</target>
+      </segment>
+    </unit>
+    <unit id="privacy.rightsIntro">
+      <segment>
+        <source>Du hast das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung der Verarbeitung (Art. 18) und Datenübertragbarkeit (Art. 20). Eine erteilte Einwilligung kannst du jederzeit mit Wirkung für die Zukunft widerrufen (Art. 7 Abs. 3).</source>
+        <target>You have the right of access (Art. 15 GDPR), rectification (Art. 16), erasure (Art. 17), restriction of processing (Art. 18) and data portability (Art. 20). You can withdraw consent you have given at any time with effect for the future (Art. 7(3)).</target>
+      </segment>
+    </unit>
+    <unit id="privacy.rightsSelfService">
+      <segment>
+        <source>Deine Daten herunterladen und dein Konto löschen kannst du selbst, auf der Website unter „Mein Konto“ und in der App unter Einstellungen › Konto. Das Löschen wirkt sofort und vollständig; nur ältere Sicherungen enthalten die Daten noch bis zu drei Monate.</source>
+        <target>You can download your data and delete your account yourself: on the website under “My account”, in the app under Settings › Account. Deletion takes effect immediately and completely; only older backups still contain the data for up to three months.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.accountLink">
+      <segment>
+        <source>Zu „Mein Konto“</source>
+        <target>Go to “My account”</target>
+      </segment>
+    </unit>
+    <unit id="privacy.objection">
+      <segment>
+        <source>Widerspruchsrecht</source>
+        <target>Right to object</target>
+      </segment>
+    </unit>
+    <unit id="privacy.objectionBody">
+      <segment>
+        <source>Soweit wir Daten auf Grundlage berechtigter Interessen verarbeiten (Art. 6 Abs. 1 lit. f DSGVO), kannst du aus Gründen, die sich aus deiner besonderen Situation ergeben, jederzeit widersprechen (Art. 21 DSGVO).</source>
+        <target>Where we process data on the basis of legitimate interests (Art. 6(1)(f) GDPR), you can object at any time on grounds relating to your particular situation (Art. 21 GDPR).</target>
+      </segment>
+    </unit>
+    <unit id="privacy.complaint">
+      <segment>
+        <source>Beschwerderecht</source>
+        <target>Right to lodge a complaint</target>
+      </segment>
+    </unit>
+    <unit id="privacy.complaintBody">
+      <segment>
+        <source>Du kannst dich bei einer Datenschutz-Aufsichtsbehörde beschweren (Art. 77 DSGVO), etwa bei der Behörde deines Wohnorts.</source>
+        <target>You can lodge a complaint with a data protection supervisory authority (Art. 77 GDPR), for example the authority where you live.</target>
+      </segment>
+    </unit>
+    <unit id="privacy.changes">
+      <segment>
+        <source>12. Änderungen</source>
+        <target>12. Changes</target>
+      </segment>
+    </unit>
+    <unit id="privacy.changesBody">
+      <segment>
+        <source>Wenn sich EVMap ändert, passen wir diese Datenschutzerklärung an. Es gilt die jeweils hier veröffentlichte Fassung.</source>
+        <target>When EVMap changes, we adapt this privacy policy. The version published here applies.</target>
+      </segment>
+    </unit>
   </file>
 </xliff>

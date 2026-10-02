@@ -103,6 +103,20 @@ services:
       # Associated domain for the iOS app's HTTPS sign-in callback; empty serves no
       # apple-app-site-association (the iOS app then cannot use Google/GitHub sign-in).
       APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+      # Impressum and privacy policy (ADR 0024, docs/operations/legal-pages.md): the operator's name, postal
+      # address and e-mail, kept out of the repository. Without OPERATOR_NAME both pages say the details are missing.
+      OPERATOR_NAME: ${OPERATOR_NAME:-}
+      OPERATOR_STREET: ${OPERATOR_STREET:-}
+      OPERATOR_CITY: ${OPERATOR_CITY:-}
+      OPERATOR_COUNTRY: ${OPERATOR_COUNTRY:-Deutschland}
+      OPERATOR_EMAIL: ${OPERATOR_EMAIL:-}
+      OPERATOR_PHONE: ${OPERATOR_PHONE:-}
+    # The access log holds shortened IP addresses only (ADR 0024); rotation keeps it from growing without bound.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "${WEB_PORT:-8081}:8080"
     healthcheck:

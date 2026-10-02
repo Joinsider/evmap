@@ -8,13 +8,13 @@ import {
   BlockedAuthor,
   Contributions,
   GeoBounds,
-  Legal,
   MapToken,
   Operator,
   ProviderToken,
   ReportedComment,
   ReportedStation,
   SignInProvider,
+  SiteOperator,
   StationAvailability,
   StationChargePoints,
   StationComment,
@@ -77,8 +77,8 @@ export class RestEvmapApi extends EvmapApi {
     return this.http.delete<void>(`/api/v1/me/blocks/${encodeURIComponent(id)}`);
   }
 
-  legal(): Observable<Legal> {
-    return this.http.get<Legal>('/api/v1/legal');
+  siteOperator(): Observable<SiteOperator> {
+    return this.http.get<SiteOperator>('/site-operator.json');
   }
 
   adminReports(): Observable<ReportedComment[]> {

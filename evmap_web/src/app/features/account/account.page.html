@@ -110,9 +110,7 @@
   @if (exportFailed()) {
     <p class="error" role="alert" i18n="@@account.exportFailed">Der Export ist fehlgeschlagen. Bitte versuche es später erneut.</p>
   }
-  @if (privacyPolicyUrl(); as url) {
-    <p><a [href]="url" target="_blank" rel="noopener" i18n="@@account.privacy">Datenschutzerklärung</a></p>
-  }
+  <p><a routerLink="/datenschutz" i18n="@@account.privacy">Datenschutzerklärung</a></p>
 </section>
 
 <section class="card danger-zone" aria-labelledby="delete-heading">

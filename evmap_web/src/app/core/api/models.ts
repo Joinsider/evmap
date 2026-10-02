@@ -108,9 +108,15 @@ export interface BlockedAuthor {
   createdAt: string;
 }
 
-export interface Legal {
-  /** Absent when the operator has not configured one. */
-  privacyPolicyUrl?: string;
+/** Who runs this site, for the Impressum and the privacy policy (ADR 0024). Set per deployment, never in the code. */
+export interface SiteOperator {
+  name: string;
+  street: string;
+  /** Postcode and town, as it is written on a letter. */
+  city: string;
+  country: string;
+  email: string;
+  phone?: string;
 }
 
 export type SyncRunStatus = 'RUNNING' | 'SUCCEEDED' | 'PARTIAL' | 'FAILED' | 'SKIPPED';

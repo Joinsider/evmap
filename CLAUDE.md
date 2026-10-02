@@ -293,7 +293,12 @@ verifier and `state` of a running sign-in go to `sessionStorage`. The admin rout
 Every user-facing string is marked for `@angular/localize` (German source, `messages.en.xlf`), and a
 missing translation fails the production build. The container's nginx serves `/de/` and `/en/`,
 redirects everything else by `Accept-Language`, and proxies `/api/**` to the API on the same origin —
-so there is no CORS configuration, and there must not be one. Its CSP opens `https://cdn.apple-mapkit.com` and
+so there is no CORS configuration, and there must not be one.
+Impressum and privacy policy are pages of the app (`features/legal`, `/impressum`, `/datenschutz`, ADR 0024), linked
+from the footer on every page; the operator's name and address come from the web container's `OPERATOR_*`
+environment via `/site-operator.json`, never from the code. The privacy page is the readable form of
+`docs/privacy/data-processing.md` and covers the iOS app too — **change both together**. The web container's
+access log keeps only shortened IP addresses (`evmap_anon`), which the policy promises. Its CSP opens `https://cdn.apple-mapkit.com` and
 `https://*.apple-mapkit.com` (Apple's documented MapKit JS policy) and nothing else.
 
 ## iOS architecture
