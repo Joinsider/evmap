@@ -123,9 +123,10 @@ public class AvailabilityService {
      * Asks every provider that claims one of {@code countryCodes} and merges their answers.
      * <p>
      * A provider that throws is contained rather than propagated: one live source failing must cost
-     * its own coverage and nothing else, the same containment ADR 0013 gives sync sources. The first
-     * provider to report an EVSE-ID wins, which matters only once a country has two providers and is
-     * then resolved by registration order — deliberately left simple until a second one exists.
+     * its own coverage and nothing else, the same containment ADR 0013 gives sync sources. Where two
+     * providers report the same EVSE-ID, the newer observation wins (ADR 0015, "Mobilithek (L5)"):
+     * MobiData BW re-publishes some of the operators' own Mobilithek feeds with a delay, and which
+     * provider is consulted first says nothing about which answer is current.
      * <p>
      * Only the identifiers in {@code wanted} are kept. A provider may answer with far more than the
      * area holds — the French consolidation has no coordinates and answers with the whole country —
@@ -140,7 +141,8 @@ public class AvailabilityService {
                         cache.get(AvailabilityCache.key(provider.source(), bounds), () -> provider.fetch(bounds));
                 for (ChargePointAvailability availability : reported)
                     if (availability.evseId() != null && wanted.contains(availability.evseId()))
-                        merged.putIfAbsent(availability.evseId(), new Reported(availability, provider.attribution()));
+                        merged.merge(availability.evseId(), new Reported(availability, creditFor(provider, availability)),
+                                AvailabilityService::newer);
             } catch (RuntimeException e) {
                 log.warn("Availability provider {} failed for bounds {} — that area answers UNKNOWN",
                         provider.source(), bounds, e);
@@ -151,6 +153,22 @@ public class AvailabilityService {
 
     /** One provider's answer for one charge point, kept with the credit its licence requires. */
     private record Reported(ChargePointAvailability availability, Attribution source) {
+    }
+
+    private static Attribution creditFor(AvailabilityProvider provider, ChargePointAvailability availability) {
+        return availability.attribution() != null ? availability.attribution() : provider.attribution();
+    }
+
+    /**
+     * The more recent of two answers for one charge point. An answer without a timestamp loses to one
+     * with; on a tie the one already held stays, so the outcome does not depend on hash order.
+     */
+    private static Reported newer(Reported held, Reported candidate) {
+        Instant heldAt = held.availability().observedAt();
+        Instant candidateAt = candidate.availability().observedAt();
+        if (candidateAt == null) return held;
+        if (heldAt == null) return candidate;
+        return candidateAt.isAfter(heldAt) ? candidate : held;
     }
 
     private static Set<String> wanted(List<ChargePointDirectory.KnownChargePoint> chargePoints) {

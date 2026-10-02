@@ -1,7 +1,7 @@
 # 15. Live availability: national access points first, TomTom as fallback
 
-- Status: Accepted — MobiData BW and France implemented; TomTom rejected; Mobilithek blocked on registration
-- Date: 2026-08-03, revised 2026-08-24, 2026-09-28
+- Status: Accepted — MobiData BW, France and the Mobilithek (L5) implemented; TomTom rejected
+- Date: 2026-08-03, revised 2026-08-24, 2026-09-28, 2026-10-02
 - Deciders: Johannes Popp
 
 > **Revision 2026-08-24.** The first revision of this ADR was desk research; nothing had been checked
@@ -13,6 +13,9 @@
 > exist; TomTom was checked and cannot be used under the EVSE-ID rule; the Mobilithek was surveyed and is
 > blocked on organisation registration. See [France](#france-2026-09-28),
 > [TomTom](#tomtom-2026-09-28) and [Mobilithek survey](#mobilithek-survey-2026-09-28).
+>
+> **Revision 2026-10-02.** The organisation is approved; the Mobilithek is built as gap filler L5. See
+> [Mobilithek (L5)](#mobilithek-l5-2026-10-02).
 
 ## Context
 
@@ -209,8 +212,7 @@ Being over the free quota must be a logged, healthy state, not an incident.
    from several CPOs, and the cheapest way to build the whole mechanism against real data.
 2. ~~**TomTom fallback**~~ — rejected 2026-09-28: no EVSE-ID in the response, see [TomTom](#tomtom-2026-09-28).
 3. **France** — done 2026-09-28, see [France](#france-2026-09-28).
-4. **Mobilithek** for Germany — DATEX II is mandatory since 14.04.2026, but subscribing needs a
-   registered organisation. Blocked; see [Mobilithek survey](#mobilithek-survey-2026-09-28).
+4. **Mobilithek** for Germany — done 2026-10-02 as gap filler L5, see [Mobilithek (L5)](#mobilithek-l5-2026-10-02).
 5. NL and NO as their own providers afterwards. Neither is useful yet: both need an onboarding or key,
    and more to the point neither country has a static source in `sync` that writes EVSE-IDs — OCM
    supplies no charge point identity — so there is nothing for their live status to join onto.
@@ -302,7 +304,92 @@ What this means for the design:
 4. **The machine certificate is a secret** under ADR 0002: mounted into the API container, never logged,
    never committed.
 
-**Status: blocked on organisation registration.** Deferred; the remaining providers go first.
+**Status (2026-09-28): blocked on organisation registration.** Unblocked 2026-10-02, see below.
+
+## Mobilithek (L5, 2026-10-02)
+
+The product owner's organisation (`de.joinside.EVMap`, registered as a sole proprietorship — the open question from
+the survey is answered: it qualifies) was approved, so the Mobilithek moved from the v3 candidates to gap filler L5,
+ahead of phase 8b. Checked against the *Technische Schnittstellenbeschreibung* v1.3.2 and the live catalogue while
+signed in.
+
+### What the source is
+
+- **28 dynamic AFIR offerings** match `AFIR-recharging-dyn`, all DATEX II v3 as JSON, brokered, schema profile
+  `AFIR-Recharging-Dynamic-01-00-00_Delta`, delta delivery on. Not found in the catalogue: IONITY, Aral pulse, Allego.
+- **Licences per offering** (`standardLicense` in the offer metadata): CC0 for most; **CC BY 4.0** for EnBW,
+  Eco-Movement and GLS Mobility; six (ENERANDO, Road, Grid & Co, Ampeco EDRI, ELU Mobility, msu m8mit) state only
+  "free use / open data" without a standard licence. Five need the operator's approval of the subscription
+  (ENERANDO, TC-Backend, GLS Mobility, msu m8mit, Eco-Movement); the rest are approved automatically.
+- **Payload:** `messageContainer.payload[].aegiEnergyInfrastructureStatusPublication.energyInfrastructureSiteStatus[]
+  .energyInfrastructureStationStatus[].refillPointStatus[].aegiElectricChargingPointStatus` carries, per charge point,
+  `reference.idG`, `status.value` (13 values), `lastUpdated`, `operationStatus`, and optionally `energyRateUpdate`
+  with a price **including an explicit `taxIncluded` and `taxRate`** — the field OCPDB drops (ADR 0022).
+- **Transport:** `GET https://mobilithek.info:8443/mobilithek/api/v1.0/subscription/datexv3?subscriptionID=…`,
+  mTLS with the organisation's machine certificate (PKCS#12, issued by the Mobilithek; the server itself presents a
+  public Telekom certificate, so the JVM's default trust store suffices). `Accept-Encoding: gzip` is mandatory
+  (406 without it); responses are always gzipped. 204 = buffer empty, 304 = nothing newer, 404 = subscription
+  gone **or the operator's access quota exhausted**.
+- **Delta replay is per package.** The broker keeps the last full package plus every delta after it. A request with
+  `If-Modified-Since` far in the past returns the oldest package — by definition the full one — and each following
+  request with the previous `Last-Modified` returns the next. Without the header it returns only the newest package,
+  which for a delta feed is useless on its own.
+
+### Decisions (product owner, 2026-10-02)
+
+1. **Placement:** gap filler L5, now, before phase 8b.
+2. **Pull, not push.** The API container polls each subscription; push stays an open point (below). Push was explained
+   and deferred: it needs a public write endpoint whose callers are checked against the Mobilithek's certificate at
+   the reverse proxy, a DATEX acknowledgement per package, and it still needs the pull replay after every restart.
+3. **Precedence:** where two providers report the same EVSE-ID, the **newer `observedAt` wins**, whichever provider
+   it comes from. This replaces the first-registered-wins rule in `AvailabilityService`, which ADR 0015 had left
+   "deliberately simple until a second one exists" — the Mobilithek is that second one for Germany, and MobiData BW
+   re-publishes some of the same feeds with a delay.
+4. **Prices are not part of L5.** The dynamic feeds carry ad-hoc prices with an explicit VAT flag; they become a
+   separate step under ADR 0022 once real data shows how many feeds set `taxIncluded`.
+5. **Subscriptions:** all 28 dynamic offerings. The static counterparts (`AFIR-recharging-stat-…`) only if the data
+   shows an operator using internal ids instead of EVSE-IDs in `reference.idG`.
+6. **Attribution per feed:** each subscription is configured with its publisher, licence and offer URL, and every
+   charge point is credited to the feed that reported it ("EnBW AG via Mobilithek", CC BY 4.0) — not to the platform.
+   CC BY requires naming the data provider.
+
+### How it is built
+
+`availability.mobilithek` follows the provider recipe of the package documentation, but is the first provider whose
+state is **filled in the background** rather than on request, because a delta feed is only correct when consumed
+continuously from its snapshot (survey, point 1):
+
+- `MobilithekProperties` (`evmap.availability.mobilithek`): the broker URL, the machine certificate as a PKCS#12
+  file plus password (`MOBILITHEK_KEYSTORE_PATH`, `MOBILITHEK_KEYSTORE_PASSWORD`, never logged, never committed),
+  poll interval (60 s), a per-cycle ceiling on packages per feed, `max-age` (72 h, as for France), and the feed table
+  (`subscription-id`, `publisher`, `licence`, `url`). Without a certificate or without a subscription id the provider
+  reports itself disabled and the scheduler does nothing — like OCM without a key.
+- `AfirStatusJson` parses one package into "snapshot or delta" plus the charge points it reports, reading arrays and
+  single objects alike. `status` maps onto `LiveAvailability` like OCPI (`available`; `charging`/`occupied`/
+  `reserved`/`blocked`; `faulted`/`inoperative`/`outOfOrder`/`unavailable`; `unknown`), `planned`/`removed`/
+  `outOfStock` are dropped, and an `operationStatus` of `notInOperation*` or `technicalDefect` overrides to
+  `OUT_OF_ORDER`. The id is `reference.idG` through `EvseIds` — the join stays exact; ids that are not EVSE-IDs simply
+  never match, and the share that looks like an EVSE-ID is logged per feed so decision 5 can be taken on numbers.
+- `MobilithekAvailabilityProvider` polls every feed in turn (`@Scheduled`, fixed delay): follows `Last-Modified`
+  until 304, a snapshot replaces the feed's state, a delta updates it, 204 empties it, 403/404 back the feed off for
+  an hour (quota or subscription gone, WARN), anything else keeps the state for the next cycle. A feed not polled
+  successfully for ten minutes reads as unknown. `fetch(bounds)` answers with the merged state of all feeds — the
+  dynamic feed has no coordinates — and `AvailabilityService` keeps only the identifiers it asked for, as for France.
+- `ChargePointAvailability` gained an optional per-entry `Attribution`; a provider that sets none is credited with
+  its own, so MobiData BW and France are unchanged.
+
+Privacy: the requests carry no user data at all — not even a viewport, unlike MobiData BW.
+
+### Open points (L5)
+
+a. **Push delivery** — worth it only if pull hits the operators' access quotas (404 in the logs) or one minute of
+   delay proves too much. Options: (1) stay with pull; (2) push endpoint with client-certificate check at the proxy,
+   pull only for the replay after a restart.
+b. **Static AFIR feeds** — needed only if `reference.idG` is not an EVSE-ID for a relevant operator; the per-feed
+   log line answers it after the first day.
+c. **Mobilithek prices** — separate step under ADR 0022 (decision 4).
+d. **Second API replica** — the in-process state now has a subscription cursor per feed; two replicas would each poll
+   (doubling quota use) but stay correct. Unchanged blocker, see open point 4.
 
 ## Corrections (2026-08-24)
 

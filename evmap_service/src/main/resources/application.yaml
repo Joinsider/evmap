@@ -103,6 +103,146 @@ evmap:
       max-age: PT72H
       stale-after: PT10M
       timeout: PT15S
+
+    # Germany: the Mobilithek, the national access point (ADR 0015, "Mobilithek (L5)"). One DATEX II v3
+    # JSON delta feed per operator, pulled with the organisation's machine certificate (mutual TLS) and
+    # read continuously in the background, because a delta is only meaningful on top of its snapshot.
+    # Without a certificate or without subscription ids the provider is off and Germany is answered by
+    # MobiData BW alone. Runbook: docs/operations/mobilithek.md.
+    mobilithek:
+      enabled: ${MOBILITHEK_ENABLED:true}
+      broker-url: https://mobilithek.info:8443/mobilithek/api/v1.0/subscription/datexv3
+      # The PKCS#12 machine certificate — as a file path, or Base64-encoded in MOBILITHEK_KEYSTORE (wins) —
+      # and the password sent by SMS. Secrets (ADR 0002): set on the server only, never committed.
+      keystore-path: ${MOBILITHEK_KEYSTORE_PATH:}
+      keystore-base64: ${MOBILITHEK_KEYSTORE:}
+      keystore-password: ${MOBILITHEK_KEYSTORE_PASSWORD:}
+      country-codes: DE
+      poll-interval: PT60S
+      initial-delay: PT5S
+      max-packages-per-poll: 50
+      max-age: PT72H
+      stale-after: PT10M
+      # 403/404: subscription missing or not approved yet, or the operator's access quota is used up.
+      backoff: PT1H
+      timeout: PT30S
+      # One entry per dynamic AFIR offering, checked in the catalogue on 2026-10-02. subscription-id is
+      # the id under "Meine Abonnements"; blank = not subscribed (yet), the feed is skipped. Publisher and
+      # licence are what every charge point from that feed is credited with (CC BY names the operator).
+      # Five offerings need the operator's approval first: ENERANDO, TC-Backend, GLS, m8mit, Eco-Movement.
+      feeds:
+        - subscription-id: ""
+          publisher: "Wirelane GmbH"
+          licence: "Creative Commons Zero (CC0 1.0)"
+          url: https://mobilithek.info/offers/876587237907525632
+        - subscription-id: ""
+          publisher: "ladenetz.de (smartlab)"
+          licence: "Creative Commons Zero (CC0 1.0)"
+          url: https://mobilithek.info/offers/903240716507836416
+        - subscription-id: ""
+          publisher: "ladebusiness (smartlab)"
+          licence: "Creative Commons Zero (CC0 1.0)"
+          url: https://mobilithek.info/offers/903321397006716928
+        - subscription-id: ""
+          publisher: "EnBW AG"
+          licence: "Creative Commons Namensnennung – 4.0 International (CC BY 4.0)"
+          url: https://mobilithek.info/offers/907575401287241728
+        - subscription-id: ""
+          publisher: "Tesla Germany GmbH"
+          licence: "Creative Commons Zero (CC0 1.0)"
+          url: https://mobilithek.info/offers/953843379766972416
+        - subscription-id: ""
+          publisher: "Eco-Movement"
+          licence: "Creative Commons Namensnennung – 4.0 International (CC BY 4.0)"
+          url: https://mobilithek.info/offers/955166494396665856
+        - subscription-id: ""
+          publisher: "SMATRICS GmbH & Co KG"
+          licence: "Creative Commons Zero (CC0 1.0)"
+          url: https://mobilithek.info/offers/961319990963605504
+        - subscription-id: ""
+          publisher: "Hamburger Energienetze GmbH (eRound)"
+          licence: "Creative Commons Zero (CC0 1.0)"
+          url: https://mobilithek.info/offers/961629419076456448
+        - subscription-id: ""
+          publisher: "LichtBlick eMobility GmbH"
+          licence: "Creative Commons Zero (CC0 1.0)"
+          url: https://mobilithek.info/offers/962731482363617280
+        - subscription-id: ""
+          publisher: "Monta ApS"
+          licence: "Creative Commons Zero (CC0 1.0)"
+          url: https://mobilithek.info/offers/963870983660167168
+        - subscription-id: ""
+          publisher: "ENIO GmbH"
+          licence: "Creative Commons Zero (CC0 1.0)"
+          url: https://mobilithek.info/offers/968541134128902144
+        - subscription-id: ""
+          publisher: "msu solutions GmbH (m8mit)"
+          licence: "Freie Nutzung / Open Data"
+          url: https://mobilithek.info/offers/970388804493828096
+        - subscription-id: ""
+          publisher: "ELU Mobility"
+          licence: "Freie Nutzung / Open Data"
+          url: https://mobilithek.info/offers/971513500454850560
+        - subscription-id: ""
+          publisher: "Ampeco Ltd. (EDRI)"
+          licence: "Freie Nutzung / Open Data"
+          url: https://mobilithek.info/offers/972842599324557312
+        - subscription-id: ""
+          publisher: "Qwello Deutschland GmbH"
+          licence: "Creative Commons Zero (CC0 1.0)"
+          url: https://mobilithek.info/offers/972966368902897664
+        - subscription-id: ""
+          publisher: "vaylens GmbH"
+          licence: "Creative Commons Zero (CC0 1.0)"
+          url: https://mobilithek.info/offers/979364650281549824
+        - subscription-id: ""
+          publisher: "GLS Mobility GmbH"
+          licence: "Creative Commons Namensnennung – 4.0 International (CC BY 4.0)"
+          url: https://mobilithek.info/offers/980563757096464384
+        - subscription-id: ""
+          publisher: "chargecloud GmbH"
+          licence: "Creative Commons Zero (CC0 1.0)"
+          url: https://mobilithek.info/offers/980862594474274816
+        - subscription-id: ""
+          publisher: "Volkswagen Group Charging"
+          licence: "Creative Commons Zero (CC0 1.0)"
+          url: https://mobilithek.info/offers/983006934617260032
+        - subscription-id: ""
+          publisher: "Grid & Co. GmbH"
+          licence: "Freie Nutzung / Open Data"
+          url: https://mobilithek.info/offers/984103903968534528
+        - subscription-id: ""
+          publisher: "EW Pricing GmbH (EV Price)"
+          licence: "Creative Commons Zero (CC0 1.0)"
+          url: https://mobilithek.info/offers/989311073915731968
+        - subscription-id: ""
+          publisher: "e-clearing.net (smartlab)"
+          licence: "Creative Commons Zero (CC0 1.0)"
+          url: https://mobilithek.info/offers/996823601386508288
+        - subscription-id: ""
+          publisher: "GP JOULE Connect GmbH"
+          licence: "Creative Commons Zero (CC0 1.0)"
+          url: https://mobilithek.info/offers/997190851637440512
+        - subscription-id: ""
+          publisher: "Audi AG (Audi charging hub)"
+          licence: "Creative Commons Zero (CC0 1.0)"
+          url: https://mobilithek.info/offers/998567365272563712
+        - subscription-id: ""
+          publisher: "Taubert Consulting GmbH (TC-Backend)"
+          licence: "Creative Commons Zero (CC0 1.0)"
+          url: https://mobilithek.info/offers/1000746576770711552
+        - subscription-id: ""
+          publisher: "EWE"
+          licence: "Creative Commons Zero (CC0 1.0)"
+          url: https://mobilithek.info/offers/1006184570533171200
+        - subscription-id: ""
+          publisher: "Road B.V."
+          licence: "Freie Nutzung / Open Data"
+          url: https://mobilithek.info/offers/1021364001002217472
+        - subscription-id: ""
+          publisher: "ENERANDO Technologies GmbH"
+          licence: "Freie Nutzung / Open Data"
+          url: https://mobilithek.info/offers/1037038702374617088
   # Ad-hoc prices at the station (ADR 0022). Like availability, a different axis from evmap.sync: German
   # OCPI tariffs are read on demand and never written to master data; register prices (France) come from
   # master.charge_point_price. A price is shown only where its gross amount is established.

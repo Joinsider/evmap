@@ -72,6 +72,11 @@ services:
       MAPKIT_KEY_ID: ${MAPKIT_KEY_ID:-}
       MAPKIT_PRIVATE_KEY: ${MAPKIT_PRIVATE_KEY:-}
       MAPKIT_ORIGIN: ${MAPKIT_ORIGIN:-evmap.joinside.de}
+      # German live availability from the Mobilithek (ADR 0015, L5): the organisation's machine certificate
+      # as Base64 (`base64 -i cert.p12`) and the password sent by SMS. Blank = off; the subscription ids
+      # live in application.yaml. Runbook: docs/operations/mobilithek.md.
+      MOBILITHEK_KEYSTORE: ${MOBILITHEK_KEYSTORE:-}
+      MOBILITHEK_KEYSTORE_PASSWORD: ${MOBILITHEK_KEYSTORE_PASSWORD:-}
       LOG_FORMAT: ${LOG_FORMAT-ecs}
       LOG_LEVEL_APP: ${LOG_LEVEL_APP:-INFO}
       LOG_LEVEL_ROOT: ${LOG_LEVEL_ROOT:-INFO}

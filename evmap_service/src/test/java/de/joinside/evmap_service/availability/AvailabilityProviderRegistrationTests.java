@@ -23,7 +23,8 @@ class AvailabilityProviderRegistrationTests {
     @Configuration
     @ComponentScan(basePackages = {
             "de.joinside.evmap_service.availability.mobidata",
-            "de.joinside.evmap_service.availability.irve"})
+            "de.joinside.evmap_service.availability.irve",
+            "de.joinside.evmap_service.availability.mobilithek"})
     static class ProvidersOnly {
         @Bean
         RestClient.Builder restClientBuilder() {
@@ -42,7 +43,8 @@ class AvailabilityProviderRegistrationTests {
             // Extend this — and the source tokens below — whenever a provider is added.
             assertThat(context.getBeansOfType(AvailabilityProvider.class).values())
                     .extracting(provider -> provider.getClass().getSimpleName())
-                    .containsExactlyInAnyOrder("MobiDataBwAvailabilityProvider", "IrveDynamicAvailabilityProvider");
+                    .containsExactlyInAnyOrder("MobiDataBwAvailabilityProvider", "IrveDynamicAvailabilityProvider",
+                            "MobilithekAvailabilityProvider");
         });
     }
 
@@ -53,7 +55,7 @@ class AvailabilityProviderRegistrationTests {
             assertThat(context).hasNotFailed();
             assertThat(context.getBeansOfType(AvailabilityProvider.class).values())
                     .extracting(AvailabilityProvider::source)
-                    .containsExactlyInAnyOrder("MobiDataBW", "IrveDynamique")
+                    .containsExactlyInAnyOrder("MobiDataBW", "IrveDynamique", "Mobilithek")
                     .allSatisfy(source -> assertThat(source).isNotBlank().hasSizeLessThanOrEqualTo(32));
         });
     }
@@ -84,7 +86,38 @@ class AvailabilityProviderRegistrationTests {
             assertThat(irve).extracting("csvUrl").asString().contains("data.gouv.fr");
             assertThat(irve).extracting("countryCodes").asInstanceOf(
                     org.assertj.core.api.InstanceOfAssertFactories.list(String.class)).containsExactly("FR");
+
+            Object mobilithek = propertiesBean(context, "MobilithekProperties");
+            assertThat(mobilithek).hasFieldOrPropertyWithValue("enabled", true)
+                    .hasFieldOrPropertyWithValue("keystorePath", "");
+            assertThat(mobilithek).extracting("brokerUrl").asString().startsWith("https://mobilithek.info:8443/");
+            assertThat(mobilithek).extracting("countryCodes").asInstanceOf(
+                    org.assertj.core.api.InstanceOfAssertFactories.list(String.class)).containsExactly("DE");
         });
+    }
+
+    @Test
+    @DisplayName("without a machine certificate the Mobilithek provider registers but stays off")
+    void mobilithekOffWithoutCertificate() {
+        runner.run(context -> assertThat(context.getBeansOfType(AvailabilityProvider.class).values())
+                .filteredOn(provider -> provider.source().equals("Mobilithek"))
+                .singleElement()
+                .satisfies(provider -> assertThat(provider.enabled()).isFalse()));
+    }
+
+    @Test
+    @DisplayName("an unreadable machine certificate switches the provider off instead of failing the API")
+    void mobilithekOffWithBrokenCertificate() {
+        runner.withPropertyValues("evmap.availability.mobilithek.keystore-path=/nonexistent/mobilithek.p12",
+                        "evmap.availability.mobilithek.feeds[0].subscription-id=123",
+                        "evmap.availability.mobilithek.feeds[0].publisher=EnBW AG")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context.getBeansOfType(AvailabilityProvider.class).values())
+                            .filteredOn(provider -> provider.source().equals("Mobilithek"))
+                            .singleElement()
+                            .satisfies(provider -> assertThat(provider.enabled()).isFalse());
+                });
     }
 
     /** Properties beans are named after their prefix and class, so they are looked up by suffix. */

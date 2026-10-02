@@ -91,4 +91,44 @@ class AvailabilityServiceTests {
                     assertThat(station.outOfOrder()).isZero();
                 });
     }
+
+    /** A provider for Germany that answers one charge point with a fixed status and time. */
+    private record FixedProvider(String source, Attribution attribution, ChargePointAvailability answer)
+            implements AvailabilityProvider {
+        @Override
+        public boolean covers(String countryCode) {
+            return "DE".equals(countryCode);
+        }
+
+        @Override
+        public List<ChargePointAvailability> fetch(GeoBounds bounds) {
+            return List.of(answer);
+        }
+    }
+
+    @Test
+    @DisplayName("where two providers report one charge point, the newer observation wins, whichever is asked first")
+    void newerObservationWins() {
+        ChargePointDirectory directory = mock(ChargePointDirectory.class);
+        when(directory.location(STATION)).thenReturn(Optional.of(
+                new ChargePointDirectory.StationLocation(STATION, 48.77, 9.18, "DE")));
+        when(directory.forStation(STATION)).thenReturn(List.of(chargePoint("DEEBWE1")));
+        Attribution relay = new Attribution("Relay", "dl-de/by-2.0", "https://relay.example");
+        Attribution operator = new Attribution("Operator via Mobilithek", "CC BY 4.0", "https://operator.example");
+        AvailabilityProvider older = new FixedProvider("Relay", relay,
+                new ChargePointAvailability("DEEBWE1", LiveAvailability.AVAILABLE, OBSERVED));
+        // Credited per entry, not with the provider's own attribution.
+        AvailabilityProvider newer = new FixedProvider("Direct", new Attribution("Platform", "-", "https://platform.example"),
+                new ChargePointAvailability("DEEBWE1", LiveAvailability.OCCUPIED, OBSERVED.plusSeconds(60), operator));
+        AvailabilityProperties properties = new AvailabilityProperties(true, Duration.ofSeconds(60), 500, 300, 1.5, 5000);
+
+        for (List<AvailabilityProvider> order : List.of(List.of(older, newer), List.of(newer, older))) {
+            StationAvailability answer = new AvailabilityService(order, directory, properties).forStation(STATION).orElseThrow();
+
+            assertThat(answer.status()).isEqualTo(LiveAvailability.OCCUPIED);
+            assertThat(answer.sources()).containsExactly(operator);
+            assertThat(answer.chargePoints()).extracting(StationAvailability.ChargePointStatus::source)
+                    .containsExactly("Operator via Mobilithek");
+        }
+    }
 }
