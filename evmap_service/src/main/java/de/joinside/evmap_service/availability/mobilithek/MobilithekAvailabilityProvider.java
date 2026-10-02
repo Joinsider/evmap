@@ -68,7 +68,7 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
     private static final class FeedState {
         final MobilithekProperties.Feed feed;
         final Attribution credit;
-        final Map<String, AfirStatusJson.Reported> chargePoints = new HashMap<>();
+        final Map<String, AfirStatusParser.Reported> chargePoints = new HashMap<>();
         String cursor = FROM_THE_START;
         Instant lastSuccess;
         Instant backedOffUntil;
@@ -198,7 +198,7 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
             try (MobilithekBroker.Response response = broker.next(feed.feed.subscriptionId(), feed.cursor)) {
                 switch (response.status()) {
                     case 200 -> {
-                        apply(feed, AfirStatusJson.parse(response.body()));
+                        apply(feed, AfirStatusParser.parse(response.body()));
                         feed.lastSuccess = now;
                         if (response.lastModified() == null) {
                             // Without a cursor the next request would return the same package again.
@@ -245,7 +245,7 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
                 feed.feed.publisher(), properties.maxPackagesPerPoll());
     }
 
-    private static void apply(FeedState feed, AfirStatusJson.Package received) {
+    private static void apply(FeedState feed, AfirStatusParser.Package received) {
         if (received.delta()) {
             // Packages arrive in delivery order, so the newer package wins even where its timestamp is older.
             feed.chargePoints.putAll(received.chargePoints());
@@ -254,8 +254,11 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
         }
         feed.chargePoints.clear();
         feed.chargePoints.putAll(received.chargePoints());
-        log.info("Mobilithek feed {}: snapshot with {} charge point(s), {} of them shaped like an EVSE-ID, {} ignored",
-                feed.feed.publisher(), received.chargePoints().size(), received.evseShaped(), received.ignored());
+        // The samples show whether a feed whose ids are not EVSE-shaped uses internal ids (static feed needed) or
+        // only another spelling of the EVSE-ID. Charge point ids are public infrastructure data, not personal.
+        log.info("Mobilithek feed {}: snapshot with {} charge point(s), {} of them shaped like an EVSE-ID, {} ignored{}",
+                feed.feed.publisher(), received.chargePoints().size(), received.evseShaped(), received.ignored(),
+                received.otherIdSamples().isEmpty() ? "" : ", other ids e.g. " + received.otherIdSamples());
     }
 
     /**

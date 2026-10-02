@@ -127,8 +127,8 @@ class MobilithekAvailabilityProviderTests {
     @DisplayName("reads a feed from its last full package on and follows the broker's cursor until 304")
     void followsCursor() {
         ScriptedBroker broker = new ScriptedBroker()
-                .answer("111", 200, "Fri, 02 Oct 2026 08:00:00 GMT", AfirStatusJsonTests.SNAPSHOT)
-                .answer("111", 200, "Fri, 02 Oct 2026 08:01:00 GMT", AfirStatusJsonTests.DELTA)
+                .answer("111", 200, "Fri, 02 Oct 2026 08:00:00 GMT", AfirStatusParserTests.SNAPSHOT)
+                .answer("111", 200, "Fri, 02 Oct 2026 08:01:00 GMT", AfirStatusParserTests.DELTA)
                 .answer("111", 304);
         MobilithekAvailabilityProvider provider =
                 new MobilithekAvailabilityProvider(properties(ENBW), broker, new MovableClock());
@@ -158,7 +158,7 @@ class MobilithekAvailabilityProviderTests {
     @DisplayName("a later snapshot replaces the feed, so a charge point it no longer names disappears")
     void snapshotReplaces() {
         ScriptedBroker broker = new ScriptedBroker()
-                .answer("111", 200, "T1", AfirStatusJsonTests.SNAPSHOT)
+                .answer("111", 200, "T1", AfirStatusParserTests.SNAPSHOT)
                 .answer("111", 200, "T2", packageWith("snapshotPull", "DE*EBW*E9999*1", "available", "2026-10-02T10:01:00+02:00"));
         MobilithekAvailabilityProvider provider =
                 new MobilithekAvailabilityProvider(properties(ENBW), broker, new MovableClock());
@@ -172,7 +172,7 @@ class MobilithekAvailabilityProviderTests {
     @DisplayName("204 empties the feed and starts it over from the next full package")
     void emptyBufferClears() {
         ScriptedBroker broker = new ScriptedBroker()
-                .answer("111", 200, "T1", AfirStatusJsonTests.SNAPSHOT)
+                .answer("111", 200, "T1", AfirStatusParserTests.SNAPSHOT)
                 .answer("111", 304);
         MovableClock clock = new MovableClock();
         MobilithekAvailabilityProvider provider = new MobilithekAvailabilityProvider(properties(ENBW), broker, clock);
@@ -215,7 +215,7 @@ class MobilithekAvailabilityProviderTests {
     @DisplayName("a feed that stops answering reads as unknown after stale-after, not as its last state")
     void dropsStaleFeed() {
         ScriptedBroker broker = new ScriptedBroker()
-                .answer("111", 200, "T1", AfirStatusJsonTests.SNAPSHOT);
+                .answer("111", 200, "T1", AfirStatusParserTests.SNAPSHOT);
         MovableClock clock = new MovableClock();
         MobilithekAvailabilityProvider provider = new MobilithekAvailabilityProvider(properties(ENBW), broker, clock);
         provider.poll();
@@ -265,7 +265,7 @@ class MobilithekAvailabilityProviderTests {
     @DisplayName("a broken package costs that round of that feed, not the state it had")
     void keepsStateOnUnreadablePackage() {
         ScriptedBroker broker = new ScriptedBroker()
-                .answer("111", 200, "T1", AfirStatusJsonTests.SNAPSHOT)
+                .answer("111", 200, "T1", AfirStatusParserTests.SNAPSHOT)
                 .answer("111", 304);
         MovableClock clock = new MovableClock();
         MobilithekAvailabilityProvider provider = new MobilithekAvailabilityProvider(properties(ENBW), broker, clock);
@@ -334,7 +334,7 @@ class MobilithekAvailabilityProviderTests {
     @Test
     @DisplayName("when the polling stops, the last round's answer expires after stale-after")
     void answerExpiresWithoutPolling() {
-        ScriptedBroker broker = new ScriptedBroker().answer("111", 200, "T1", AfirStatusJsonTests.SNAPSHOT);
+        ScriptedBroker broker = new ScriptedBroker().answer("111", 200, "T1", AfirStatusParserTests.SNAPSHOT);
         MovableClock clock = new MovableClock();
         MobilithekAvailabilityProvider provider = new MobilithekAvailabilityProvider(properties(ENBW), broker, clock);
         provider.poll();
@@ -348,7 +348,7 @@ class MobilithekAvailabilityProviderTests {
     @DisplayName("a feed that fails — by I/O or by a bug — keeps its state and does not stop the others")
     void containsFailures() {
         ScriptedBroker broker = new ScriptedBroker()
-                .answer("111", 200, "T1", AfirStatusJsonTests.SNAPSHOT)
+                .answer("111", 200, "T1", AfirStatusParserTests.SNAPSHOT)
                 .answer("222", 200, "T1", packageWith("snapshotPull", "DE*EWE*E1*1", "available", "2026-10-02T10:01:00+02:00"));
         MovableClock clock = new MovableClock();
         MobilithekAvailabilityProvider provider =
@@ -365,7 +365,7 @@ class MobilithekAvailabilityProviderTests {
     @Test
     @DisplayName("a package without Last-Modified is applied once and the feed waits for the next round")
     void packageWithoutCursor() {
-        ScriptedBroker broker = new ScriptedBroker().answer("111", 200, null, AfirStatusJsonTests.SNAPSHOT);
+        ScriptedBroker broker = new ScriptedBroker().answer("111", 200, null, AfirStatusParserTests.SNAPSHOT);
         MobilithekAvailabilityProvider provider =
                 new MobilithekAvailabilityProvider(properties(ENBW), broker, new MovableClock());
 
@@ -379,8 +379,8 @@ class MobilithekAvailabilityProviderTests {
     @DisplayName("a feed further behind than max-packages-per-poll is caught up over the next rounds")
     void catchesUpOverRounds() {
         ScriptedBroker broker = new ScriptedBroker()
-                .answer("111", 200, "T1", AfirStatusJsonTests.SNAPSHOT)
-                .answer("111", 200, "T2", AfirStatusJsonTests.DELTA);
+                .answer("111", 200, "T1", AfirStatusParserTests.SNAPSHOT)
+                .answer("111", 200, "T2", AfirStatusParserTests.DELTA);
         MobilithekAvailabilityProvider provider =
                 new MobilithekAvailabilityProvider(properties(1, ENBW), broker, new MovableClock());
 

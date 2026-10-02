@@ -12,8 +12,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class AfirStatusJsonTests {
+class AfirStatusParserTests {
 
     /**
      * Shaped after the {@code AFIR-Recharging-Dynamic-01-00-00_Delta} JSON schema: one site, two stations, a
@@ -91,29 +92,29 @@ class AfirStatusJsonTests {
             }}
             """;
 
-    static AfirStatusJson.Package parse(String json) throws IOException {
-        return AfirStatusJson.parse(new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8)));
+    static AfirStatusParser.Package parse(String json) throws IOException {
+        return AfirStatusParser.parse(new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8)));
     }
 
     @Test
     @DisplayName("reads every charge point status of a snapshot, normalized by EVSE-ID")
     void readsSnapshot() throws IOException {
-        AfirStatusJson.Package snapshot = parse(SNAPSHOT);
+        AfirStatusParser.Package snapshot = parse(SNAPSHOT);
 
         assertThat(snapshot.delta()).isFalse();
         assertThat(snapshot.chargePoints()).containsOnlyKeys(
                 "DEEBWE10011", "DEEBWE10012", "DEEBWE10013", "DEEBWE1002", "INTERNAL4711");
         assertThat(snapshot.chargePoints().get("DEEBWE10011"))
-                .isEqualTo(new AfirStatusJson.Reported(LiveAvailability.AVAILABLE, Instant.parse("2026-10-02T07:58:00Z")));
+                .isEqualTo(new AfirStatusParser.Reported(LiveAvailability.AVAILABLE, Instant.parse("2026-10-02T07:58:00Z")));
         assertThat(snapshot.chargePoints().get("DEEBWE10012").status()).isEqualTo(LiveAvailability.OCCUPIED);
         // The operator's "technical defect" outranks a refill point that merely reads as unoccupied.
         assertThat(snapshot.chargePoints().get("DEEBWE10013").status()).isEqualTo(LiveAvailability.OUT_OF_ORDER);
         // A bare object instead of an array of one, and no lastUpdated: falls back to the publication time.
         assertThat(snapshot.chargePoints().get("DEEBWE1002"))
-                .isEqualTo(new AfirStatusJson.Reported(LiveAvailability.OUT_OF_ORDER, Instant.parse("2026-10-02T08:00:00Z")));
+                .isEqualTo(new AfirStatusParser.Reported(LiveAvailability.OUT_OF_ORDER, Instant.parse("2026-10-02T08:00:00Z")));
         // A local time without offset is German time.
         assertThat(snapshot.chargePoints().get("INTERNAL4711"))
-                .isEqualTo(new AfirStatusJson.Reported(LiveAvailability.UNKNOWN, Instant.parse("2026-10-02T07:00:00Z")));
+                .isEqualTo(new AfirStatusParser.Reported(LiveAvailability.UNKNOWN, Instant.parse("2026-10-02T07:00:00Z")));
         // planned, and the status without an id.
         assertThat(snapshot.ignored()).isEqualTo(2);
         assertThat(snapshot.evseShaped()).isEqualTo(4);
@@ -122,7 +123,7 @@ class AfirStatusJsonTests {
     @Test
     @DisplayName("recognises a delta by its exchange protocol")
     void readsDelta() throws IOException {
-        AfirStatusJson.Package delta = parse(DELTA);
+        AfirStatusParser.Package delta = parse(DELTA);
 
         assertThat(delta.delta()).isTrue();
         assertThat(delta.chargePoints()).containsOnlyKeys("DEEBWE10011");
@@ -132,7 +133,7 @@ class AfirStatusJsonTests {
     @Test
     @DisplayName("a package that does not say what it is counts as a delta, so it can never wipe a feed")
     void unlabelledPackageIsDelta() throws IOException {
-        AfirStatusJson.Package unlabelled = parse("""
+        AfirStatusParser.Package unlabelled = parse("""
                 {"messageContainer": {"payload": [{"aegiEnergyInfrastructureStatusPublication": {
                   "energyInfrastructureSiteStatus": {"energyInfrastructureStationStatus": {"refillPointStatus":
                     {"aegiElectricChargingPointStatus": {"reference": {"idG": "DE*ABC*E1"}, "status": "available"}}}}}}]}}
@@ -146,7 +147,7 @@ class AfirStatusJsonTests {
     @Test
     @DisplayName("an empty package is a valid snapshot of nothing")
     void readsEmptySnapshot() throws IOException {
-        AfirStatusJson.Package empty = parse("""
+        AfirStatusParser.Package empty = parse("""
                 {"messageContainer": {"payload": [],
                   "exchangeInformation": {"exchangeContext": {"codedExchangeProtocol": {"value": "snapshotPull"}}}}}
                 """);
@@ -158,7 +159,7 @@ class AfirStatusJsonTests {
     @Test
     @DisplayName("reads several statuses under one key, and the newer of two mentions of one charge point")
     void readsStatusArrayAndKeepsNewerMention() throws IOException {
-        AfirStatusJson.Package received = parse("""
+        AfirStatusParser.Package received = parse("""
                 {"messageContainer": {
                   "payload": [{"aegiEnergyInfrastructureStatusPublication": {
                     "publicationTime": {"unexpected": "object"},
@@ -174,10 +175,10 @@ class AfirStatusJsonTests {
 
         assertThat(received.delta()).isTrue();
         assertThat(received.chargePoints().get("DEABCE1"))
-                .isEqualTo(new AfirStatusJson.Reported(LiveAvailability.OCCUPIED, Instant.parse("2026-10-02T08:05:00Z")));
+                .isEqualTo(new AfirStatusParser.Reported(LiveAvailability.OCCUPIED, Instant.parse("2026-10-02T08:05:00Z")));
         // An unreadable timestamp and no usable publication time: the status stands, without an age.
         assertThat(received.chargePoints().get("DEABCE2"))
-                .isEqualTo(new AfirStatusJson.Reported(LiveAvailability.AVAILABLE, null));
+                .isEqualTo(new AfirStatusParser.Reported(LiveAvailability.AVAILABLE, null));
         // An empty status array and a blank id are no statuses.
         assertThat(received.chargePoints()).doesNotContainKey("DEABCE3");
         assertThat(received.ignored()).isEqualTo(2);
@@ -186,7 +187,7 @@ class AfirStatusJsonTests {
     @Test
     @DisplayName("the first publication time is the fallback, a protocol without a value changes nothing")
     void firstPublicationTimeAndEmptyProtocol() throws IOException {
-        AfirStatusJson.Package received = parse("""
+        AfirStatusParser.Package received = parse("""
                 {"messageContainer": {
                   "payload": [
                     {"aegiEnergyInfrastructureStatusPublication": {"publicationTime": "2026-10-02T10:00:00+02:00"}},
@@ -197,6 +198,124 @@ class AfirStatusJsonTests {
 
         assertThat(received.delta()).isTrue();
         assertThat(received.chargePoints().get("DEABCE1").observedAt()).isEqualTo(Instant.parse("2026-10-02T08:00:00Z"));
+    }
+
+    /**
+     * The XML syntax ladenetz.de and ladebusiness deliver: enums as element text, the reference as attributes, and
+     * a planned status nested inside a charge point that must not overwrite its current one.
+     */
+    static final String XML_SNAPSHOT = """
+            \uFEFF<?xml version="1.0" encoding="UTF-8"?>
+            <con:messageContainer xmlns:con="http://datex2.eu/schema/3/messageContainer"
+                xmlns:ex="http://datex2.eu/schema/3/exchangeInformation"
+                xmlns:com="http://datex2.eu/schema/3/common"
+                xmlns:egi="http://datex2.eu/schema/3/energyInfrastructure"
+                xmlns:f="http://datex2.eu/schema/3/facilities"
+                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" modelBaseVersion="3">
+              <con:payload xsi:type="egi:EnergyInfrastructureStatusPublication" lang="de" modelBaseVersion="3">
+                <com:publicationTime>2026-10-02T22:00:00+02:00</com:publicationTime>
+                <egi:energyInfrastructureSiteStatus>
+                  <f:reference targetClass="egi:EnergyInfrastructureSite" id="SITE-1" version="1"/>
+                  <egi:energyInfrastructureStationStatus>
+                    <f:reference targetClass="egi:EnergyInfrastructureStation" id="STATION-1" version="1"/>
+                    <egi:refillPointStatus xsi:type="egi:ElectricChargingPointStatus">
+                      <f:reference targetClass="egi:ElectricChargingPoint" id="DE*LND*E0001*1" version="1"/>
+                      <f:lastUpdated>2026-10-02T21:58:00+02:00</f:lastUpdated>
+                      <egi:status>charging</egi:status>
+                      <egi:plannedRefillPointStatus>
+                        <egi:status>available</egi:status>
+                        <egi:overallPeriod><com:overallStartTime>2026-10-02T23:00:00+02:00</com:overallStartTime></egi:overallPeriod>
+                      </egi:plannedRefillPointStatus>
+                    </egi:refillPointStatus>
+                    <egi:refillPointStatus xsi:type="egi:ElectricChargingPointStatus">
+                      <f:reference targetClass="egi:ElectricChargingPoint" id="DE*LND*E0001*2" version="1"/>
+                      <f:operationStatus>technicalDefect</f:operationStatus>
+                      <egi:status>available</egi:status>
+                    </egi:refillPointStatus>
+                    <egi:refillPointStatus xsi:type="egi:ElectricChargingPointStatus">
+                      <f:reference targetClass="egi:ElectricChargingPoint" id="4711" version="1"/>
+                      <egi:status>planned</egi:status>
+                    </egi:refillPointStatus>
+                  </egi:energyInfrastructureStationStatus>
+                </egi:energyInfrastructureSiteStatus>
+              </con:payload>
+              <con:exchangeInformation modelBaseVersion="3">
+                <ex:exchangeContext><ex:codedExchangeProtocol>snapshotPull</ex:codedExchangeProtocol></ex:exchangeContext>
+              </con:exchangeInformation>
+            </con:messageContainer>
+            """;
+
+    @Test
+    @DisplayName("reads an XML package the same way, whichever prefixes it uses")
+    void readsXmlSnapshot() throws IOException {
+        AfirStatusParser.Package snapshot = parse(XML_SNAPSHOT);
+
+        assertThat(snapshot.delta()).isFalse();
+        assertThat(snapshot.chargePoints()).containsOnlyKeys("DELNDE00011", "DELNDE00012");
+        // The nested planned "available" does not overwrite the current "charging".
+        assertThat(snapshot.chargePoints().get("DELNDE00011"))
+                .isEqualTo(new AfirStatusParser.Reported(LiveAvailability.OCCUPIED, Instant.parse("2026-10-02T19:58:00Z")));
+        // Operation status outranks the refill point status; no lastUpdated falls back on the publication time.
+        assertThat(snapshot.chargePoints().get("DELNDE00012"))
+                .isEqualTo(new AfirStatusParser.Reported(LiveAvailability.OUT_OF_ORDER, Instant.parse("2026-10-02T20:00:00Z")));
+        assertThat(snapshot.ignored()).isEqualTo(1);
+        assertThat(snapshot.evseShaped()).isEqualTo(2);
+        assertThat(snapshot.otherIdSamples()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("an XML delta without whitespace before it is recognised as a delta")
+    void readsXmlDelta() throws IOException {
+        AfirStatusParser.Package delta = parse("""
+                <con:messageContainer xmlns:con="c" xmlns:ex="e" xmlns:egi="g" xmlns:f="f">
+                  <egi:refillPointStatus><f:reference id="DE*LND*E0001*1"/><egi:status>available</egi:status></egi:refillPointStatus>
+                  <egi:refillPointStatus><egi:status>available</egi:status></egi:refillPointStatus>
+                  <ex:codedExchangeProtocol>deltaPull</ex:codedExchangeProtocol>
+                </con:messageContainer>""");
+
+        assertThat(delta.delta()).isTrue();
+        assertThat(delta.chargePoints().get("DELNDE00011").status()).isEqualTo(LiveAvailability.AVAILABLE);
+        assertThat(delta.ignored()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("an XML package declaring external entities is refused, not resolved")
+    void refusesExternalEntities() {
+        assertThatThrownBy(() -> parse("""
+                <?xml version="1.0"?>
+                <!DOCTYPE con [<!ENTITY secret SYSTEM "file:///etc/passwd">]>
+                <con><refillPointStatus><reference id="&secret;"/><status>available</status></refillPointStatus></con>
+                """)).isInstanceOf(IOException.class);
+    }
+
+    @Test
+    @DisplayName("broken XML is an unreadable package")
+    void refusesBrokenXml() {
+        assertThatThrownBy(() -> parse("<con><refillPointStatus>")).isInstanceOf(IOException.class);
+    }
+
+    @Test
+    @DisplayName("names a few ids that are not EVSE-shaped, as published, so the log shows the feed's id scheme")
+    void samplesOtherIds() throws IOException {
+        StringBuilder json = new StringBuilder("{\"messageContainer\": {\"payload\": [{\"aegiRefillPointStatus\": [");
+        for (int i = 1; i <= 5; i++)
+            json.append(i > 1 ? "," : "").append("{\"reference\": {\"idG\": \"wir-").append(i)
+                    .append("\"}, \"status\": {\"value\": \"available\"}}");
+        json.append(",{\"reference\": {\"idG\": \"wir-1\"}, \"status\": {\"value\": \"charging\"}}]}]}}");
+
+        AfirStatusParser.Package received = parse(json.toString());
+
+        assertThat(received.otherIdSamples()).containsExactly("wir-1", "wir-2", "wir-3");
+        assertThat(parse(SNAPSHOT).otherIdSamples()).containsExactly("internal-4711");
+    }
+
+    @Test
+    @DisplayName("an empty body is an empty delta, not an error")
+    void readsEmptyBody() throws IOException {
+        AfirStatusParser.Package empty = parse("   ");
+
+        assertThat(empty.delta()).isTrue();
+        assertThat(empty.chargePoints()).isEmpty();
     }
 
     @ParameterizedTest(name = "{0} / {1} -> {2}")
@@ -222,6 +341,6 @@ class AfirStatusJsonTests {
             "extendedG,       null,                   null",
             "null,            null,                   null"})
     void mapsStatus(String status, String operationStatus, String expected) {
-        assertThat(AfirStatusJson.toLiveAvailability(status, operationStatus)).isEqualTo(expected);
+        assertThat(AfirStatusParser.toLiveAvailability(status, operationStatus)).isEqualTo(expected);
     }
 }
