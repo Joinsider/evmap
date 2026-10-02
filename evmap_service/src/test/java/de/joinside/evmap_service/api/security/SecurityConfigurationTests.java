@@ -92,6 +92,13 @@ class SecurityConfigurationTests {
     }
 
     @Test
+    @DisplayName("the web map's token is handed out without signing in, but only to a GET")
+    void mapTokenIsPublic() throws Exception {
+        mockMvc.perform(get("/api/v1/map/token")).andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/map/token")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     @DisplayName("the operator directory stays readable without signing in")
     void operatorDirectoryIsPublic() throws Exception {
         mockMvc.perform(get("/api/v1/operators")).andExpect(status().isOk());
@@ -242,6 +249,11 @@ class SecurityConfigurationTests {
 
     @RestController
     static class Routes {
+        @GetMapping("/api/v1/map/token")
+        String mapToken() {
+            return "{}";
+        }
+
         @PostMapping("/api/v1/stations/along-route")
         List<String> alongRoute() {
             return List.of();
