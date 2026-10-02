@@ -333,6 +333,22 @@ class AfirStatusParserTests {
                 .containsExactly("ae0b0ee4-f1d7-5222-a96c-81937bc19220", "ce113e32a1c94734e9133eb30ac8886f");
     }
 
+    @Test
+    @DisplayName("an EVSE-ID embedded in starred spelling is taken literally; nothing is extracted without stars")
+    void extractsEmbeddedEvseId() throws IOException {
+        AfirStatusParser.Package received = parse("""
+                {"messageContainer": {"payload": [{"aegiRefillPointStatus": [
+                  {"reference": {"idG": "cp-DE*CNT*EP90046*002*1-1"}, "status": {"value": "charging"}},
+                  {"reference": {"idG": "xDE*CNT*E1"}, "status": {"value": "available"}},
+                  {"reference": {"idG": "CO_1391"}, "status": {"value": "available"}}]}]}}
+                """);
+
+        assertThat(received.chargePoints()).containsOnlyKeys("DECNTEP900460021", "XDECNTE1", "CO1391");
+        assertThat(received.chargePoints().get("DECNTEP900460021").status()).isEqualTo(LiveAvailability.OCCUPIED);
+        assertThat(received.evseShaped()).isEqualTo(1);
+        assertThat(received.otherIdSamples()).containsExactly("xDE*CNT*E1", "CO_1391");
+    }
+
     @ParameterizedTest(name = "{0} / {1} -> {2}")
     @CsvSource(nullValues = "null", value = {
             "available,       null,                   AVAILABLE",

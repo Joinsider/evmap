@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -73,6 +74,14 @@ final class AfirStatusParser {
      * EVSE-ID is far shorter than 24 characters.
      */
     private static final Pattern HEX_HASH = Pattern.compile("^[0-9A-F]{24,}$");
+
+    /**
+     * An EVSE-ID in its starred spelling inside a longer id. GP JOULE wraps theirs as
+     * {@code cp-DE*CNT*EP90046*002*1-1}; the stars make the embedded id unambiguous, so it is taken literally and
+     * the join stays exact. Without stars nothing is extracted — a hash can contain any letters.
+     */
+    private static final Pattern EMBEDDED_EVSE_ID =
+            Pattern.compile("(?<![A-Za-z0-9])([A-Za-z]{2}\\*[A-Za-z0-9]{3}\\*[Ee][A-Za-z0-9*]*[A-Za-z0-9])");
 
     /** How many ids of another shape a package reports for the log, so a feed's id scheme can be judged. */
     private static final int OTHER_ID_SAMPLES = 3;
@@ -151,7 +160,7 @@ final class AfirStatusParser {
         }
 
         void chargePoint(String id, String status, String operationStatus, String lastUpdated) {
-            String evseId = EvseIds.normalize(id);
+            String evseId = evseIdOf(id);
             String live = toLiveAvailability(status, operationStatus);
             if (evseId == null || live == null) {
                 ignored++;
@@ -310,6 +319,14 @@ final class AfirStatusParser {
             }
             reader.chargePoint(id, status, operationStatus, lastUpdated);
         }
+    }
+
+    /** The normalized EVSE-ID of a published id: the id itself, or the starred EVSE-ID embedded in it. */
+    private static String evseIdOf(String id) {
+        String normalized = EvseIds.normalize(id);
+        if (normalized == null || isEvseShaped(normalized)) return normalized;
+        Matcher embedded = EMBEDDED_EVSE_ID.matcher(id);
+        return embedded.find() ? EvseIds.normalize(embedded.group(1)) : normalized;
     }
 
     private static boolean isEvseShaped(String normalizedId) {
