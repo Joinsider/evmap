@@ -28,6 +28,11 @@ updates:
         patterns: ["@angular/*", "@angular-devkit/*", "ng-packagr"]
       npm-minor-patch:
         update-types: ["minor", "patch"]
+    ignore:
+      # TypeScript follows Angular, whose compiler accepts one minor only (22.x: ">=6.0 <6.1");
+      # a newer one fails `npm ci`. It moves by hand with the next Angular upgrade.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   # Base images of the API, sync, web and backup Dockerfiles
   - package-ecosystem: "docker"
