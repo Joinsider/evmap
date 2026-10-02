@@ -31,11 +31,21 @@ class MobilithekAvailabilityProviderTests {
     private static final String CC_BY = "Creative Commons Namensnennung – 4.0 International (CC BY 4.0)";
 
     private static final MobilithekProperties.Feed ENBW =
-            new MobilithekProperties.Feed("111", "EnBW AG", CC_BY, "https://mobilithek.info/offers/907575401287241728");
+            new MobilithekProperties.Feed("111", "EnBW AG", CC_BY, "https://mobilithek.info/offers/907575401287241728", null);
     private static final MobilithekProperties.Feed EWE =
-            new MobilithekProperties.Feed("222", "EWE", "Creative Commons Zero (CC0 1.0)", "https://mobilithek.info/offers/1006184570533171200");
+            new MobilithekProperties.Feed("222", "EWE", "Creative Commons Zero (CC0 1.0)", "https://mobilithek.info/offers/1006184570533171200", null);
     private static final MobilithekProperties.Feed NOT_SUBSCRIBED =
-            new MobilithekProperties.Feed("", "Tesla Germany GmbH", "CC0", "https://mobilithek.info/offers/953843379766972416");
+            new MobilithekProperties.Feed("", "Tesla Germany GmbH", "CC0", "https://mobilithek.info/offers/953843379766972416", null);
+
+    private static final MobilithekProperties.Feed WIRELANE = new MobilithekProperties.Feed("333", "Wirelane GmbH",
+            "Creative Commons Zero (CC0 1.0)", "https://mobilithek.info/offers/876587237907525632", "S333");
+
+    private static final String WIRELANE_STATIC = """
+            {"messageContainer": {"payload": [{"aegiEnergyInfrastructureTablePublication": {"refillPoint": [
+              {"aegiElectricChargingPoint": {"idG": "54bcecea-3be7-5033-a506-0f0c75b86a21",
+                "externalIdentifier": [{"identifier": "DE*WLN*EP002898",
+                  "typeOfIdentifier": {"value": "extendedG", "extendedValueG": "evseId"}}]}}]}}]}}
+            """;
 
     /** A clock the test moves forward, to cross stale-after and the back-off without sleeping. */
     private static final class MovableClock extends Clock {
@@ -103,14 +113,14 @@ class MobilithekAvailabilityProviderTests {
     private static MobilithekProperties properties(int maxPackagesPerPoll, MobilithekProperties.Feed... feeds) {
         return new MobilithekProperties(true, "https://broker.invalid/datexv3", "/run/secrets/mobilithek.p12", "", "",
                 List.of("DE", " "), Duration.ofSeconds(60), maxPackagesPerPoll, Duration.ofHours(72),
-                Duration.ofMinutes(10), Duration.ofHours(1), Duration.ofSeconds(30), List.of(feeds));
+                Duration.ofMinutes(10), Duration.ofHours(1), Duration.ofHours(24), Duration.ofSeconds(30), List.of(feeds));
     }
 
     /** The shipped shape with a real certificate source, for the constructor that loads it. */
     private static MobilithekProperties withCertificate(boolean enabled, String path, String base64) {
         return new MobilithekProperties(enabled, "https://broker.invalid/datexv3", path, base64, "test-only-password",
                 List.of("DE"), Duration.ofSeconds(60), 50, Duration.ofHours(72), Duration.ofMinutes(10),
-                Duration.ofHours(1), Duration.ofSeconds(30), List.of(ENBW));
+                Duration.ofHours(1), Duration.ofHours(24), Duration.ofSeconds(30), List.of(ENBW));
     }
 
     private static String packageWith(String protocol, String evseId, String status, String lastUpdated) {
@@ -469,5 +479,76 @@ class MobilithekAvailabilityProviderTests {
 
         assertThat(provider.fetch(STUTTGART)).isEmpty();
         assertThat(provider.enabled()).isTrue();
+    }
+
+    @Test
+    @DisplayName("an operator publishing internal ids is joined on the EVSE-ID its static feed names")
+    void translatesInternalIds() {
+        ScriptedBroker broker = new ScriptedBroker()
+                .answer("S333", 200, "S1", WIRELANE_STATIC)
+                .answer("333", 200, "T1",
+                        packageWith("snapshotPull", "54bcecea-3be7-5033-a506-0f0c75b86a21", "charging", "2026-10-02T09:00:00+02:00"));
+        MobilithekAvailabilityProvider provider =
+                new MobilithekAvailabilityProvider(properties(WIRELANE), broker, new MovableClock());
+
+        provider.poll();
+
+        assertThat(provider.fetch(STUTTGART)).singleElement().satisfies(entry -> {
+            assertThat(entry.evseId()).isEqualTo("DEWLNEP002898");
+            assertThat(entry.status()).isEqualTo(LiveAvailability.OCCUPIED);
+            assertThat(entry.attribution().name()).isEqualTo("Wirelane GmbH via Mobilithek");
+        });
+        assertThat(broker.requests).startsWith("S333@" + MobilithekAvailabilityProvider.FROM_THE_START, "S333@S1");
+    }
+
+    @Test
+    @DisplayName("the static feed is asked once a day, and a translation loaded later applies to the state already held")
+    void refreshesStaticFeedDaily() {
+        ScriptedBroker broker = new ScriptedBroker()
+                .answer("S333", 304)
+                .answer("333", 200, "T1",
+                        packageWith("snapshotPull", "54bcecea-3be7-5033-a506-0f0c75b86a21", "charging", "2026-10-02T09:00:00+02:00"));
+        MovableClock clock = new MovableClock();
+        MobilithekAvailabilityProvider provider = new MobilithekAvailabilityProvider(properties(WIRELANE), broker, clock);
+        provider.poll();
+        assertThat(provider.fetch(STUTTGART)).singleElement()
+                .extracting(ChargePointAvailability::evseId).isEqualTo("54BCECEA3BE75033A5060F0C75B86A21");
+
+        clock.advance(Duration.ofHours(1));
+        provider.poll();
+        assertThat(broker.requests).filteredOn(request -> request.startsWith("S333@")).hasSize(1);
+
+        broker.answer("S333", 200, "S1", WIRELANE_STATIC);
+        clock.advance(Duration.ofHours(24));
+        provider.poll();
+
+        assertThat(broker.requests).filteredOn(request -> request.startsWith("S333@")).hasSize(3);
+        // The live state was not re-sent (25 h old, within max-age); the new translation applies to it anyway.
+        assertThat(provider.fetch(STUTTGART)).singleElement()
+                .extracting(ChargePointAvailability::evseId).isEqualTo("DEWLNEP002898");
+    }
+
+    @Test
+    @DisplayName("a static feed that fails keeps its translations, is retried after the back-off, and never stops the live feed")
+    void staticFailureIsContained() {
+        ScriptedBroker broker = new ScriptedBroker()
+                .answer("S333", 200, "S1", WIRELANE_STATIC)
+                .answer("333", 200, "T1",
+                        packageWith("snapshotPull", "54bcecea-3be7-5033-a506-0f0c75b86a21", "available", "2026-10-02T09:00:00+02:00"));
+        MovableClock clock = new MovableClock();
+        MobilithekAvailabilityProvider provider = new MobilithekAvailabilityProvider(properties(WIRELANE), broker, clock);
+        provider.poll();
+
+        broker.answer("S333", 404).fail("S333", new IOException("reset"));
+        clock.advance(Duration.ofHours(25));
+        provider.poll();
+        clock.advance(Duration.ofMinutes(30));
+        provider.poll();
+        clock.advance(Duration.ofMinutes(31));
+        provider.poll();
+
+        assertThat(broker.requests).filteredOn(request -> request.startsWith("S333@")).hasSize(4);
+        assertThat(provider.fetch(STUTTGART)).singleElement()
+                .extracting(ChargePointAvailability::evseId).isEqualTo("DEWLNEP002898");
     }
 }

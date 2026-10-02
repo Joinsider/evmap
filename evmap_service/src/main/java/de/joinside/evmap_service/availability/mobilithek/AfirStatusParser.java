@@ -3,13 +3,9 @@ package de.joinside.evmap_service.availability.mobilithek;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import de.joinside.evmap_service.availability.LiveAvailability;
 import de.joinside.evmap_service.availability.Observations;
-import de.joinside.evmap_service.sync.EvseIds;
 
-import javax.xml.XMLConstants;
-import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
@@ -25,7 +21,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -46,8 +41,6 @@ import java.util.regex.Pattern;
  * its name wherever it appears, and an array of one is read the same as a bare object.
  */
 final class AfirStatusParser {
-    private static final JsonMapper MAPPER = JsonMapper.builder().build();
-
     /** JSON: both keys DATEX uses for a charge point's status; the electric one is what every AFIR feed sends. */
     private static final String ELECTRIC_CHARGING_POINT_STATUS = "aegiElectricChargingPointStatus";
     private static final String REFILL_POINT_STATUS_KEY = "aegiRefillPointStatus";
@@ -123,25 +116,9 @@ final class AfirStatusParser {
     static Package parse(InputStream body) throws IOException {
         BufferedInputStream in = new BufferedInputStream(body);
         PackageReader reader = new PackageReader();
-        if (startsWithMarkup(in)) XmlReader.read(in, reader);
+        if (Datex.startsWithMarkup(in)) XmlReader.read(in, reader);
         else JsonReader.read(in, reader);
         return reader.toPackage();
-    }
-
-    /** Whether the first character that is not whitespace or a byte order mark is {@code <}. */
-    private static boolean startsWithMarkup(BufferedInputStream in) throws IOException {
-        in.mark(256);
-        try {
-            for (int i = 0; i < 256; i++) {
-                int next = in.read();
-                if (next == '<') return true;
-                if (next == -1 || !(Character.isWhitespace(next) || next == 0xEF || next == 0xBB || next == 0xBF))
-                    return false;
-            }
-            return false;
-        } finally {
-            in.reset();
-        }
     }
 
     /** What has been read of one package so far, whatever its syntax. */
@@ -162,7 +139,7 @@ final class AfirStatusParser {
         }
 
         void chargePoint(String id, String status, String operationStatus, String lastUpdated) {
-            String evseId = evseIdOf(id);
+            String evseId = Datex.evseIdOf(id);
             String live = toLiveAvailability(status, operationStatus);
             if (evseId == null || live == null) {
                 ignored++;
@@ -172,27 +149,16 @@ final class AfirStatusParser {
             Reported reported = new Reported(live, observedAt != null ? observedAt : publicationTime);
             Reported held = chargePoints.merge(evseId, reported,
                     (old, candidate) -> Observations.newer(old, candidate, Reported::observedAt));
-            if (held == reported && otherIdSamples.size() < OTHER_ID_SAMPLES && !isEvseShaped(evseId)
+            if (held == reported && otherIdSamples.size() < OTHER_ID_SAMPLES && !Datex.isEvseShaped(evseId)
                     && !otherIdSamples.contains(id.trim()))
                 otherIdSamples.add(id.trim());
         }
 
         Package toPackage() {
-            int evseShaped = (int) chargePoints.keySet().stream().filter(PackageReader::isEvseShaped).count();
+            int evseShaped = (int) chargePoints.keySet().stream().filter(Datex::isEvseShaped).count();
             return new Package(delta, chargePoints, ignored, evseShaped, List.copyOf(otherIdSamples), publicationTime);
         }
 
-        /** The normalized EVSE-ID of a published id: the id itself, or the starred EVSE-ID embedded in it. */
-        private static String evseIdOf(String id) {
-            String normalized = EvseIds.normalize(id);
-            if (normalized == null || isEvseShaped(normalized)) return normalized;
-            Matcher embedded = EMBEDDED_EVSE_ID.matcher(id);
-            return embedded.find() ? EvseIds.normalize(embedded.group(1)) : normalized;
-        }
-
-        private static boolean isEvseShaped(String normalizedId) {
-            return EVSE_ID_SHAPE.matcher(normalizedId).matches() && !HEX_HASH.matcher(normalizedId).matches();
-        }
 
         private static Instant instant(String text) {
             if (text == null) return null;
@@ -215,7 +181,7 @@ final class AfirStatusParser {
         }
 
         static void read(InputStream in, PackageReader reader) throws IOException {
-            try (JsonParser parser = MAPPER.createParser(in)) {
+            try (JsonParser parser = Datex.JSON.createParser(in)) {
                 for (JsonToken token = parser.nextToken(); token != null; token = parser.nextToken())
                     if (token == JsonToken.FIELD_NAME) read(parser.currentName(), parser, reader);
             }
@@ -245,7 +211,7 @@ final class AfirStatusParser {
 
         private static JsonNode nextTree(JsonParser parser) throws IOException {
             parser.nextToken();
-            return MAPPER.readTree(parser);
+            return Datex.JSON.readTree(parser);
         }
 
         /** DATEX enums arrive as {@code {"value": "…"}}; a bare string is accepted too. */
@@ -253,7 +219,7 @@ final class AfirStatusParser {
             if (node == null || node.isMissingNode() || node.isNull()) return null;
             if (node.isArray()) return node.isEmpty() ? null : textOf(node.get(0));
             if (node.isObject()) return textOf(node.get("value"));
-            return blankToNull(node.asText());
+            return Datex.blankToNull(node.asText());
         }
     }
 
@@ -263,23 +229,12 @@ final class AfirStatusParser {
      * entities are refused: the document comes from a third party.
      */
     private static final class XmlReader {
-        private static final XMLInputFactory FACTORY = secureFactory();
-
         private XmlReader() {
-        }
-
-        private static XMLInputFactory secureFactory() {
-            XMLInputFactory factory = XMLInputFactory.newFactory();
-            factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
-            factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
-            factory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, true);
-            factory.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-            return factory;
         }
 
         static void read(InputStream in, PackageReader reader) throws IOException {
             try {
-                XMLStreamReader xml = FACTORY.createXMLStreamReader(in);
+                XMLStreamReader xml = Datex.XML.createXMLStreamReader(in);
                 try {
                     while (xml.hasNext())
                         if (xml.next() == XMLStreamConstants.START_ELEMENT) read(xml, reader);
@@ -294,8 +249,8 @@ final class AfirStatusParser {
         private static void read(XMLStreamReader xml, PackageReader reader) throws XMLStreamException {
             switch (xml.getLocalName()) {
                 case REFILL_POINT_STATUS_ELEMENT -> chargePoint(xml, reader);
-                case CODED_EXCHANGE_PROTOCOL -> reader.protocol(blankToNull(xml.getElementText()));
-                case PUBLICATION_TIME -> reader.publicationTime(blankToNull(xml.getElementText()));
+                case CODED_EXCHANGE_PROTOCOL -> reader.protocol(Datex.blankToNull(xml.getElementText()));
+                case PUBLICATION_TIME -> reader.publicationTime(Datex.blankToNull(xml.getElementText()));
                 default -> {
                     // A container on the way down, or a value nobody reads.
                 }
@@ -324,19 +279,15 @@ final class AfirStatusParser {
                             id = xml.getAttributeValue(null, "id");
                             depth++;
                         }
-                        case STATUS -> status = blankToNull(xml.getElementText());
-                        case OPERATION_STATUS -> operationStatus = blankToNull(xml.getElementText());
-                        case LAST_UPDATED -> lastUpdated = blankToNull(xml.getElementText());
+                        case STATUS -> status = Datex.blankToNull(xml.getElementText());
+                        case OPERATION_STATUS -> operationStatus = Datex.blankToNull(xml.getElementText());
+                        case LAST_UPDATED -> lastUpdated = Datex.blankToNull(xml.getElementText());
                         default -> depth++;
                     }
                 }
             }
             reader.chargePoint(id, status, operationStatus, lastUpdated);
         }
-    }
-
-    private static String blankToNull(String text) {
-        return text == null || text.isBlank() ? null : text.trim();
     }
 
     /**

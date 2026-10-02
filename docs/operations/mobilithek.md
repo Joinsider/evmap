@@ -27,6 +27,11 @@ GLS Mobility, msu m8mit, Eco-Movement.
 Then copy each **Subskriptions-ID** from **Meine Abonnements** into the `subscription-id` of its entry and release
 the change like any other. An entry without an id is skipped. The ids are not secret — the certificate is.
 
+Some operators name their charge points by internal id in the live feed (the API log's snapshot line shows "other
+ids e.g. …" with UUIDs or hashes). For those, also subscribe the operator's static offering
+(`AFIR-recharging-stat-…`) and put its Abonnement-ID into `static-subscription-id` of the same entry; the API then
+translates the ids into EVSE-IDs once a day and logs `… internal id(s) translated to EVSE-IDs from its static feed`.
+
 New operators appear in the catalogue over time: search for `AFIR-recharging-dyn`, add an entry (publisher,
 licence from the offering's *Nutzungsbedingungen*, URL), subscribe, release. `ShippedMobilithekFeedsTests` checks
 the table.

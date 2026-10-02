@@ -47,6 +47,25 @@ class ShippedMobilithekFeedsTests {
     }
 
     @Test
+    @DisplayName("static feeds are configured where the live feed publishes internal ids, each with its own subscription")
+    void staticFeedsAreDistinct() throws IOException {
+        MobilithekProperties properties = shipped();
+
+        List<String> staticIds = properties.feeds().stream()
+                .filter(MobilithekProperties.Feed::hasStaticFeed)
+                .map(MobilithekProperties.Feed::staticSubscriptionId).toList();
+        List<String> liveIds = properties.feeds().stream().map(MobilithekProperties.Feed::subscriptionId).toList();
+
+        assertThat(staticIds).hasSizeGreaterThanOrEqualTo(11).doesNotHaveDuplicates()
+                .allSatisfy(id -> assertThat(id).matches("\\d+"))
+                .doesNotContainAnyElementsOf(liveIds);
+        assertThat(properties.feeds()).filteredOn(MobilithekProperties.Feed::hasStaticFeed)
+                .extracting(MobilithekProperties.Feed::publisher)
+                .contains("Wirelane GmbH", "Hamburger Energienetze GmbH (eRound)", "vaylens GmbH");
+        assertThat(properties.staticRefreshInterval()).isEqualTo(Duration.ofHours(24));
+    }
+
+    @Test
     @DisplayName("the CC BY offerings are credited under CC BY, because that licence is the reason credit is per feed")
     void ccByFeedsSaySo() throws IOException {
         assertThat(shipped().feeds())

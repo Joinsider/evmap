@@ -434,6 +434,19 @@ each of ladenetz.de, Wirelane and eRound was fetched with the machine certificat
   older than 72 h for 4.034 of 4.081 charge points; eRound sends none (the publication time stands in). `max-age`
   therefore drops most of an operator whose charge points rarely change state (open point e).
 
+### Static feeds for internal ids (2026-10-02)
+
+Decision b, built: a feed entry may name the operator's static offering (`static-subscription-id`). The provider reads
+it once a day (`static-refresh-interval`, failures retried after `backoff`) with `AfirStaticIdParser`, which streams the
+package — eRound's is 121 MB unpacked — and keeps only each refill point's `idG` and the `externalIdentifier` typed
+`evseId` (an untyped one only if it has the shape of an EVSE-ID). The live state is translated when the answer is
+assembled, so a translation loaded later applies to statuses already held. Matching stays exact: the translation is
+the operator's own statement of which EVSE-ID an internal id stands for.
+
+Subscribed and configured for eRound, vaylens, LichtBlick, Wirelane, Qwello, EWE, EV Price, Grid & Co, Road, VW Group
+Charging and e-clearing.net. Checked against real packages: every live charge point of eRound (19.187), Wirelane
+(4.081) and EWE (1.577) translates; parsing eRound's static package takes 0,6 s.
+
 ### Open points (L5)
 
 a. **Push delivery** — worth it only if pull hits the operators' access quotas (404 in the logs) or one minute of
@@ -441,7 +454,7 @@ a. **Push delivery** — worth it only if pull hits the operators' access quotas
    pull only for the replay after a restart.
 b. ~~**Static AFIR feeds**~~ — decided 2026-10-02: the static feeds of operators that publish internal ids
    (Wirelane, eRound, and whichever the first full day shows) are subscribed and read only to translate `idG` into
-   the EVSE-ID; matching stays exact. Built as its own step after the XML fix.
+   the EVSE-ID; matching stays exact. Built, see "Static feeds for internal ids".
 c. **Mobilithek prices** — separate step under ADR 0022 (decision 4).
 d. **Second API replica** — the in-process state now has a subscription cursor per feed; two replicas would each poll
    (doubling quota use) but stay correct. Unchanged blocker, see open point 4.

@@ -156,7 +156,10 @@ is only correct on top of its snapshot, so its feeds are read continuously from 
 `fetch` hands out the in-memory result — do not make the on-demand providers do the same. Feeds and their
 attribution are a table in `application.yaml` (`ShippedMobilithekFeedsTests`); each entry is credited to its
 operator under its own licence (`ChargePointAvailability.attribution`), because CC BY names the operator, not the
-platform. Where two providers report one EVSE-ID the **newer `observedAt` wins**. Certificate: `MOBILITHEK_KEYSTORE`
+platform. Operators whose live feed names refill points by internal id (UUIDs, hashes) get their static feed as
+well (`static-subscription-id`, read daily by `AfirStaticIdParser` only to translate `idG` → EVSE-ID); packages arrive
+as JSON or XML whatever the offering says, and `max-age` counts from the package that last confirmed a status, not from
+its `lastUpdated`. Where two providers report one EVSE-ID the **newer `observedAt` wins**. Certificate: `MOBILITHEK_KEYSTORE`
 (Base64) and `MOBILITHEK_KEYSTORE_PASSWORD`, secrets, never logged; runbook `docs/operations/mobilithek.md`. TomTom
 was rejected (no EVSE-IDs).
 

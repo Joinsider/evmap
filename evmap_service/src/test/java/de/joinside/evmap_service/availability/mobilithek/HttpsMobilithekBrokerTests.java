@@ -47,7 +47,7 @@ class HttpsMobilithekBrokerTests {
 
     private static MobilithekProperties properties(String brokerUrl, String path, String base64, String password) {
         return new MobilithekProperties(true, brokerUrl, path, base64, password, List.of("DE"),
-                Duration.ofSeconds(60), 50, Duration.ofHours(72), Duration.ofMinutes(10), Duration.ofHours(1),
+                Duration.ofSeconds(60), 50, Duration.ofHours(72), Duration.ofMinutes(10), Duration.ofHours(1), Duration.ofHours(24),
                 Duration.ofSeconds(5), List.of());
     }
 

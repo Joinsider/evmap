@@ -43,6 +43,10 @@ import java.util.stream.Collectors;
  * operator's access quota is exhausted, and hammering it would only use up the next one. A feed that has not
  * answered for {@code stale-after} reads as unknown; nothing is ever guessed.
  * <p>
+ * Operators whose live feed names refill points by internal id rather than EVSE-ID — Wirelane, eRound and others —
+ * are configured with their static feed as well; it is read once a day for nothing but the translation of those
+ * ids into EVSE-IDs, so their charge points join exactly like everyone else's.
+ * <p>
  * Every entry carries its feed's {@link Attribution}, because the operators license their data individually and
  * CC BY requires naming them (ADR 0015, L5 decision 6).
  * <p>
@@ -78,6 +82,11 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
         String cursor = FROM_THE_START;
         Instant lastSuccess;
         Instant backedOffUntil;
+        /** Internal id → EVSE-ID from the operator's static feed; empty for operators that publish EVSE-IDs. */
+        final Map<String, String> evseIdsByInternalId = new HashMap<>();
+        String staticCursor = FROM_THE_START;
+        /** When the static feed is next asked; {@code null} before the first time. */
+        Instant staticDueAt;
 
         FeedState(MobilithekProperties.Feed feed) {
             this.feed = feed;
@@ -190,6 +199,7 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
         try (var _ = LogContext.scope(LogContext.SOURCE, SOURCE)) {
             for (FeedState feed : feeds.values()) {
                 try {
+                    if (feed.feed.hasStaticFeed()) refreshStaticIds(feed);
                     poll(feed);
                 } catch (RuntimeException e) {
                     // A bug in one feed's handling must not stop the others from being read.
@@ -255,6 +265,42 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
                 feed.feed.publisher(), properties.maxPackagesPerPoll());
     }
 
+    /**
+     * Reads the operator's static feed for its id translations, at most once per {@code static-refresh-interval}.
+     * Translations are only ever added: an id that leaves the static feed keeps translating until restart, which is
+     * harmless — it can only map a live status onto the EVSE-ID it was published for. Failures leave the existing
+     * translations in place and are retried after {@code backoff}; the live feed is read either way.
+     */
+    private void refreshStaticIds(FeedState feed) {
+        Instant now = clock.instant();
+        if (feed.staticDueAt != null && now.isBefore(feed.staticDueAt)) return;
+        feed.staticDueAt = now.plus(properties.backoff());
+        int before = feed.evseIdsByInternalId.size();
+        for (int fetched = 0; fetched < properties.maxPackagesPerPoll(); fetched++) {
+            try (MobilithekBroker.Response response = broker.next(feed.feed.staticSubscriptionId(), feed.staticCursor)) {
+                if (response.status() == 200) {
+                    feed.evseIdsByInternalId.putAll(AfirStaticIdParser.parse(response.body()));
+                    if (response.lastModified() == null) break;
+                    feed.staticCursor = response.lastModified();
+                } else if (response.status() == 304 || response.status() == 204) {
+                    break;
+                } else {
+                    log.warn("Mobilithek static feed of {} answered HTTP {} — keeping {} id translation(s), retrying at {}",
+                            feed.feed.publisher(), response.status(), before, feed.staticDueAt);
+                    return;
+                }
+            } catch (IOException e) {
+                log.warn("Mobilithek static feed of {} could not be read — keeping {} id translation(s)",
+                        feed.feed.publisher(), before, e);
+                return;
+            }
+        }
+        feed.staticDueAt = now.plus(properties.staticRefreshInterval());
+        if (feed.evseIdsByInternalId.size() != before)
+            log.info("Mobilithek feed {}: {} internal id(s) translated to EVSE-IDs from its static feed",
+                    feed.feed.publisher(), feed.evseIdsByInternalId.size());
+    }
+
     private static void apply(FeedState feed, AfirStatusParser.Package received, Instant now) {
         // A publication time from the future would keep a status alive past max-age; the arrival bounds it.
         Instant confirmedAt = received.publishedAt() != null && received.publishedAt().isBefore(now)
@@ -284,8 +330,11 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
         Map<String, ChargePointAvailability> merged = new HashMap<>();
         for (FeedState feed : feeds.values()) {
             if (feed.lastSuccess == null || feed.lastSuccess.plus(properties.staleAfter()).isBefore(now)) continue;
-            feed.chargePoints.forEach((evseId, held) -> {
+            feed.chargePoints.forEach((reportedId, held) -> {
                 if (held.confirmedAt().isBefore(notBefore)) return;
+                // Translated here rather than when a package arrives, so a static feed loaded later applies to the
+                // state already held.
+                String evseId = feed.evseIdsByInternalId.getOrDefault(reportedId, reportedId);
                 AfirStatusParser.Reported reported = held.reported();
                 merged.merge(evseId,
                         new ChargePointAvailability(evseId, reported.status(), reported.observedAt(), feed.credit),
