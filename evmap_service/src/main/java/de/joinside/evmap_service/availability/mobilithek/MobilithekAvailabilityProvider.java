@@ -74,7 +74,7 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
     private static final class FeedState {
         final MobilithekProperties.Feed feed;
         final Attribution credit;
-        final Map<String, AfirStatusParser.Reported> chargePoints = new HashMap<>();
+        final Map<String, Held> chargePoints = new HashMap<>();
         String cursor = FROM_THE_START;
         Instant lastSuccess;
         Instant backedOffUntil;
@@ -256,16 +256,17 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
     }
 
     private static void apply(FeedState feed, AfirStatusParser.Package received, Instant now) {
+        // A publication time from the future would keep a status alive past max-age; the arrival bounds it.
         Instant confirmedAt = received.publishedAt() != null && received.publishedAt().isBefore(now)
                 ? received.publishedAt() : now;
         if (received.delta()) {
             // Packages arrive in delivery order, so the newer package wins even where its timestamp is older.
-            feed.chargePoints.putAll(received.chargePoints());
+            received.chargePoints().forEach((evseId, reported) -> feed.chargePoints.put(evseId, new Held(reported, confirmedAt)));
             log.debug("Mobilithek feed {}: delta with {} charge point(s)", feed.feed.publisher(), received.chargePoints().size());
             return;
         }
         feed.chargePoints.clear();
-        feed.chargePoints.putAll(received.chargePoints());
+        received.chargePoints().forEach((evseId, reported) -> feed.chargePoints.put(evseId, new Held(reported, confirmedAt)));
         // The samples show whether a feed whose ids are not EVSE-shaped uses internal ids (static feed needed) or
         // only another spelling of the EVSE-ID. Charge point ids are public infrastructure data, not personal.
         log.info("Mobilithek feed {}: snapshot with {} charge point(s), {} of them shaped like an EVSE-ID, {} ignored{}",
@@ -283,8 +284,9 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
         Map<String, ChargePointAvailability> merged = new HashMap<>();
         for (FeedState feed : feeds.values()) {
             if (feed.lastSuccess == null || feed.lastSuccess.plus(properties.staleAfter()).isBefore(now)) continue;
-            feed.chargePoints.forEach((evseId, reported) -> {
-                if (reported.observedAt() != null && reported.observedAt().isBefore(notBefore)) return;
+            feed.chargePoints.forEach((evseId, held) -> {
+                if (held.confirmedAt().isBefore(notBefore)) return;
+                AfirStatusParser.Reported reported = held.reported();
                 merged.merge(evseId,
                         new ChargePointAvailability(evseId, reported.status(), reported.observedAt(), feed.credit),
                         (kept, candidate) -> Observations.newer(kept, candidate, ChargePointAvailability::observedAt));
