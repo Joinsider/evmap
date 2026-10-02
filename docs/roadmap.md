@@ -36,6 +36,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | L2 | Lückenfüller: Schweiz | fertig ⁵ | [#18](https://github.com/Joinsider/evmap/pull/18) | [0012](adr/0012-additional-national-charging-registers.md) |
 | L3 | Lückenfüller: Italien | übersprungen ⁷ | | [0012](adr/0012-additional-national-charging-registers.md) |
 | L4 | Lückenfüller: Spanien | fertig ⁸ | [#22](https://github.com/Joinsider/evmap/pull/22) | [0012](adr/0012-additional-national-charging-registers.md) |
+| L5 | Lückenfüller: Mobilithek (Live-Daten Deutschland), vor 8b | in Arbeit | `feature/availability-mobilithek` | [0015](adr/0015-live-availability-national-access-points-with-tomtom-fallback.md) |
 
 ¹ Im Repository fertig; offen sind die 👤-Schritte auf dem VPS (Backup-Ziel, Monitore, erste
 Restore-Probe, `docs/operations/backup-and-restore.md` §5).
@@ -271,7 +272,6 @@ steht; dann gibt es zwei Clients, und das Lastenheft §7 wird entsprechend angep
 - Eigene Turn-by-Turn-Navigation (Valhalla + Ferrostar), dabei neu klären, wie die Live-Belegung
   einfließt. Zusammen damit prüfen, ob iOS und Web komplett auf MapLibre + OpenStreetMap umsteigen
   (Ferrostar baut darauf auf).
-- Mobilithek-Live-Daten, sobald eine Organisation registriert ist (ADR 0015)
 - Nicht gewählt, aber vermerkt: Fotos zu Stationen, Sternebewertungen, Widgets und Live Activity
 
 ## Entschieden am 2026-09-29
@@ -332,6 +332,11 @@ Lückenfüller Italien (2026-10-01, Details in ADR 0012, Abschnitt „Italy skip
 - L3 wird übersprungen. Die PUN hat keinen offenen Export mehr; die Portal-API ist laut Product Owner nur mit
   italienischem Ausweis erreichbar, ihre Lizenz ist nicht ausdrücklich erklärt. Ein Adapter gegen die Portal-API
   wurde verworfen. Italien bleibt über OCM abgedeckt.
+
+Lückenfüller Mobilithek (2026-10-02, Details in ADR 0015, Abschnitt „Mobilithek (L5)“):
+
+- Die Organisation ist genehmigt und der Zugang freigeschaltet. Die Mobilithek-Live-Daten werden deshalb aus den
+  v3-Kandidaten vorgezogen und jetzt als Lückenfüller L5 umgesetzt, vor Phase 8b.
 
 Lückenfüller Spanien (2026-10-01, Details in ADR 0012, Abschnitt „Spain (L4)“):
 
