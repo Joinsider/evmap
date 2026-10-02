@@ -18,7 +18,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
-import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Duration;
@@ -78,24 +77,24 @@ final class HttpsMobilithekBroker implements MobilithekBroker {
     }
 
     private static InputStream keystoreOf(MobilithekProperties properties) throws IOException {
-        String base64 = properties.keystoreBase64();
-        if (base64 != null && !base64.isBlank())
+        if (properties.hasBase64Certificate())
             // MIME decoding tolerates the line breaks `base64` inserts by default.
-            return new ByteArrayInputStream(Base64.getMimeDecoder().decode(base64.trim()));
+            return new ByteArrayInputStream(Base64.getMimeDecoder().decode(properties.keystoreBase64().trim()));
         return Files.newInputStream(Path.of(properties.keystorePath()));
     }
 
+    /** Logs when the machine certificate ends — the key entry; the issuer's certificate may sit beside it. */
     private static void logExpiry(KeyStore keyStore, Instant now) throws GeneralSecurityException {
-        for (String alias : Collections.list(keyStore.aliases())) {
-            if (!keyStore.isKeyEntry(alias)) continue;
-            Certificate certificate = keyStore.getCertificate(alias);
-            if (!(certificate instanceof X509Certificate x509)) continue;
-            Instant notAfter = x509.getNotAfter().toInstant();
-            if (notAfter.isBefore(now.plus(EXPIRY_WARNING)))
-                log.warn("Mobilithek machine certificate expires {} — request a new one in the Mobilithek", notAfter);
-            else
-                log.info("Mobilithek machine certificate loaded, valid until {}", notAfter);
-        }
+        for (String alias : Collections.list(keyStore.aliases()))
+            if (keyStore.isKeyEntry(alias) && keyStore.getCertificate(alias) instanceof X509Certificate machine)
+                logExpiry(machine.getNotAfter().toInstant(), now);
+    }
+
+    private static void logExpiry(Instant notAfter, Instant now) {
+        if (notAfter.isBefore(now.plus(EXPIRY_WARNING)))
+            log.warn("Mobilithek machine certificate expires {} — request a new one in the Mobilithek", notAfter);
+        else
+            log.info("Mobilithek machine certificate loaded, valid until {}", notAfter);
     }
 
     @Override

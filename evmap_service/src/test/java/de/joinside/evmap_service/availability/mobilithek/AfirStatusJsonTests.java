@@ -155,6 +155,50 @@ class AfirStatusJsonTests {
         assertThat(empty.chargePoints()).isEmpty();
     }
 
+    @Test
+    @DisplayName("reads several statuses under one key, and the newer of two mentions of one charge point")
+    void readsStatusArrayAndKeepsNewerMention() throws IOException {
+        AfirStatusJson.Package received = parse("""
+                {"messageContainer": {
+                  "payload": [{"aegiEnergyInfrastructureStatusPublication": {
+                    "publicationTime": {"unexpected": "object"},
+                    "aegiRefillPointStatus": [
+                      {"reference": {"idG": "DE*ABC*E1"}, "lastUpdated": "2026-10-02T10:05:00+02:00", "status": {"value": "charging"}},
+                      {"reference": {"idG": "DE*ABC*E1"}, "lastUpdated": "2026-10-02T10:00:00+02:00", "status": {"value": "available"}},
+                      {"reference": {"idG": "DE*ABC*E2"}, "lastUpdated": "yesterday", "status": {"value": ["available"]}},
+                      {"reference": {"idG": "DE*ABC*E3"}, "status": {"value": []}},
+                      {"reference": {"idG": "  "}, "status": {"value": "available"}}
+                    ]}}],
+                  "exchangeInformation": {"exchangeContext": {"codedExchangeProtocol": {"value": "deltaPush"}}}}}
+                """);
+
+        assertThat(received.delta()).isTrue();
+        assertThat(received.chargePoints().get("DEABCE1"))
+                .isEqualTo(new AfirStatusJson.Reported(LiveAvailability.OCCUPIED, Instant.parse("2026-10-02T08:05:00Z")));
+        // An unreadable timestamp and no usable publication time: the status stands, without an age.
+        assertThat(received.chargePoints().get("DEABCE2"))
+                .isEqualTo(new AfirStatusJson.Reported(LiveAvailability.AVAILABLE, null));
+        // An empty status array and a blank id are no statuses.
+        assertThat(received.chargePoints()).doesNotContainKey("DEABCE3");
+        assertThat(received.ignored()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("the first publication time is the fallback, a protocol without a value changes nothing")
+    void firstPublicationTimeAndEmptyProtocol() throws IOException {
+        AfirStatusJson.Package received = parse("""
+                {"messageContainer": {
+                  "payload": [
+                    {"aegiEnergyInfrastructureStatusPublication": {"publicationTime": "2026-10-02T10:00:00+02:00"}},
+                    {"aegiEnergyInfrastructureStatusPublication": {"publicationTime": "2026-10-02T11:00:00+02:00",
+                      "aegiElectricChargingPointStatus": {"reference": {"idG": "DE*ABC*E1"}, "status": {"value": "available"}}}}],
+                  "exchangeInformation": {"exchangeContext": {"codedExchangeProtocol": {"extendedValueG": "custom"}}}}}
+                """);
+
+        assertThat(received.delta()).isTrue();
+        assertThat(received.chargePoints().get("DEABCE1").observedAt()).isEqualTo(Instant.parse("2026-10-02T08:00:00Z"));
+    }
+
     @ParameterizedTest(name = "{0} / {1} -> {2}")
     @CsvSource(nullValues = "null", value = {
             "available,       null,                   AVAILABLE",

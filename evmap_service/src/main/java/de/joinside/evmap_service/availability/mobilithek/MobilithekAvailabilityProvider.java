@@ -4,6 +4,7 @@ import de.joinside.evmap_service.availability.Attribution;
 import de.joinside.evmap_service.availability.AvailabilityProvider;
 import de.joinside.evmap_service.availability.ChargePointAvailability;
 import de.joinside.evmap_service.availability.GeoBounds;
+import de.joinside.evmap_service.availability.Observations;
 import de.joinside.evmap_service.logging.LogContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,7 +55,7 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
     static final String SOURCE = "Mobilithek";
 
     /** Used only where an entry carries no feed credit of its own, which this provider never emits. */
-    private static final Attribution ATTRIBUTION = new Attribution("Mobilithek",
+    private static final Attribution ATTRIBUTION = new Attribution(SOURCE,
             "AFIR-Daten der Ladepunktbetreiber", "https://mobilithek.info");
 
     /**
@@ -120,7 +121,7 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
         } catch (IOException | GeneralSecurityException e) {
             // The exception names the file and the failure, never the password.
             log.error("Mobilithek machine certificate could not be loaded{} — German live data from the Mobilithek is off",
-                    properties.keystoreBase64().isBlank() ? " from " + properties.keystorePath() : " from MOBILITHEK_KEYSTORE", e);
+                    properties.hasBase64Certificate() ? " from MOBILITHEK_KEYSTORE" : " from " + properties.keystorePath(), e);
             return null;
         }
     }
@@ -132,8 +133,7 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
         else if (feeds.isEmpty())
             log.info("Mobilithek is off: no feed has a subscription id yet");
         else if (broker != null)
-            log.info("Mobilithek feeds: {} subscribed of {} configured", feeds.size(),
-                    properties.feeds() == null ? 0 : properties.feeds().size());
+            log.info("Mobilithek feeds: {} subscribed of {} configured", feeds.size(), properties.feeds().size());
     }
 
     @Override
@@ -272,15 +272,9 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
                 if (reported.observedAt() != null && reported.observedAt().isBefore(notBefore)) return;
                 merged.merge(evseId,
                         new ChargePointAvailability(evseId, reported.status(), reported.observedAt(), feed.credit),
-                        MobilithekAvailabilityProvider::newer);
+                        (held, candidate) -> Observations.newer(held, candidate, ChargePointAvailability::observedAt));
             });
         }
         return new Answer(now, List.copyOf(merged.values()));
-    }
-
-    private static ChargePointAvailability newer(ChargePointAvailability held, ChargePointAvailability candidate) {
-        if (candidate.observedAt() == null) return held;
-        if (held.observedAt() == null) return candidate;
-        return candidate.observedAt().isAfter(held.observedAt()) ? candidate : held;
     }
 }

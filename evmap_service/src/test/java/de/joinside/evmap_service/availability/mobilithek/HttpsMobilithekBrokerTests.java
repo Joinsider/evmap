@@ -52,6 +52,10 @@ class HttpsMobilithekBrokerTests {
     }
 
     private String serve(int status, byte[] gzippedBody) throws IOException {
+        return serve(status, gzippedBody, "gzip");
+    }
+
+    private String serve(int status, byte[] gzippedBody, String contentEncoding) throws IOException {
         server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
         server.createContext("/datexv3", exchange -> {
             seen.put("query", exchange.getRequestURI().getRawQuery());
@@ -61,7 +65,7 @@ class HttpsMobilithekBrokerTests {
             if (gzippedBody == null) {
                 exchange.sendResponseHeaders(status, -1);
             } else {
-                exchange.getResponseHeaders().add("Content-Encoding", "gzip");
+                if (contentEncoding != null) exchange.getResponseHeaders().add("Content-Encoding", contentEncoding);
                 exchange.getResponseHeaders().add("Content-Type", "application/json");
                 exchange.sendResponseHeaders(status, gzippedBody.length);
                 try (OutputStream out = exchange.getResponseBody()) {
@@ -132,5 +136,44 @@ class HttpsMobilithekBrokerTests {
         assertThatThrownBy(() -> HttpsMobilithekBroker.create(
                 properties("http://127.0.0.1:9/datexv3", KEYSTORE.toString(), "", "wrong"), Clock.systemUTC()))
                 .isInstanceOf(IOException.class);
+    }
+
+    @Test
+    @DisplayName("an uncompressed answer is passed through as it is")
+    void plainBody() throws Exception {
+        String url = serve(200, AfirStatusJsonTests.DELTA.getBytes(StandardCharsets.UTF_8), null);
+        MobilithekBroker broker = HttpsMobilithekBroker.create(
+                properties(url, KEYSTORE.toString(), "", KEYSTORE_PASSWORD), Clock.systemUTC());
+
+        try (MobilithekBroker.Response response = broker.next("12345", MobilithekAvailabilityProvider.FROM_THE_START)) {
+            assertThat(AfirStatusJson.parse(response.body()).chargePoints()).containsOnlyKeys("DEEBWE10011");
+        }
+    }
+
+    @Test
+    @DisplayName("an interrupted request is an I/O failure and keeps the thread's interrupt flag")
+    void interrupted() throws Exception {
+        String url = serve(304, null);
+        MobilithekBroker broker = HttpsMobilithekBroker.create(
+                properties(url, KEYSTORE.toString(), "", KEYSTORE_PASSWORD), Clock.systemUTC());
+
+        Thread.currentThread().interrupt();
+        try {
+            assertThatThrownBy(() -> broker.next("12345", MobilithekAvailabilityProvider.FROM_THE_START))
+                    .isInstanceOf(IOException.class).hasCauseInstanceOf(InterruptedException.class);
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
+    @Test
+    @DisplayName("a certificate close to its end still loads; the warning is the renewal reminder")
+    void loadsExpiringCertificate() throws Exception {
+        // The fixture is valid for a century; a clock just before its end makes it "about to expire".
+        Clock late = Clock.fixed(java.time.Instant.parse("2126-09-01T00:00:00Z"), java.time.ZoneOffset.UTC);
+
+        assertThat(HttpsMobilithekBroker.create(
+                properties("http://127.0.0.1:9/datexv3", KEYSTORE.toString(), "", KEYSTORE_PASSWORD), late)).isNotNull();
     }
 }
