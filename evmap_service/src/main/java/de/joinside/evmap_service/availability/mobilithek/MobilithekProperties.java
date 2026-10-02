@@ -49,6 +49,10 @@ record MobilithekProperties(@DefaultValue("true") boolean enabled,
                             @DefaultValue("30s") Duration timeout,
                             @DefaultValue List<Feed> feeds) {
 
+    MobilithekProperties {
+        feeds = feeds == null ? List.of() : List.copyOf(feeds);
+    }
+
     /**
      * One subscribed data offering — in practice one charge point operator.
      *
@@ -62,15 +66,23 @@ record MobilithekProperties(@DefaultValue("true") boolean enabled,
     record Feed(String subscriptionId, String publisher, String licence, String url) {
 
         boolean subscribed() {
-            return subscriptionId != null && !subscriptionId.isBlank();
+            return isSet(subscriptionId);
         }
     }
 
     boolean hasCertificate() {
-        return (keystorePath != null && !keystorePath.isBlank()) || (keystoreBase64 != null && !keystoreBase64.isBlank());
+        return isSet(keystorePath) || isSet(keystoreBase64);
+    }
+
+    boolean hasBase64Certificate() {
+        return isSet(keystoreBase64);
+    }
+
+    private static boolean isSet(String value) {
+        return value != null && !value.isBlank();
     }
 
     List<Feed> subscribedFeeds() {
-        return feeds == null ? List.of() : feeds.stream().filter(Feed::subscribed).toList();
+        return feeds.stream().filter(Feed::subscribed).toList();
     }
 }

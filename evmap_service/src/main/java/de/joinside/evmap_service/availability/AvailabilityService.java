@@ -159,16 +159,9 @@ public class AvailabilityService {
         return availability.attribution() != null ? availability.attribution() : provider.attribution();
     }
 
-    /**
-     * The more recent of two answers for one charge point. An answer without a timestamp loses to one
-     * with; on a tie the one already held stays, so the outcome does not depend on hash order.
-     */
+    /** The more recent of two answers for one charge point, by the rule every provider shares. */
     private static Reported newer(Reported held, Reported candidate) {
-        Instant heldAt = held.availability().observedAt();
-        Instant candidateAt = candidate.availability().observedAt();
-        if (candidateAt == null) return held;
-        if (heldAt == null) return candidate;
-        return candidateAt.isAfter(heldAt) ? candidate : held;
+        return Observations.newer(held, candidate, reported -> reported.availability().observedAt());
     }
 
     private static Set<String> wanted(List<ChargePointDirectory.KnownChargePoint> chargePoints) {
