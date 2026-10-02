@@ -169,18 +169,6 @@
         <target>Back to the start page</target>
       </segment>
     </unit>
-    <unit id="home.title">
-      <segment>
-        <source>EVMap im Browser</source>
-        <target>EVMap in the browser</target>
-      </segment>
-    </unit>
-    <unit id="home.body">
-      <segment>
-        <source>Karte, Stationen und Kommentare kommen hier später dazu. Bis dahin gibt es EVMap als App für das iPhone.</source>
-        <target>The map, stations and comments will follow here. Until then, EVMap is available as an iPhone app.</target>
-      </segment>
-    </unit>
     <unit id="callback.working">
       <segment>
         <source>Anmeldung wird abgeschlossen …</source>
@@ -605,6 +593,504 @@
       <segment>
         <source>Sonstiges</source>
         <target>Other</target>
+      </segment>
+    </unit>
+    <unit id="station.availability.operational">
+      <segment>
+        <source>In Betrieb</source>
+        <target>Operational</target>
+      </segment>
+    </unit>
+    <unit id="station.availability.maintenance">
+      <segment>
+        <source>In Wartung</source>
+        <target>Under maintenance</target>
+      </segment>
+    </unit>
+    <unit id="station.availability.outOfService">
+      <segment>
+        <source>Außer Betrieb</source>
+        <target>Out of service</target>
+      </segment>
+    </unit>
+    <unit id="station.live.available">
+      <segment>
+        <source>Frei</source>
+        <target>Available</target>
+      </segment>
+    </unit>
+    <unit id="station.live.occupied">
+      <segment>
+        <source>Belegt</source>
+        <target>Occupied</target>
+      </segment>
+    </unit>
+    <unit id="station.live.outOfOrder">
+      <segment>
+        <source>Gestört</source>
+        <target>Out of order</target>
+      </segment>
+    </unit>
+    <unit id="station.live.unknown">
+      <segment>
+        <source>Unbekannt</source>
+        <target>Unknown</target>
+      </segment>
+    </unit>
+    <unit id="station.live.occupancy">
+      <segment>
+        <source><ph id="0" equiv="available" disp="available"/> von <ph id="1" equiv="resolved" disp="resolved"/> Ladepunkten frei</source>
+        <target><ph id="0" equiv="available" disp="available"/> of <ph id="1" equiv="resolved" disp="resolved"/> charge points available</target>
+      </segment>
+    </unit>
+    <unit id="station.power">
+      <segment>
+        <source><ph id="0" equiv="value" disp="value"/> kW</source>
+        <target><ph id="0" equiv="value" disp="value"/> kW</target>
+      </segment>
+    </unit>
+    <unit id="power.tier.slow">
+      <segment>
+        <source>Langsamladen (AC)</source>
+        <target>Slow charging (AC)</target>
+      </segment>
+    </unit>
+    <unit id="power.tier.standard">
+      <segment>
+        <source>Normalladen (AC)</source>
+        <target>Standard charging (AC)</target>
+      </segment>
+    </unit>
+    <unit id="power.tier.fast">
+      <segment>
+        <source>Schnellladen (DC)</source>
+        <target>Fast charging (DC)</target>
+      </segment>
+    </unit>
+    <unit id="power.tier.highPower">
+      <segment>
+        <source>Highpower (DC)</source>
+        <target>High power (DC)</target>
+      </segment>
+    </unit>
+    <unit id="power.tier.ultra">
+      <segment>
+        <source>Ultraschnell (HPC)</source>
+        <target>Ultra-fast (HPC)</target>
+      </segment>
+    </unit>
+    <unit id="price.free">
+      <segment>
+        <source>Kostenlos</source>
+        <target>Free</target>
+      </segment>
+    </unit>
+    <unit id="price.perKwh">
+      <segment>
+        <source><ph id="0" equiv="amount" disp="amount"/>/kWh</source>
+        <target><ph id="0" equiv="amount" disp="amount"/>/kWh</target>
+      </segment>
+    </unit>
+    <unit id="price.sessionFee">
+      <segment>
+        <source>Startgebühr <ph id="0" equiv="amount" disp="amount"/></source>
+        <target>Session fee <ph id="0" equiv="amount" disp="amount"/></target>
+      </segment>
+    </unit>
+    <unit id="price.perMinute">
+      <segment>
+        <source><ph id="0" equiv="amount" disp="amount"/>/min</source>
+        <target><ph id="0" equiv="amount" disp="amount"/>/min</target>
+      </segment>
+    </unit>
+    <unit id="price.perMinuteFrom">
+      <segment>
+        <source>ab Min. <ph id="0" equiv="minute" disp="minute"/>: <ph id="1" equiv="amount" disp="amount"/>/min</source>
+        <target>from min. <ph id="0" equiv="minute" disp="minute"/>: <ph id="1" equiv="amount" disp="amount"/>/min</target>
+      </segment>
+    </unit>
+    <unit id="price.timeBased">
+      <segment>
+        <source>zzgl. zeitabhängiger Gebühr</source>
+        <target>plus a time-based fee</target>
+      </segment>
+    </unit>
+    <unit id="price.timeBasedFrom">
+      <segment>
+        <source>ab Min. <ph id="0" equiv="minute" disp="minute"/> zeitabhängige Gebühr</source>
+        <target>time-based fee from min. <ph id="0" equiv="minute" disp="minute"/></target>
+      </segment>
+    </unit>
+    <unit id="price.fromPerKwh">
+      <segment>
+        <source>ab <ph id="0" equiv="amount" disp="amount"/>/kWh</source>
+        <target>from <ph id="0" equiv="amount" disp="amount"/>/kWh</target>
+      </segment>
+    </unit>
+    <unit id="filter.title">
+      <segment>
+        <source>Filter</source>
+        <target>Filter</target>
+      </segment>
+    </unit>
+    <unit id="filter.done">
+      <segment>
+        <source>Fertig</source>
+        <target>Done</target>
+      </segment>
+    </unit>
+    <unit id="filter.connector">
+      <segment>
+        <source>Steckertypen</source>
+        <target>Connector types</target>
+      </segment>
+    </unit>
+    <unit id="filter.minimumPower">
+      <segment>
+        <source>Minimale Ladeleistung</source>
+        <target>Minimum charging power</target>
+      </segment>
+    </unit>
+    <unit id="filter.availability">
+      <segment>
+        <source>Nur betriebsbereite Ladestationen</source>
+        <target>Operational stations only</target>
+      </segment>
+    </unit>
+    <unit id="settings.providers">
+      <segment>
+        <source>Anbieter</source>
+        <target>Providers</target>
+      </segment>
+    </unit>
+    <unit id="provider.unlisted">
+      <segment>
+        <source>Alle übrigen Anbieter anzeigen</source>
+        <target>Show all other providers</target>
+      </segment>
+    </unit>
+    <unit id="provider.unlisted.footer.shown">
+      <segment>
+        <source>Die Karte zeigt alle Anbieter außer denen, die du hier unten auf „Nicht anzeigen“ stellst.</source>
+        <target>The map shows every provider except those you set to “Hide” below.</target>
+      </segment>
+    </unit>
+    <unit id="provider.unlisted.footer.hidden">
+      <segment>
+        <source>Die Karte zeigt nur die Anbieter aus dieser Liste, die auf „Anzeigen“ stehen. Alle anderen sind ausgeblendet.</source>
+        <target>The map shows only the providers on this list that are set to “Show”. All others are hidden.</target>
+      </segment>
+    </unit>
+    <unit id="provider.section.configured">
+      <segment>
+        <source>Deine Auswahl</source>
+        <target>Your selection</target>
+      </segment>
+    </unit>
+    <unit id="provider.listed.empty.web">
+      <segment>
+        <source>Noch keine einzelnen Anbieter eingestellt. Suche unten nach einem Ladenetz und füge es hinzu.</source>
+        <target>No individual providers set yet. Search for a charging network below and add it.</target>
+      </segment>
+    </unit>
+    <unit id="provider.remove">
+      <segment>
+        <source>Entfernen</source>
+        <target>Remove</target>
+      </segment>
+    </unit>
+    <unit id="provider.search.prompt">
+      <segment>
+        <source>Anbieter suchen</source>
+        <target>Search providers</target>
+      </segment>
+    </unit>
+    <unit id="provider.section.results">
+      <segment>
+        <source>Suchergebnisse</source>
+        <target>Search results</target>
+      </segment>
+    </unit>
+    <unit id="provider.section.common">
+      <segment>
+        <source>Größte Anbieter</source>
+        <target>Largest providers</target>
+      </segment>
+    </unit>
+    <unit id="provider.failed">
+      <segment>
+        <source>Die Anbieter konnten nicht geladen werden.</source>
+        <target>The providers could not be loaded.</target>
+      </segment>
+    </unit>
+    <unit id="provider.empty">
+      <segment>
+        <source>Keine Anbieter gefunden.</source>
+        <target>No providers found.</target>
+      </segment>
+    </unit>
+    <unit id="provider.alreadyListed">
+      <segment>
+        <source>Bereits in der Liste</source>
+        <target>Already on the list</target>
+      </segment>
+    </unit>
+    <unit id="provider.add">
+      <segment>
+        <source>Hinzufügen</source>
+        <target>Add</target>
+      </segment>
+    </unit>
+    <unit id="settings.reset.message.web">
+      <segment>
+        <source>Alle Filter und deine Anbieterauswahl werden verworfen.</source>
+        <target>All filters and your provider selection will be discarded.</target>
+      </segment>
+    </unit>
+    <unit id="settings.reset">
+      <segment>
+        <source>Einstellungen zurücksetzen</source>
+        <target>Reset settings</target>
+      </segment>
+    </unit>
+    <unit id="action.cancel">
+      <segment>
+        <source>Abbrechen</source>
+        <target>Cancel</target>
+      </segment>
+    </unit>
+    <unit id="filter.power.any">
+      <segment>
+        <source>Beliebig</source>
+        <target>Any</target>
+      </segment>
+    </unit>
+    <unit id="provider.preference.shown">
+      <segment>
+        <source>Anzeigen</source>
+        <target>Show</target>
+      </segment>
+    </unit>
+    <unit id="provider.preference.hidden">
+      <segment>
+        <source>Nicht anzeigen</source>
+        <target>Hide</target>
+      </segment>
+    </unit>
+    <unit id="provider.preference.preferred">
+      <segment>
+        <source>Bevorzugen</source>
+        <target>Prefer</target>
+      </segment>
+    </unit>
+    <unit id="provider.preference.avoided">
+      <segment>
+        <source>Meiden</source>
+        <target>Avoid</target>
+      </segment>
+    </unit>
+    <unit id="provider.stationCount">
+      <segment>
+        <source><ph id="0" equiv="count" disp="count"/> Ladestationen</source>
+        <target><ph id="0" equiv="count" disp="count"/> charging stations</target>
+      </segment>
+    </unit>
+    <unit id="map.loading">
+      <segment>
+        <source>Karte wird geladen …</source>
+        <target>Loading map …</target>
+      </segment>
+    </unit>
+    <unit id="map.unavailable">
+      <segment>
+        <source>Die Karte ist gerade nicht verfügbar. Stationen, die du per Link öffnest, werden trotzdem angezeigt.</source>
+        <target>The map is not available right now. Stations you open by link are still shown.</target>
+      </segment>
+    </unit>
+    <unit id="map.filter">
+      <segment>
+        <source>Filter</source>
+        <target>Filter</target>
+      </segment>
+    </unit>
+    <unit id="stations.loading">
+      <segment>
+        <source>Stationen werden geladen …</source>
+        <target>Loading stations …</target>
+      </segment>
+    </unit>
+    <unit id="stations.failed">
+      <segment>
+        <source>Stationen konnten nicht geladen werden.</source>
+        <target>Stations could not be loaded.</target>
+      </segment>
+    </unit>
+    <unit id="stations.truncated">
+      <segment>
+        <source>Nur die stärksten Ladestationen — zum Anzeigen aller hineinzoomen</source>
+        <target>Strongest stations only — zoom in to see all</target>
+      </segment>
+    </unit>
+    <unit id="map.legend">
+      <segment>
+        <source>Legende: Die Farbe eines Pins zeigt die maximale Ladeleistung.</source>
+        <target>Legend: a pin’s colour shows the maximum charging power.</target>
+      </segment>
+    </unit>
+    <unit id="map.cluster">
+      <segment>
+        <source><ph id="0" equiv="count" disp="count"/> Ladestationen</source>
+        <target><ph id="0" equiv="count" disp="count"/> charging stations</target>
+      </segment>
+    </unit>
+    <unit id="search.prompt">
+      <segment>
+        <source>Adresse oder Ort suchen</source>
+        <target>Search for an address or place</target>
+      </segment>
+    </unit>
+    <unit id="search.error.notFound">
+      <segment>
+        <source>Zu dieser Adresse wurde kein Ort gefunden.</source>
+        <target>No place was found for this address.</target>
+      </segment>
+    </unit>
+    <unit id="station.close">
+      <segment>
+        <source>Schließen</source>
+        <target>Close</target>
+      </segment>
+    </unit>
+    <unit id="station.notFound">
+      <segment>
+        <source>Diese Station gibt es nicht oder sie konnte nicht geladen werden.</source>
+        <target>This station does not exist or could not be loaded.</target>
+      </segment>
+    </unit>
+    <unit id="station.live.title">
+      <segment>
+        <source>Live-Verfügbarkeit</source>
+        <target>Live availability</target>
+      </segment>
+    </unit>
+    <unit id="station.live.source">
+      <segment>
+        <source>Live-Daten:</source>
+        <target>Live data:</target>
+      </segment>
+    </unit>
+    <unit id="station.connectors">
+      <segment>
+        <source>Anschlüsse</source>
+        <target>Connectors</target>
+      </segment>
+    </unit>
+    <unit id="station.noConnectors">
+      <segment>
+        <source>Keine Angaben zu den Anschlüssen.</source>
+        <target>No connector information.</target>
+      </segment>
+    </unit>
+    <unit id="price.title">
+      <segment>
+        <source>Ad-hoc-Preis</source>
+        <target>Ad-hoc price</target>
+      </segment>
+    </unit>
+    <unit id="price.furtherFees">
+      <segment>
+        <source>Weitere Gebühren möglich, z. B. fürs Blockieren nach dem Laden</source>
+        <target>Further fees possible, e.g. for blocking after charging</target>
+      </segment>
+    </unit>
+    <unit id="price.disclaimer">
+      <segment>
+        <source>Preis ohne Ladekarte, wie vom Betreiber veröffentlicht. Mit einer Ladekarte kann er abweichen.</source>
+        <target>Price without a charging card, as published by the operator. It may differ with a charging card.</target>
+      </segment>
+    </unit>
+    <unit id="price.source">
+      <segment>
+        <source>Preisdaten:</source>
+        <target>Price data:</target>
+      </segment>
+    </unit>
+    <unit id="comments.title">
+      <segment>
+        <source>Community</source>
+        <target>Community</target>
+      </segment>
+    </unit>
+    <unit id="comments.empty">
+      <segment>
+        <source>Noch keine Kommentare.</source>
+        <target>No comments yet.</target>
+      </segment>
+    </unit>
+    <unit id="comments.paid">
+      <segment>
+        <source>Bezahlt: <ph id="0" equiv="amount" disp="amount"/></source>
+        <target>Paid: <ph id="0" equiv="amount" disp="amount"/></target>
+      </segment>
+    </unit>
+    <unit id="comments.failed">
+      <segment>
+        <source>Kommentare konnten nicht geladen werden.</source>
+        <target>Comments could not be loaded.</target>
+      </segment>
+    </unit>
+    <unit id="comments.webSoon">
+      <segment>
+        <source>Kommentieren geht bisher in der iPhone-App.</source>
+        <target>For now, comments can be written in the iPhone app.</target>
+      </segment>
+    </unit>
+    <unit id="station.sources">
+      <segment>
+        <source>Datenquellen</source>
+        <target>Data sources</target>
+      </segment>
+    </unit>
+    <unit id="station.addressUnavailable">
+      <segment>
+        <source>Keine Adresse verfügbar</source>
+        <target>No address available</target>
+      </segment>
+    </unit>
+    <unit id="station.live.chargePoint">
+      <segment>
+        <source>Ladepunkt</source>
+        <target>Charge point</target>
+      </segment>
+    </unit>
+    <unit id="station.live.observedAt">
+      <segment>
+        <source>Zuletzt gemeldet <ph id="0" equiv="date" disp="date"/></source>
+        <target>Last reported <ph id="0" equiv="date" disp="date"/></target>
+      </segment>
+    </unit>
+    <unit id="station.live.unresolved">
+      <segment>
+        <source><ph id="0" equiv="count" disp="count"/> weitere Ladepunkte ohne Live-Daten</source>
+        <target><ph id="0" equiv="count" disp="count"/> more charge points without live data</target>
+      </segment>
+    </unit>
+    <unit id="price.chargePointCount">
+      <segment>
+        <source><ph id="0" equiv="count" disp="count"/> ×</source>
+        <target><ph id="0" equiv="count" disp="count"/> ×</target>
+      </segment>
+    </unit>
+    <unit id="price.observedAt">
+      <segment>
+        <source>Stand <ph id="0" equiv="date" disp="date"/></source>
+        <target>As of <ph id="0" equiv="date" disp="date"/></target>
+      </segment>
+    </unit>
+    <unit id="price.unpriced">
+      <segment>
+        <source>Ladepunkte ohne bekannten Preis: <ph id="0" equiv="count" disp="count"/></source>
+        <target>Charge points without a known price: <ph id="0" equiv="count" disp="count"/></target>
       </segment>
     </unit>
   </file>

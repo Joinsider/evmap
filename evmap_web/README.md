@@ -1,12 +1,14 @@
 # EVMap web client
 
-Angular workspace for the browser client (ADR 0018). Today it holds the sign-in flow and the admin
-area; the user-facing web app (roadmap phase 8) arrives as further lazy-loaded feature areas.
+Angular workspace for the browser client (ADR 0018). The start page is the map (ADR 0023, phase 8a) with
+place search, filters and a station panel; next to it the sign-in flow, the account area and the admin area.
 
 ```
 src/app/
   core/api/       EvmapApi — the only way features reach the backend (REST implementation behind it)
-  core/auth/      AuthService (token in memory only), PKCE, interceptor, admin route guard
+  core/auth/      AuthService (session in an HttpOnly cookie), PKCE, interceptor, admin route guard
+  core/map/       MapEngine — the seam to MapKit JS (MapKitEngine), loaded only by the map routes
+  features/map    map page, place search, filter panel, /station/:id panel; domain/ holds the iOS logic as pure functions
   features/login  provider buttons and the /auth/callback/:provider route
   features/admin  admin-only area (sync runs, counts)
   src/locale/     XLIFF translations — German is the source language, English the translation
@@ -27,7 +29,8 @@ npm run extract-i18n   # after changing texts: refresh src/locale/messages.xlf, 
 For sign-in against a local API, set `WEB_BASE_URL=http://localhost:4200` on the API and register
 `http://localhost:4200/auth/callback/<provider>` with the provider's test OAuth app
 (see `docs/operations/sign-in-providers.md`). A missing English translation fails the production
-build on purpose.
+build on purpose. The map needs the API's Maps key (`docs/operations/web-map.md`); without it the map page shows
+a notice and `/station/:id` still works.
 
 ## Container
 

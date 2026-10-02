@@ -1,5 +1,26 @@
 import { Observable } from 'rxjs';
-import { Account, AdminOverview, BlockedAuthor, Contributions, Legal, ProviderToken, ReportedComment, ReportedStation, SignInProvider, StationReportReason, SyncRun } from './models';
+import {
+  Account,
+  AdminOverview,
+  BlockedAuthor,
+  Contributions,
+  GeoBounds,
+  Legal,
+  MapToken,
+  Operator,
+  ProviderToken,
+  ReportedComment,
+  ReportedStation,
+  SignInProvider,
+  StationAvailability,
+  StationChargePoints,
+  StationComment,
+  StationDetail,
+  StationQuery,
+  StationReportReason,
+  StationSummary,
+  SyncRun,
+} from './models';
 
 /**
  * The only way features talk to the backend — the web counterpart of the iOS
@@ -47,4 +68,26 @@ export abstract class EvmapApi {
 
   /** Closes the open reports of one station for one reason. Master data is never touched (ADR 0021). */
   abstract adminCloseStationReports(stationId: string, reason: StationReportReason, outcome: 'resolve' | 'dismiss'): Observable<void>;
+
+  /** Stations for one map viewport, strongest first, at most `query.limit` (ADR 0009). */
+  abstract stations(query: StationQuery): Observable<StationSummary[]>;
+
+  abstract station(id: string): Observable<StationDetail>;
+
+  /** Live state of one station; fails where the live axis is switched off, which the screen treats as "unknown". */
+  abstract stationAvailability(id: string): Observable<StationAvailability>;
+
+  /** Live state of the stations in a box that have any; empty past the backend's widest span. */
+  abstract availabilityInBounds(bounds: GeoBounds): Observable<StationAvailability[]>;
+
+  /** The station's charge points with operator and ad-hoc price (ADR 0022). */
+  abstract chargePoints(id: string): Observable<StationChargePoints>;
+
+  abstract comments(stationId: string): Observable<StationComment[]>;
+
+  /** The charging-network directory: the biggest without a query, else names containing it. */
+  abstract operators(query: string, limit: number): Observable<Operator[]>;
+
+  /** A fresh MapKit JS token; fails with 404 while the backend has no Maps key (ADR 0023). */
+  abstract mapToken(): Observable<MapToken>;
 }

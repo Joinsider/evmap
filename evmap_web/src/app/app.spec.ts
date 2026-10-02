@@ -43,4 +43,9 @@ describe('App', () => {
     expect(root.textContent).toContain('Mein Konto');
     expect(root.querySelector('footer a[href="https://evmap.example/privacy"]')).not.toBeNull();
   });
+
+  it('gives the map and its station panel the full page, every other page the reading width', () => {
+    expect(['/', '/station/s1', '/station/s1?x=1'].map(App.isMap)).toEqual([true, true, true]);
+    expect(['/account', '/admin', '/login'].map(App.isMap)).toEqual([false, false, false]);
+  });
 });

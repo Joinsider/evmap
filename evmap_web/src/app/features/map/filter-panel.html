@@ -1,0 +1,102 @@
+<dialog open class="panel" aria-labelledby="filter-title">
+  <header>
+    <h2 id="filter-title" i18n="@@filter.title">Filter</h2>
+    <button type="button" class="primary" (click)="closed.emit()" i18n="@@filter.done">Fertig</button>
+  </header>
+
+  <fieldset>
+    <legend i18n="@@filter.connector">Steckertypen</legend>
+    @for (connector of connectors; track connector.type) {
+      <label class="check">
+        <input type="checkbox" [checked]="hasConnector(connector.type)" (change)="toggleConnector(connector.type, $any($event.target).checked)" />
+        {{ connector.label }}
+      </label>
+    }
+  </fieldset>
+
+  <fieldset>
+    <legend i18n="@@filter.minimumPower">Minimale Ladeleistung</legend>
+    <input type="range" min="0" [max]="steps" step="1" [value]="powerIndex()" (input)="setPower(+$any($event.target).value)"
+      i18n-aria-label="@@filter.minimumPower" aria-label="Minimale Ladeleistung" [attr.aria-valuetext]="powerLabel()" />
+    <output>{{ powerLabel() }}</output>
+  </fieldset>
+
+  <fieldset>
+    <label class="check">
+      <input type="checkbox" [checked]="settings().availabilityOnly" (change)="setAvailabilityOnly($any($event.target).checked)" />
+      <ng-container i18n="@@filter.availability">Nur betriebsbereite Ladestationen</ng-container>
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend i18n="@@settings.providers">Anbieter</legend>
+    <label class="check">
+      <input type="checkbox" [checked]="showsUnlisted()" (change)="setShowsUnlisted($any($event.target).checked)" />
+      <ng-container i18n="@@provider.unlisted">Alle übrigen Anbieter anzeigen</ng-container>
+    </label>
+    <p class="hint">
+      @if (showsUnlisted()) {
+        <ng-container i18n="@@provider.unlisted.footer.shown">Die Karte zeigt alle Anbieter außer denen, die du hier unten auf „Nicht anzeigen“ stellst.</ng-container>
+      } @else {
+        <ng-container i18n="@@provider.unlisted.footer.hidden">Die Karte zeigt nur die Anbieter aus dieser Liste, die auf „Anzeigen“ stehen. Alle anderen sind ausgeblendet.</ng-container>
+      }
+    </p>
+
+    <h3 i18n="@@provider.section.configured">Deine Auswahl</h3>
+    @if (listed().length === 0) {
+      <p class="hint" i18n="@@provider.listed.empty.web">Noch keine einzelnen Anbieter eingestellt. Suche unten nach einem Ladenetz und füge es hinzu.</p>
+    }
+    <ul class="providers">
+      @for (provider of listed(); track provider) {
+        <li>
+          <span class="name">{{ provider }}</span>
+          <fieldset class="segmented" [attr.aria-label]="provider">
+            @for (option of selectable; track option) {
+              <button type="button" [attr.aria-pressed]="preference(provider) === option" (click)="setPreference(provider, option)">{{ preferenceLabel(option) }}</button>
+            }
+          </fieldset>
+          <button type="button" class="link" (click)="remove(provider)" i18n="@@provider.remove">Entfernen</button>
+        </li>
+      }
+    </ul>
+
+    <input type="search" [value]="providerQuery()" (input)="searchProviders($any($event.target).value)" autocomplete="off"
+      i18n-placeholder="@@provider.search.prompt" placeholder="Anbieter suchen" i18n-aria-label="@@provider.search.prompt" aria-label="Anbieter suchen" />
+    @let found = directory();
+    <h3>
+      @if (found.query) {
+        <ng-container i18n="@@provider.section.results">Suchergebnisse</ng-container>
+      } @else {
+        <ng-container i18n="@@provider.section.common">Größte Anbieter</ng-container>
+      }
+    </h3>
+    @if (found.operators === null) {
+      <p class="error" i18n="@@provider.failed">Die Anbieter konnten nicht geladen werden.</p>
+    } @else if (found.operators.length === 0) {
+      <p class="hint" i18n="@@provider.empty">Keine Anbieter gefunden.</p>
+    } @else {
+      <ul class="directory">
+        @for (operator of found.operators; track operator.name) {
+          <li>
+            <span class="name">{{ operator.name }} <small>{{ stationCount(operator) }}</small></span>
+            @if (listed().includes(operator.name)) {
+              <small i18n="@@provider.alreadyListed">Bereits in der Liste</small>
+            } @else {
+              <button type="button" class="link" (click)="add(operator.name)" i18n="@@provider.add">Hinzufügen</button>
+            }
+          </li>
+        }
+      </ul>
+    }
+  </fieldset>
+
+  <footer>
+    @if (confirmingReset()) {
+      <p i18n="@@settings.reset.message.web">Alle Filter und deine Anbieterauswahl werden verworfen.</p>
+      <button type="button" class="danger" (click)="reset()" i18n="@@settings.reset">Einstellungen zurücksetzen</button>
+      <button type="button" class="link" (click)="confirmingReset.set(false)" i18n="@@action.cancel">Abbrechen</button>
+    } @else {
+      <button type="button" class="link" (click)="confirmingReset.set(true)" i18n="@@settings.reset">Einstellungen zurücksetzen</button>
+    }
+  </footer>
+</dialog>

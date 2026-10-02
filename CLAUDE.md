@@ -169,9 +169,12 @@ exact EVSE-ID join, nothing written to `master.*` — plus the register prices `
 price is certain). `GET /api/v1/stations/{id}/charge-points` merges both, the live tariff first. **The product owner's
 rule: a price shown wrongly is worse than none.** Every price is gross; an amount whose VAT basis is not established
 is dropped, not guessed. OCPDB drops DATEX's `taxIncluded` (binary-butterfly/ocpdb#278), so a German tariff is shown
-only when its net price × (1 + VAT) lands on whole cents, or its operator is in
-`evmap.pricing.mobidata.net-price-operators` / `gross-price-operators` (checked by hand against official price
-pages); an explicit `tax_included` will win once OCPDB delivers it. OCPDB also maps DATEX per-minute prices into
+only when its net price × (1 + VAT) lands on whole cents, or its operator is in the dated table
+`evmap.pricing.mobidata.vat-basis` (`VatBasisTable`, phase 5r): entered only on an exact match with the operator's
+official ad-hoc price, amounts shown in whole cents, 19 % assumed for net operators of the rate-less chargecloud feed,
+an entry the feed contradicts suspended at runtime (WARN); an entry settles only the VAT basis, the
+feed's amounts are shown as delivered (owner, 2026-10-02). Runbook and evidence: `docs/operations/price-basis-operators.md`;
+`ShippedVatBasisTableTests` binds the real file. An explicit `tax_included` will win once OCPDB delivers it. OCPDB also maps DATEX per-minute prices into
 OCPI `TIME` unconverted, so the time unit is detected per feed from the median on every refresh and a change is
 logged at WARN — never hard-code "per minute". Open Charge Map's `UsageCost` is deliberately not read.
 `master.charge_point.operator_name` is the operator of a charge point where it differs from the station's (bundled
@@ -209,8 +212,8 @@ client as the `HttpOnly` `evmap_session` cookie (`SessionCookie`), validated per
 carry the session cookie and no `Authorization` header (`XSRF-TOKEN` cookie <-> `X-XSRF-TOKEN`, plain
 handler for Angular); bearer, anonymous and the sign-in exchanges are exempt - do not widen the
 exemption. See ADR 0018 (*Web session cookie and CSRF*). It
-permits `/actuator/health`, `GET /api/v1/stations/**`, `GET /api/v1/operators`, the sign-in endpoints
-under `/api/v1/auth/`; `/api/v1/admin/**` additionally requires the account's `is_admin` flag, read
+permits `/actuator/health`, `GET /api/v1/stations/**`, `GET /api/v1/operators`, `GET /api/v1/map/token`, the
+sign-in endpoints under `/api/v1/auth/`; `/api/v1/admin/**` additionally requires the account's `is_admin` flag, read
 from the database per request (`AdminAccounts`) and set **only by a manual `UPDATE`** — there is no
 API that grants it. E-mail addresses are personal data: never log them (ADR 0002). Provider setup:
 `docs/operations/sign-in-providers.md`.
@@ -221,6 +224,11 @@ there needs a bearer token) and it is a read. The route is the request **body**,
 logged — not even at debug, only its point count (ADR 0002). The corridor test runs against `ST_Subdivide`d pieces
 of the line, not the whole of it, or the GiST index would return a continent's bounding box; keep it that way
 when touching `StationSpatialRepository.findAlongRoute`. Filter SQL is shared with the viewport query.
+
+`GET /api/v1/map/token` (`api.map`, ADR 0023) signs the web map's MapKit JS token: ES256 with the Maps key
+(`MAPKIT_KEY_ID`, `MAPKIT_PRIVATE_KEY`, team id defaulting to `APPLE_TEAM_ID`), `scope: mapkit_js`, `origin`
+bound to the web domain (`MAPKIT_ORIGIN`), 30 minutes, `no-store`, never logged. Blank key = 404. Runbook:
+`docs/operations/web-map.md`.
 
 `GET /api/v1/operators` is the searchable charging-network directory the client's provider settings are
 built from. There is no operator table and no operator id — `operator_name` is a string the adapters
@@ -265,8 +273,19 @@ for sync. See ADR 0003.
 ## Web architecture
 
 `evmap_web/` is one Angular application (standalone components, zoneless, signals) with lazy feature
-areas under `src/app/features/` (`login`, `account`, `admin`, `home`); the user web app of roadmap phase 8 joins
-as more of them. `EvmapApi` (abstract class, `core/api/`) is the only way features reach the backend
+areas under `src/app/features/` (`map`, `login`, `account`, `admin`, `home` for the forbidden page); phase 8b of the
+user web app (comments, reports, favorites) joins `map` and `account`.
+
+The **map is the start page** (ADR 0023, phase 8a) and the station panel its child route `/station/:id`, so opening
+a station keeps the map alive. MapKit JS sits behind `core/map/MapEngine` (`MapKitEngine`, provided only by the map
+routes, so no other page loads Apple's script; tests use `FakeMapEngine`) — never touch `mapkit` outside that file.
+Its token comes from `GET /api/v1/map/token`, signed by the backend; without a Maps key the map says it is
+unavailable and everything else still works. `features/map/domain` ports the iOS logic as pure functions with the
+same numbers — viewport query and coverage, grid clustering, power tiers, the `StationSettings`/`StationFilter`
+split with lenient parsing (ADR 0009, ADR 0014), price grouping and wording (ADR 0022); keep them in step with iOS.
+Settings live in `localStorage` (`StationSettingsStore`, every access wrapped), persist on change, and the map
+reloads only when the filter panel closes. The place search is MapKit's autocomplete, debounced (300 ms, three
+characters, it draws on Apple's daily quota), moves the camera only and is never logged or stored. `EvmapApi` (abstract class, `core/api/`) is the only way features reach the backend
 — the counterpart to `ChargingStationRepository`; never inject `HttpClient` into a feature. The
 session is an HttpOnly cookie the page cannot read: `AuthService` holds only the account and
 restores it via `/me` on start, so reloads and language switches stay signed in. Only the PKCE
@@ -274,7 +293,8 @@ verifier and `state` of a running sign-in go to `sessionStorage`. The admin rout
 Every user-facing string is marked for `@angular/localize` (German source, `messages.en.xlf`), and a
 missing translation fails the production build. The container's nginx serves `/de/` and `/en/`,
 redirects everything else by `Accept-Language`, and proxies `/api/**` to the API on the same origin —
-so there is no CORS configuration, and there must not be one.
+so there is no CORS configuration, and there must not be one. Its CSP opens `https://cdn.apple-mapkit.com` and
+`https://*.apple-mapkit.com` (Apple's documented MapKit JS policy) and nothing else.
 
 ## iOS architecture
 
@@ -339,8 +359,9 @@ tests cannot reach; MapKit itself sits behind `DirectionsServing` and `NearbyPla
   non-goals for v1 *and* v2 (Lastenheft §10, §11), not gaps to fill incidentally.
 - Route planning (ADR 0017) and Google/GitHub sign-in plus an Angular web client (ADR 0018) *were*
   v1 non-goals and are now **v2 work** (Lastenheft §11); sign-in and the web skeleton landed in
-  phase 1, account deletion, export and moderation in phase 2, the manual route planner (stage 1) in phase 4. They are built phase by phase in the
-  order of `docs/roadmap.md`; do not start one incidentally or ahead of its phase.
+  phase 1, account deletion, export and moderation in phase 2, the manual route planner (stage 1) in phase 4, the
+  read-only user web app (map, station) in phase 8a, pulled ahead of 5b by the product owner. They are built phase
+  by phase in the order of `docs/roadmap.md`; do not start one incidentally or ahead of its phase.
 - Real-time availability *was* on that list and is no longer: ADR 0015 reversed it and the Lastenheft
   was amended in the same change. What remains a non-goal is *complete* coverage — live status is
   shown only where a national access point supplies it and the EVSE-ID matches exactly.

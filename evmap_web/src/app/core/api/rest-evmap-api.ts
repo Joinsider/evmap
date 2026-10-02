@@ -2,7 +2,28 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { EvmapApi } from './evmap-api';
-import { Account, AdminOverview, BlockedAuthor, Contributions, Legal, ProviderToken, ReportedComment, ReportedStation, SignInProvider, StationReportReason, SyncRun } from './models';
+import {
+  Account,
+  AdminOverview,
+  BlockedAuthor,
+  Contributions,
+  GeoBounds,
+  Legal,
+  MapToken,
+  Operator,
+  ProviderToken,
+  ReportedComment,
+  ReportedStation,
+  SignInProvider,
+  StationAvailability,
+  StationChargePoints,
+  StationComment,
+  StationDetail,
+  StationQuery,
+  StationReportReason,
+  StationSummary,
+  SyncRun,
+} from './models';
 
 /**
  * REST implementation of {@link EvmapApi}. Paths are relative: the web container's nginx serves the
@@ -78,5 +99,54 @@ export class RestEvmapApi extends EvmapApi {
 
   adminCloseStationReports(stationId: string, reason: StationReportReason, outcome: 'resolve' | 'dismiss'): Observable<void> {
     return this.http.post<void>(`/api/v1/admin/station-reports/${encodeURIComponent(stationId)}/${encodeURIComponent(reason)}/${outcome}`, null);
+  }
+
+  stations(query: StationQuery): Observable<StationSummary[]> {
+    // The backend takes whole kilometres; rounding up keeps the viewport's corners covered.
+    let params = new HttpParams()
+      .set('latitude', query.latitude)
+      .set('longitude', query.longitude)
+      .set('radiusKm', Math.ceil(query.radiusKm))
+      .set('limit', query.limit);
+    for (const connector of [...query.connectorTypes].sort((a, b) => a.localeCompare(b))) params = params.append('connectorType', connector);
+    if (query.minPowerKw !== undefined) params = params.set('minPowerKw', query.minPowerKw);
+    for (const name of [...query.excludeOperators].sort((a, b) => a.localeCompare(b))) params = params.append('excludeOperator', name);
+    for (const name of [...(query.includeOperators ?? [])].sort((a, b) => a.localeCompare(b))) params = params.append('includeOperator', name);
+    return this.http.get<StationSummary[]>('/api/v1/stations', { params });
+  }
+
+  station(id: string): Observable<StationDetail> {
+    return this.http.get<StationDetail>(`/api/v1/stations/${encodeURIComponent(id)}`);
+  }
+
+  stationAvailability(id: string): Observable<StationAvailability> {
+    return this.http.get<StationAvailability>(`/api/v1/stations/${encodeURIComponent(id)}/availability`);
+  }
+
+  availabilityInBounds(bounds: GeoBounds): Observable<StationAvailability[]> {
+    const params = new HttpParams()
+      .set('latMin', bounds.latMin)
+      .set('lonMin', bounds.lonMin)
+      .set('latMax', bounds.latMax)
+      .set('lonMax', bounds.lonMax);
+    return this.http.get<StationAvailability[]>('/api/v1/stations/availability', { params });
+  }
+
+  chargePoints(id: string): Observable<StationChargePoints> {
+    return this.http.get<StationChargePoints>(`/api/v1/stations/${encodeURIComponent(id)}/charge-points`);
+  }
+
+  comments(stationId: string): Observable<StationComment[]> {
+    return this.http.get<StationComment[]>(`/api/v1/stations/${encodeURIComponent(stationId)}/comments`);
+  }
+
+  operators(query: string, limit: number): Observable<Operator[]> {
+    let params = new HttpParams().set('limit', limit);
+    if (query.trim()) params = params.set('query', query.trim());
+    return this.http.get<Operator[]>('/api/v1/operators', { params });
+  }
+
+  mapToken(): Observable<MapToken> {
+    return this.http.get<MapToken>('/api/v1/map/token');
   }
 }

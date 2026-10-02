@@ -82,4 +82,60 @@ describe('RestEvmapApi', () => {
     expect(backend.expectOne('/api/v1/admin/station-reports/s%2F1/wrong_power/resolve').request.method).toBe('POST');
     expect(backend.expectOne('/api/v1/admin/station-reports/s-2/gone/dismiss').request.method).toBe('POST');
   });
+
+  it('sends the map query with repeated, sorted filter params and whole kilometres', () => {
+    api
+      .stations({
+        latitude: 48.77,
+        longitude: 9.18,
+        radiusKm: 12.2,
+        limit: 600,
+        connectorTypes: ['Type 2', 'CCS'],
+        minPowerKw: 100,
+        excludeOperators: ['Zeta', 'Alpha'],
+      })
+      .subscribe();
+
+    const request = backend.expectOne((r) => r.url === '/api/v1/stations');
+    expect(request.request.params.get('latitude')).toBe('48.77');
+    expect(request.request.params.get('radiusKm')).toBe('13');
+    expect(request.request.params.get('limit')).toBe('600');
+    expect(request.request.params.getAll('connectorType')).toEqual(['CCS', 'Type 2']);
+    expect(request.request.params.get('minPowerKw')).toBe('100');
+    expect(request.request.params.getAll('excludeOperator')).toEqual(['Alpha', 'Zeta']);
+    expect(request.request.params.has('includeOperator')).toBe(false);
+    request.flush([]);
+  });
+
+  it('sends an allowlist only when there is one', () => {
+    api.stations({ latitude: 0, longitude: 0, radiusKm: 1, limit: 10, connectorTypes: [], excludeOperators: [], includeOperators: ['EnBW'] }).subscribe();
+
+    const request = backend.expectOne((r) => r.url === '/api/v1/stations');
+    expect(request.request.params.getAll('includeOperator')).toEqual(['EnBW']);
+    expect(request.request.params.has('minPowerKw')).toBe(false);
+    request.flush([]);
+  });
+
+  it('reads a station, its live state, prices, comments, the live viewport, the directory and the map token', () => {
+    api.station('s/1').subscribe();
+    api.stationAvailability('s1').subscribe();
+    api.chargePoints('s1').subscribe();
+    api.comments('s1').subscribe();
+    api.availabilityInBounds({ latMin: 48, lonMin: 9, latMax: 49, lonMax: 10 }).subscribe();
+    api.operators(' enbw ', 50).subscribe();
+    api.operators('', 50).subscribe();
+    api.mapToken().subscribe();
+
+    backend.expectOne('/api/v1/stations/s%2F1').flush({});
+    backend.expectOne('/api/v1/stations/s1/availability').flush({});
+    backend.expectOne('/api/v1/stations/s1/charge-points').flush({});
+    backend.expectOne('/api/v1/stations/s1/comments').flush([]);
+    const live = backend.expectOne((r) => r.url === '/api/v1/stations/availability');
+    expect(live.request.params.get('latMax')).toBe('49');
+    live.flush([]);
+    const directory = backend.match((r) => r.url === '/api/v1/operators');
+    expect(directory.map((r) => r.request.params.get('query'))).toEqual(['enbw', null]);
+    directory.forEach((r) => r.flush([]));
+    backend.expectOne('/api/v1/map/token').flush({ token: 't', expiresAt: '2026-10-02T12:30:00Z' });
+  });
 });

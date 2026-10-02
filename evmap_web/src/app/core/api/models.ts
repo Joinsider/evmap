@@ -127,3 +127,138 @@ export interface SyncRun {
   failed: number;
   errorMessage?: string;
 }
+
+/** One station of the map query (`GET /api/v1/stations`), as the list payload carries it. */
+export interface StationSummary {
+  id: string;
+  displayName: string;
+  street?: string;
+  city?: string;
+  postalCode?: string;
+  countryCode?: string;
+  operatorName?: string;
+  latitude: number;
+  longitude: number;
+  /** The register's service state (`OPERATIONAL`, `MAINTENANCE`, `OUT_OF_SERVICE`, or a token this build does not know). */
+  availabilityStatus?: string;
+  /** Strongest connector; absent when no source reported a rating. Drives the pin colour (ADR 0009). */
+  maxPowerKw?: number;
+}
+
+export interface Connector {
+  connectorType: string;
+  powerKw?: number;
+  quantity: number;
+}
+
+export interface StationDetail {
+  station: StationSummary;
+  connectors: Connector[];
+  sources: string[];
+}
+
+/** The criteria of one map query, already translated from the settings (`stationFilter`) and the viewport. */
+export interface StationQuery {
+  latitude: number;
+  longitude: number;
+  radiusKm: number;
+  limit: number;
+  connectorTypes: readonly string[];
+  minPowerKw?: number;
+  excludeOperators: readonly string[];
+  /** Absent for "no restriction"; never empty on the wire (ADR 0014). */
+  includeOperators?: readonly string[];
+}
+
+export interface GeoBounds {
+  latMin: number;
+  lonMin: number;
+  latMax: number;
+  lonMax: number;
+}
+
+/** A publisher of live data or prices, credited next to what it reported. */
+export interface DataSource {
+  name: string;
+  licence?: string;
+  url?: string;
+}
+
+export interface ChargePointLiveStatus {
+  id: string;
+  evseId?: string;
+  /** `AVAILABLE`, `OCCUPIED`, `OUT_OF_ORDER`, `UNKNOWN` — anything else is read as unknown. */
+  status: string;
+  observedAt?: string;
+  source?: string;
+}
+
+/** Live state of a station (ADR 0015); the viewport response leaves `chargePoints` empty. */
+export interface StationAvailability {
+  stationId: string;
+  status: string;
+  available: number;
+  occupied: number;
+  outOfOrder: number;
+  unknown: number;
+  observedAt?: string;
+  chargePoints: ChargePointLiveStatus[];
+  sources: DataSource[];
+}
+
+export interface TimeFee {
+  /** 0 for the whole session. */
+  fromMinute: number;
+  /** Absent when a time-based fee applies but its amount is not certain. */
+  perMinute?: number;
+}
+
+/** What charging costs without a charging card (ADR 0022). Gross; an absent amount means "not published", never "free". */
+export interface AdHocPrice {
+  currency: string;
+  energyPerKwh?: number;
+  sessionFee?: number;
+  timeFees: TimeFee[];
+  free: boolean;
+  furtherFees: boolean;
+  observedAt?: string;
+  source?: string;
+}
+
+export interface StationChargePoint {
+  id: string;
+  evseId?: string;
+  operatorName?: string;
+  connectors: Connector[];
+  price?: AdHocPrice;
+}
+
+export interface StationChargePoints {
+  stationId: string;
+  cheapestEnergyPerKwh?: number;
+  currency?: string;
+  chargePoints: StationChargePoint[];
+  sources: DataSource[];
+}
+
+export interface StationComment {
+  id: string;
+  body: string;
+  paidPriceCents?: number;
+  experience?: string;
+  createdAt: string;
+  updatedAt: string;
+  ownedByCurrentUser: boolean;
+}
+
+/** A charging network of the directory (ADR 0014); the name is its identity. */
+export interface Operator {
+  name: string;
+  stationCount: number;
+}
+
+/** A MapKit JS token the backend signed (ADR 0023). */
+export interface MapToken {
+  token: string;
+  expiresAt: string;
+}

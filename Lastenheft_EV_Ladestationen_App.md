@@ -167,7 +167,10 @@ Für v2 werden folgende Abgrenzungen aus §10 aufgehoben: Routenplanung und exte
 
 ### Web-Client
 - Angular-Web-Client, zuerst mit Admin-Bereich (Admin-Rolle nur per manuellem Datenbank-Flag),
-  später Nutzer-Web-App mit Karte (MapKit JS), Stationen, Kommentaren und Routenplanung
+  später Nutzer-Web-App mit Karte (MapKit JS), Stationen, Kommentaren und Routenplanung; zuerst lesend (Karte,
+  Ortssuche, Filter, Stationsseite mit Live-Status, Preisen und Kommentaren, ADR 0023), danach Mitmachen
+  (Kommentare schreiben, melden, Favoriten, Fehler melden). Das MapKit-JS-Token signiert das Backend; Filter und
+  Anbieterauswahl bleiben im Browser
 - i18n wie in der App (Deutsch als Basis, Englisch)
 
 ### CarPlay
