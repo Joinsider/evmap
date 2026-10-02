@@ -161,7 +161,7 @@ final class AfirStatusParser {
         }
 
         void chargePoint(String id, String status, String operationStatus, String lastUpdated) {
-            String evseId = evseIdOf(id);
+            String evseId = EvseIds.normalize(id);
             String live = toLiveAvailability(status, operationStatus);
             if (evseId == null || live == null) {
                 ignored++;
@@ -171,13 +171,13 @@ final class AfirStatusParser {
             Reported reported = new Reported(live, observedAt != null ? observedAt : publicationTime);
             Reported held = chargePoints.merge(evseId, reported,
                     (old, candidate) -> Observations.newer(old, candidate, Reported::observedAt));
-            if (held == reported && otherIdSamples.size() < OTHER_ID_SAMPLES && !isEvseShaped(evseId)
+            if (held == reported && otherIdSamples.size() < OTHER_ID_SAMPLES && !EVSE_ID_SHAPE.matcher(evseId).matches()
                     && !otherIdSamples.contains(id.trim()))
                 otherIdSamples.add(id.trim());
         }
 
         Package toPackage() {
-            int evseShaped = (int) chargePoints.keySet().stream().filter(PackageReader::isEvseShaped).count();
+            int evseShaped = (int) chargePoints.keySet().stream().filter(id -> EVSE_ID_SHAPE.matcher(id).matches()).count();
             return new Package(delta, chargePoints, ignored, evseShaped, List.copyOf(otherIdSamples), publicationTime);
         }
 
@@ -281,7 +281,7 @@ final class AfirStatusParser {
                 XMLStreamReader xml = FACTORY.createXMLStreamReader(in);
                 try {
                     while (xml.hasNext())
-                        if (xml.next() == XMLStreamConstants.START_ELEMENT) read(xml, reader);
+                        if (xml.next() == XMLStreamReader.START_ELEMENT) read(xml, reader);
                 } finally {
                     xml.close();
                 }
@@ -313,11 +313,11 @@ final class AfirStatusParser {
             int depth = 1;
             while (depth > 0 && xml.hasNext()) {
                 int event = xml.next();
-                if (event == XMLStreamConstants.END_ELEMENT) {
+                if (event == XMLStreamReader.END_ELEMENT) {
                     depth--;
-                } else if (event == XMLStreamConstants.START_ELEMENT && depth > 1) {
+                } else if (event == XMLStreamReader.START_ELEMENT && depth > 1) {
                     depth++;
-                } else if (event == XMLStreamConstants.START_ELEMENT) {
+                } else if (event == XMLStreamReader.START_ELEMENT) {
                     switch (xml.getLocalName()) {
                         case REFERENCE -> {
                             id = xml.getAttributeValue(null, "id");
