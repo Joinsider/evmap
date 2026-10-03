@@ -5,7 +5,7 @@
   `feature/phase-5r-vat-basis`, its open points 1 and 2 on `claude/vibrant-cannon-0qy3ym` (2026-10-02);
   5b (charging cards) open
 - Date: 2026-10-01
-- Deciders: Johannes Popp
+- Deciders: Joinsider
 
 ## Context
 

@@ -2,7 +2,7 @@
 
 - Status: Accepted 2026-09-30 — implemented in roadmap phase 3 (`feature/phase-3-favorites-and-reports`); no 👤 steps
 - Date: 2026-09-30
-- Deciders: Johannes Popp
+- Deciders: Joinsider
 
 ## Context
 

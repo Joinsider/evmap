@@ -1,6 +1,6 @@
 # EVMap Roadmap
 
-Stand: 2026-10-02 · abgestimmt mit Johannes Popp · Umsetzung überwiegend durch Claude Code
+Stand: 2026-10-02 · abgestimmt mit Joinsider · Umsetzung überwiegend durch Claude Code
 
 Diese Roadmap legt fest, **was** als Nächstes kommt und **in welcher Reihenfolge**. Das *Warum* und
 *Wie* eines Features steht im jeweiligen ADR. Jede Phase bekommt ihr ADR spätestens zu Beginn der

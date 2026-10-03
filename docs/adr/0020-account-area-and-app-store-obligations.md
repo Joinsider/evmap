@@ -3,7 +3,7 @@
 - Status: Accepted 2026-09-30 — implemented in roadmap phase 2 (`feature/phase-2-account-area`); the 👤 steps in
   `docs/operations/sign-in-providers.md` §5 are pending
 - Date: 2026-09-29
-- Deciders: Johannes Popp
+- Deciders: Joinsider
 
 ## Context
 

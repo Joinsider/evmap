@@ -3,7 +3,7 @@
 - Status: Accepted 2026-10-02 — implemented on `claude/impressum-datenschutz-pages-e69ce5`; the 👤 steps in
   `docs/operations/legal-pages.md` are pending
 - Date: 2026-10-02
-- Deciders: Johannes Popp
+- Deciders: Joinsider
 
 ## Context
 

@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-07-28
-- Deciders: Johannes Popp
+- Deciders: Joinsider
 
 ## Context
 

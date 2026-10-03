@@ -2,7 +2,7 @@
 
 - Status: Accepted — CI and CI-based SonarQube Cloud analysis active
 - Date: 2026-09-28
-- Deciders: Johannes Popp
+- Deciders: Joinsider
 
 ## Context
 
