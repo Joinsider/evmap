@@ -4,8 +4,11 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -18,7 +21,7 @@ import java.util.UUID;
  */
 @Repository
 @ConditionalOnProperty(name = "evmap.availability.enabled", havingValue = "true", matchIfMissing = true)
-class ChargePointDirectory {
+class ChargePointDirectory implements StoredChargePoints {
     private final JdbcClient jdbc;
 
     ChargePointDirectory(JdbcClient jdbc) {
@@ -81,6 +84,27 @@ class ChargePointDirectory {
                         rs.getObject("station_id", UUID.class),
                         rs.getString("evse_id"), rs.getString("evse_id_normalized")))
                 .list();
+    }
+
+    /**
+     * Every charge point of whole countries — about 200.000 rows for Germany, which is why only a diagnostic that
+     * runs once an hour asks for it.
+     */
+    @Override
+    public Inventory inCountries(Collection<String> countryCodes) {
+        if (countryCodes.isEmpty()) return new Inventory(0, Set.of());
+        long[] chargePoints = {0};
+        Set<String> evseIds = new HashSet<>();
+        jdbc.sql("SELECT cp.evse_id_normalized FROM master.charge_point cp " +
+                        "JOIN master.charging_station s ON s.id = cp.station_id " +
+                        "WHERE s.country_code IN (:countries)")
+                .param("countries", countryCodes)
+                .query(rs -> {
+                    chargePoints[0]++;
+                    String evseId = rs.getString("evse_id_normalized");
+                    if (evseId != null) evseIds.add(evseId);
+                });
+        return new Inventory(chargePoints[0], evseIds);
     }
 
     /** The distinct countries a viewport touches, so only the relevant providers are consulted. */

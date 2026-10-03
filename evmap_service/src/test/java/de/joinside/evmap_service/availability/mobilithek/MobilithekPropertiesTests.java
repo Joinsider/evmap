@@ -13,7 +13,7 @@ class MobilithekPropertiesTests {
     private static MobilithekProperties properties(String path, String base64, List<MobilithekProperties.Feed> feeds) {
         return new MobilithekProperties(true, "https://broker.invalid", path, base64, "", List.of("DE"),
                 Duration.ofSeconds(60), 50, Duration.ofHours(72), Duration.ofMinutes(10), Duration.ofHours(1), Duration.ofHours(24),
-                Duration.ofSeconds(30), feeds);
+                Duration.ofSeconds(30), Duration.ofHours(1), feeds);
     }
 
     @Test

@@ -407,33 +407,6 @@ each of ladenetz.de, Wirelane and eRound was fetched with the machine certificat
   older than 72 h for 4.034 of 4.081 charge points; eRound sends none (the publication time stands in). `max-age`
   therefore drops most of an operator whose charge points rarely change state (open point e).
 
-### First run against the broker (2026-10-02)
-
-All 28 dynamic offerings are subscribed (five await the operator's approval and answer 404 until then). One package
-each of ladenetz.de, Wirelane and eRound was fetched with the machine certificate and parsed locally:
-
-- **Syntax is per publisher, not per offering.** ladenetz.de and ladebusiness deliver XML (`text/xml`) although their
-  offerings say JSON. `AfirStatusParser` now decides by the first character and reads both; the XML shape matched the
-  JSON one element for element (`refillPointStatus`, `reference/@id`, `lastUpdated`, `status`). ladenetz.de: 8.910
-  charge points, all with EVSE-IDs.
-- **Not every operator publishes EVSE-IDs in `reference.idG`.** EnBW, Tesla, SMATRICS and ladenetz.de do. Wirelane uses
-  UUIDs (4.081 charge points) and eRound 32-character hashes (19.187), so nothing of theirs can match until the static
-  feeds translate the ids (open point b, answered). A UUID occasionally fits the EVSE-ID pattern by chance; the log's
-  count now excludes hex hashes and names sample ids of any other shape.
-- **Survey of every active feed** (one package each, 2026-10-02, charge points after parsing):
-
-  | Ids in `reference.idG` | Feeds |
-  |---|---|
-  | EVSE-IDs | chargecloud 26.840, EnBW 11.505, ladenetz.de 8.910, e-clearing.net 7.335 (+2.443 internal `CO_…`), Tesla 3.997, Monta 2.970, ladebusiness 2.911, EDRI 1.731, SMATRICS 290, ENIO 35, ELU 1 |
-  | EVSE-ID embedded | GP JOULE 844 (`cp-DE*CNT*EP90046*002*1-1`) — the starred EVSE-ID is taken literally |
-  | internal (static feed needed) | eRound 19.187, vaylens 16.058, LichtBlick 6.233, Wirelane 4.081, Qwello 1.994, EWE 1.577, EV Price 32, Grid & Co 4, Road 4, VW Group Charging 1 |
-  | nothing on the broker (204) | Audi charging hub |
-
-  ladebusiness's only package is from 2026-09-15 and is dropped by `max-age` — a feed that stopped, correctly unknown.
-- **`lastUpdated` is the last change, not the last observation.** Wirelane's fresh snapshot carries a `lastUpdated`
-  older than 72 h for 4.034 of 4.081 charge points; eRound sends none (the publication time stands in). `max-age`
-  therefore drops most of an operator whose charge points rarely change state (open point e).
-
 ### Static feeds for internal ids (2026-10-02)
 
 Decision b, built: a feed entry may name the operator's static offering (`static-subscription-id`). The provider reads
@@ -446,6 +419,35 @@ the operator's own statement of which EVSE-ID an internal id stands for.
 Subscribed and configured for eRound, vaylens, LichtBlick, Wirelane, Qwello, EWE, EV Price, Grid & Co, Road, VW Group
 Charging and e-clearing.net. Checked against real packages: every live charge point of eRound (19.187), Wirelane
 (4.081) and EWE (1.577) translates; parsing eRound's static package takes 0,6 s.
+
+### Coverage report (2026-10-03)
+
+Owner's question: most German charge points have no EVSE-ID in our data and therefore no live status — should
+Germany's master data come from the Mobilithek instead of the BNetzA register? Not replaced (analysis below);
+measured first (owner, 2026-10-03).
+
+- **Replacing the register would lose stations.** The register is the only complete inventory of German charge points;
+  IONITY, Aral pulse, Allego, Shell Recharge and Fastned have no Mobilithek offering of their own (open point f in PR
+  #40), and neither have most municipal utilities.
+- **The existing authority rule already allows "Mobilithek first, register as fallback".** With `DE: <Mobilithek>` in
+  `evmap.sync.authority` and the BNetzA adapter still running, the Mobilithek would take over every station it
+  delivers, inventory and EVSE-IDs included, and the register would keep maintaining every station the Mobilithek does
+  not claim (`PostgresStationIngestionRepository.mayUpdate`). Enriching single BNetzA charge points with EVSE-IDs
+  instead would need to decide which stored charge point a published EVSE is — the fuzzy resolution this ADR forbids.
+- **What that would take** (a new `sync.mobilithek` source, ADR first): the certificate in the sync container as
+  well; all static AFIR offerings subscribed (licence acceptance, owner); EVSE-IDs that platform feeds relay twice
+  emitted once; sites bundled by position within 35 m (`PositionClusters`) as for Switzerland and Spain; operator
+  names change from the legal entity to the brand (directory and filters, ADR 0014); and a feed that stops leaves its
+  stations stale rather than handing them back to the register.
+
+Built to decide it: once per `coverage-report-interval` (1 h; the first report 5 minutes after start, when the feeds
+have caught up) the provider reads the stored inventory of its countries (`StoredChargePoints`, implemented by
+`ChargePointDirectory`) and logs, per feed, how many of the charge points it serves match a stored EVSE-ID, how many
+are internal ids no static feed translated, the feed's operator prefixes (`DEEWE` of `DE*EWE*E000501S04*01`) and how
+many stored EVSE-IDs carry them, plus three unmatched samples; and in total how many stored EVSE-IDs have a live
+status. Few stored ids under a feed's prefixes means our master data lacks the operator's EVSE-IDs (the case for the
+authority change); many stored but few matched means the feed lacks the charge points or spells them differently. A
+diagnostic only — the join is unchanged, and a failing inventory query costs the report, never the live data.
 
 ### Open points (L5)
 

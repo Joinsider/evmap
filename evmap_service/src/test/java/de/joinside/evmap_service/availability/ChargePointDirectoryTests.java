@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -85,6 +86,20 @@ class ChargePointDirectoryTests {
         assertThat(directory.forStation(resolvable))
                 .extracting(ChargePointDirectory.KnownChargePoint::evseIdNormalized)
                 .containsExactly("DEEBWE9123161", "DEEBWE9123162", null);
+    }
+
+    @Test
+    @DisplayName("a country's inventory counts every charge point and collects the distinct EVSE-IDs")
+    void readsACountry() {
+        UUID french = PostgisDatabase.insertStation("Lyon", null, "FR", 45.76, 4.83);
+        PostgisDatabase.insertChargePoint(french, "3*1", "FR*ABC*E1");
+
+        StoredChargePoints.Inventory germany = directory.inCountries(List.of("DE"));
+
+        assertThat(germany.chargePoints()).isEqualTo(4);
+        assertThat(germany.evseIds()).containsExactlyInAnyOrder("DEEBWE9123161", "DEEBWE9123162");
+        assertThat(directory.inCountries(List.of("DE", "FR")).evseIds()).hasSize(3);
+        assertThat(directory.inCountries(List.of())).isEqualTo(new StoredChargePoints.Inventory(0, Set.of()));
     }
 
     @Test

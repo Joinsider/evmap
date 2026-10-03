@@ -60,6 +60,11 @@ The API logs, per start and per feed (no secrets, no ids of users):
 - `Mobilithek feed EnBW AG: snapshot with … charge point(s), … of them shaped like an EVSE-ID, … ignored` — one
   line per feed after its first full package. If "shaped like an EVSE-ID" is far below the total for a large
   operator, that operator uses internal ids and its static feed would be needed (ADR 0015, L5 open point b).
+- `Mobilithek coverage EWE: … of … live charge point(s) match a stored EVSE-ID, … untranslated internal id(s);
+  operator prefixes [DEEWE] carry … stored EVSE-ID(s); unmatched e.g. […]` — hourly, first 5 minutes after start, one
+  line per feed that serves anything, then a total `Mobilithek coverage: … of … stored EVSE-ID(s) have a live
+  status`. Few stored EVSE-IDs under a feed's prefixes: our master data lacks that operator's EVSE-IDs. Many stored
+  but few matched: the feed lacks them or spells them differently — compare the samples (ADR 0015, "Coverage report").
 - `answered HTTP 404 … leaving it alone until …` — the subscription is missing or not approved yet, or the
   operator's access quota is used up. The feed is retried after an hour.
 

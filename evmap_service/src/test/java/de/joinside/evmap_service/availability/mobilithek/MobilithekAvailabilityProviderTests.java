@@ -4,8 +4,12 @@ import de.joinside.evmap_service.availability.Attribution;
 import de.joinside.evmap_service.availability.ChargePointAvailability;
 import de.joinside.evmap_service.availability.GeoBounds;
 import de.joinside.evmap_service.availability.LiveAvailability;
+import de.joinside.evmap_service.availability.StoredChargePoints;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -18,13 +22,16 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@ExtendWith(OutputCaptureExtension.class)
 class MobilithekAvailabilityProviderTests {
     private static final GeoBounds STUTTGART = new GeoBounds(48.77, 9.17, 48.78, 9.19);
     private static final Instant NOW = Instant.parse("2026-10-02T08:02:00Z");
@@ -113,14 +120,14 @@ class MobilithekAvailabilityProviderTests {
     private static MobilithekProperties properties(int maxPackagesPerPoll, MobilithekProperties.Feed... feeds) {
         return new MobilithekProperties(true, "https://broker.invalid/datexv3", "/run/secrets/mobilithek.p12", "", "",
                 List.of("DE", " "), Duration.ofSeconds(60), maxPackagesPerPoll, Duration.ofHours(72),
-                Duration.ofMinutes(10), Duration.ofHours(1), Duration.ofHours(24), Duration.ofSeconds(30), List.of(feeds));
+                Duration.ofMinutes(10), Duration.ofHours(1), Duration.ofHours(24), Duration.ofSeconds(30), Duration.ofHours(1), List.of(feeds));
     }
 
     /** The shipped shape with a real certificate source, for the constructor that loads it. */
     private static MobilithekProperties withCertificate(boolean enabled, String path, String base64) {
         return new MobilithekProperties(enabled, "https://broker.invalid/datexv3", path, base64, "test-only-password",
                 List.of("DE"), Duration.ofSeconds(60), 50, Duration.ofHours(72), Duration.ofMinutes(10),
-                Duration.ofHours(1), Duration.ofHours(24), Duration.ofSeconds(30), List.of(ENBW));
+                Duration.ofHours(1), Duration.ofHours(24), Duration.ofSeconds(30), Duration.ofHours(1), List.of(ENBW));
     }
 
     private static String packageWith(String protocol, String evseId, String status, String lastUpdated) {
@@ -550,5 +557,71 @@ class MobilithekAvailabilityProviderTests {
         assertThat(broker.requests).filteredOn(request -> request.startsWith("S333@")).hasSize(4);
         assertThat(provider.fetch(STUTTGART)).singleElement()
                 .extracting(ChargePointAvailability::evseId).isEqualTo("DEWLNEP002898");
+    }
+
+    /** Hands out a fixed inventory, or fails, and counts how often it was read. */
+    private static final class CountingInventory implements StoredChargePoints {
+        private final RuntimeException failure;
+        final List<Collection<String>> requests = new ArrayList<>();
+
+        CountingInventory(RuntimeException failure) {
+            this.failure = failure;
+        }
+
+        @Override
+        public Inventory inCountries(Collection<String> countryCodes) {
+            requests.add(List.copyOf(countryCodes));
+            if (failure != null) throw failure;
+            return new Inventory(10, Set.of("DEEBWE10011", "DEEBWE10012", "DEEWEE1"));
+        }
+    }
+
+    @Test
+    @DisplayName("reports per feed how many live charge points match a stored EVSE-ID, after the feeds caught up")
+    void reportsCoverage(CapturedOutput output) {
+        ScriptedBroker broker = new ScriptedBroker()
+                .answer("111", 200, "Fri, 02 Oct 2026 08:00:00 GMT", AfirStatusParserTests.SNAPSHOT);
+        MovableClock clock = new MovableClock();
+        CountingInventory inventory = new CountingInventory(null);
+        MobilithekAvailabilityProvider provider =
+                new MobilithekAvailabilityProvider(properties(ENBW, EWE), broker, clock, inventory);
+
+        provider.poll();
+        assertThat(inventory.requests).isEmpty();
+
+        clock.advance(MobilithekAvailabilityProvider.FIRST_COVERAGE_REPORT_AFTER);
+        provider.poll();
+        provider.poll();
+
+        // Once per interval, and only for the provider's own countries.
+        assertThat(inventory.requests).containsExactly(List.of("DE"));
+        assertThat(output).contains("Mobilithek coverage EnBW AG: 2 of 5 live charge point(s) match a stored EVSE-ID, "
+                        + "1 untranslated internal id(s); operator prefixes [DEEBW] carry 2 stored EVSE-ID(s); "
+                        + "unmatched e.g. [DEEBWE10013, DEEBWE1002]")
+                .contains("Mobilithek coverage: 2 of 3 stored EVSE-ID(s) have a live status; 10 stored charge point(s) in [DE], "
+                        + "5 distinct live EVSE-ID(s) from 2 feed(s)")
+                // A feed that serves nothing has no line of its own.
+                .doesNotContain("Mobilithek coverage EWE");
+
+        clock.advance(Duration.ofHours(1));
+        provider.poll();
+        assertThat(inventory.requests).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("an inventory that cannot be read costs the coverage report, not the live data")
+    void coverageFailureIsContained(CapturedOutput output) {
+        ScriptedBroker broker = new ScriptedBroker()
+                .answer("111", 200, "Fri, 02 Oct 2026 08:00:00 GMT", AfirStatusParserTests.SNAPSHOT);
+        MovableClock clock = new MovableClock();
+        MobilithekAvailabilityProvider provider = new MobilithekAvailabilityProvider(properties(ENBW), broker, clock,
+                new CountingInventory(new IllegalStateException("database down")));
+
+        provider.poll();
+        clock.advance(MobilithekAvailabilityProvider.FIRST_COVERAGE_REPORT_AFTER);
+        provider.poll();
+
+        assertThat(output).contains("Mobilithek coverage report skipped");
+        assertThat(provider.fetch(STUTTGART)).hasSize(5);
     }
 }

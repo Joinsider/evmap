@@ -128,6 +128,8 @@ evmap:
       # Static feeds are read only to translate internal ids into EVSE-IDs; they change rarely and are large.
       static-refresh-interval: PT24H
       timeout: PT30S
+      # Logs per feed how many live charge points match a stored EVSE-ID (a diagnostic; reads DE's inventory).
+      coverage-report-interval: PT1H
       # One entry per dynamic AFIR offering, checked in the catalogue on 2026-10-02. subscription-id is
       # the "Abonnement-ID" under "Meine Abonnements" (all 28 subscribed 2026-10-02); blank = not
       # subscribed, the feed is skipped. Publisher and
