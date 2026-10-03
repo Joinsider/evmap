@@ -253,7 +253,10 @@ protokolliert. Der Access Token verliert mit dem Konto sofort seine Gültigkeit.
   im Minutentakt ab; die Anfragen enthalten weder Koordinaten noch eine
   Nutzerkennung und verraten nicht einmal, ob gerade jemand die App benutzt.
   Die Mobilithek erkennt den Abrufer am Maschinenzertifikat der Organisation,
-  nicht an einem Nutzer.
+  nicht an einem Nutzer. Seit L6 (ADR 0025) liest außerdem der Sync-Container
+  einmal je Lauf die statischen Betreiber-Feeds (Stammdaten der Ladestationen);
+  auch diese Abrufe enthalten keinerlei Nutzerdaten. Die Feeds nennen
+  Kontaktadressen der Betreiber (Unternehmen), die nicht gespeichert werden.
 
 ## 8. Referenzen
 

@@ -99,5 +99,24 @@ class ConnectorTypesTests {
     @Test
     void toleratesNull() {
         assertThat(ConnectorTypes.normalize(null)).isNull();
+        assertThat(ConnectorTypes.fromDatex(null)).isNull();
+    }
+
+    @DisplayName("DATEX II connector enumerations map onto the vocabulary, the rarer sockets onto readable labels")
+    @ParameterizedTest
+    @CsvSource({
+            "iec62196T2, Type 2",
+            "iec62196T2COMBO, CCS",
+            "iec62196T1COMBO, CCS",
+            "iec62196T1, Type 1",
+            "chademo, CHAdeMO",
+            "domesticF, Schuko",
+            "domesticE, Type E",
+            "iec60309x2three16, CEE",
+            "iec62196T3C, Type 3C",
+            "mcs, MCS",
+            "other, other"})
+    void mapsDatexTypes(String datex, String expected) {
+        assertThat(ConnectorTypes.fromDatex(datex)).isEqualTo(expected);
     }
 }

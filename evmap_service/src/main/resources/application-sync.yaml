@@ -32,12 +32,67 @@ evmap:
     # takes over a station another source created first; a source that is not the authority no longer
     # rewrites a station the authority has claimed and is only linked to it. A country without an entry
     # has no authority and the most recent source wins. Values are the adapters' source tokens.
+    # Germany: the operators' static AFIR feeds on the Mobilithek, with the register as the fallback for every
+    # station they do not cover (ADR 0025). The register keeps running and keeps the stations nobody else claims.
     authority:
-      DE: BNetzA
+      DE: MOBILITHEK
       FR: IRVE
       CH: DIEMO
       LI: DIEMO
       ES: MITERD
+
+    # Sources whose stations hide the ones they make redundant, recomputed after every run (ADR 0025): a station
+    # such a source does not maintain is marked superseded when all its EVSE-IDs sit on the source's stations, or
+    # when it has no EVSE-ID and lies within 30 m of one. One per country.
+    supersede: MOBILITHEK
+
+    # The operators' static AFIR feeds on the Mobilithek (Germany's access point), pulled with the organisation's
+    # machine certificate — the same secrets as the API's live provider. Each operator licenses its own data (mostly
+    # CC BY 4.0; credited on the website's data sources page). Feeds are read in this order and a charge point two
+    # feeds carry is taken from the first, so operators' own feeds come before the platforms that relay them
+    # (e-clearing.net relays ladenetz.de and ladebusiness). key is part of every station id: never change it.
+    # subscription-id: the "Abonnement-ID" (all subscribed 2026-10-03); the last five need the operator's
+    # approval and are skipped (404) until then; eliso is not delivered through the broker (422).
+    mobilithek:
+      enabled: ${MOBILITHEK_SYNC_ENABLED:true}
+      keystore-path: ${MOBILITHEK_KEYSTORE_PATH:}
+      keystore-base64: ${MOBILITHEK_KEYSTORE:}
+      keystore-password: ${MOBILITHEK_KEYSTORE_PASSWORD:}
+      timeout: PT5M
+      register-source: BNetzA
+      country-code: DE
+      feeds:
+        - { key: enbw, subscription-id: "1043150644486832128", publisher: "EnBW mobility+ AG und Co.KG" }
+        - { key: tesla, subscription-id: "1043150904776970240", publisher: "Tesla Germany GmbH" }
+        - { key: ewe, subscription-id: "1042939352962531328", publisher: "EWE Go GmbH" }
+        - { key: wirelane, subscription-id: "1042964230017273856", publisher: "Wirelane GmbH" }
+        - { key: qwello, subscription-id: "1042964307959840768", publisher: "Qwello Deutschland GmbH" }
+        - { key: lichtblick, subscription-id: "1042964153467031552", publisher: "LichtBlick eMobility GmbH" }
+        - { key: smatrics, subscription-id: "1043151215411482624", publisher: "SMATRICS GmbH & Co KG" }
+        - { key: gpjoule, subscription-id: "1043151524556689408", publisher: "GP JOULE Connect GmbH" }
+        - { key: vw, subscription-id: "1042944780727472128", publisher: "Volkswagen Group Charging GmbH" }
+        - { key: audi, subscription-id: "1043151595734028288", publisher: "Audi AG" }
+        - { key: pump, subscription-id: "1043151926140325888", publisher: "800 Volt Technologies GmbH" }
+        - { key: enio, subscription-id: "1043151283837173760", publisher: "ENIO GmbH" }
+        - { key: elu, subscription-id: "1043151350732128256", publisher: "ELU Mobility" }
+        - { key: rudnick, subscription-id: "1043152078016237568", publisher: "K.u.L. Rudnick Bau und Bauträger GmbH" }
+        - { key: eliso, subscription-id: "1043151660275957760", publisher: "eliso GmbH" }
+        - { key: ladenetz, subscription-id: "1042945248950190080", publisher: "ladenetz.de" }
+        - { key: ladebusiness, subscription-id: "1043151802379161600", publisher: "ladebusiness" }
+        - { key: evprice, subscription-id: "1042964464692776960", publisher: "EW Pricing GmbH" }
+        - { key: gridco, subscription-id: "1042964540861337600", publisher: "Grid & Co. GmbH" }
+        - { key: road, subscription-id: "1042964616186679296", publisher: "Road B.V." }
+        - { key: edri, subscription-id: "1043151417908101120", publisher: "Ampeco Ltd. (EDRI)" }
+        - { key: monta, subscription-id: "1043151148528926720", publisher: "Monta ApS" }
+        - { key: chargecloud, subscription-id: "1043151035895271424", publisher: "chargecloud GmbH" }
+        - { key: vaylens, subscription-id: "1042964079500296192", publisher: "vaylens GmbH" }
+        - { key: eround, subscription-id: "1042963996142882816", publisher: "Hamburger Energienetze GmbH (eRound)" }
+        - { key: eclearing, subscription-id: "1042964712215433216", publisher: "e-clearing.net" }
+        - { key: m8mit, subscription-id: "1043152155484868608", publisher: "msu solutions GmbH (m8mit)" }
+        - { key: gls, subscription-id: "1043152231934427136", publisher: "GLS Mobility GmbH" }
+        - { key: tcbackend, subscription-id: "1043152308979617792", publisher: "Taubert Consulting GmbH (TC-Backend)" }
+        - { key: enerando, subscription-id: "1043152382682091520", publisher: "ENERANDO Technologies GmbH" }
+        - { key: ecomovement, subscription-id: "1043152456975798272", publisher: "Eco-Movement" }
 
     # Bundesnetzagentur Ladesäulenregister (CC BY 4.0, attribution "Bundesnetzagentur.de").
     # The published file name is date-stamped, so the adapter scrapes index-url for the current

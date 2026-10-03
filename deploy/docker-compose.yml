@@ -147,6 +147,10 @@ services:
       OCM_COUNTRY_CODES: ${OCM_COUNTRY_CODES:-DE,AT,CH,NL,BE,LU,FR,IT,DK,PL,CZ}
       # Empty means "discover the current edition from the Bundesnetzagentur download page".
       BNETZA_CSV_URL: ${BNETZA_CSV_URL:-}
+      # German master data from the operators' static feeds on the Mobilithek (ADR 0025): the same machine
+      # certificate as the API's. Blank = the source skips itself and Germany stays as the register left it.
+      MOBILITHEK_KEYSTORE: ${MOBILITHEK_KEYSTORE:-}
+      MOBILITHEK_KEYSTORE_PASSWORD: ${MOBILITHEK_KEYSTORE_PASSWORD:-}
       LOG_FORMAT: ${LOG_FORMAT-ecs}
       LOG_LEVEL_APP: ${LOG_LEVEL_APP:-INFO}
       LOG_LEVEL_ROOT: ${LOG_LEVEL_ROOT:-INFO}
