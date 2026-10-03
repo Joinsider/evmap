@@ -35,6 +35,8 @@ import java.util.List;
  *                            changes when an operator builds or renames a charge point, not by the minute, and
  *                            eRound's is 121 MB unpacked.
  * @param timeout             connect and read timeout per request.
+ * @param coverageReportInterval how often the log reports, per feed, how many live charge points match a stored
+ *                            EVSE-ID (ADR 0015, "Coverage report"). It reads Germany's whole charge point inventory.
  * @param feeds               one entry per subscription. See {@link Feed}.
  */
 @ConfigurationProperties("evmap.availability.mobilithek")
@@ -51,6 +53,7 @@ record MobilithekProperties(@DefaultValue("true") boolean enabled,
                             @DefaultValue("1h") Duration backoff,
                             @DefaultValue("24h") Duration staticRefreshInterval,
                             @DefaultValue("30s") Duration timeout,
+                            @DefaultValue("1h") Duration coverageReportInterval,
                             @DefaultValue List<Feed> feeds) {
 
     MobilithekProperties {

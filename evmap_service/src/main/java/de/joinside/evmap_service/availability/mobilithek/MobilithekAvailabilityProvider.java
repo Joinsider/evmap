@@ -5,9 +5,11 @@ import de.joinside.evmap_service.availability.AvailabilityProvider;
 import de.joinside.evmap_service.availability.ChargePointAvailability;
 import de.joinside.evmap_service.availability.GeoBounds;
 import de.joinside.evmap_service.availability.Observations;
+import de.joinside.evmap_service.availability.StoredChargePoints;
 import de.joinside.evmap_service.logging.LogContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -17,7 +19,9 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -55,6 +59,10 @@ import java.util.stream.Collectors;
  * free in every snapshot (product owner, 2026-10-02; Wirelane carried a {@code lastUpdated} older than 72 h for
  * 4.034 of 4.081 charge points in a fresh snapshot). A feed that stopped is caught by the broker's validity window
  * and {@code stale-after}. The client still shows {@code lastUpdated}, so a long-unchanged status reads as such.
+ * <p>
+ * Once per {@code coverage-report-interval} the log says, per feed, how many of the charge points it serves match a
+ * stored EVSE-ID ({@link CoverageReport}) — the measurement behind the question whether Germany's master data
+ * should come from the Mobilithek rather than the BNetzA register (ADR 0015, "Coverage report").
  */
 @Component
 @EnableConfigurationProperties(MobilithekProperties.class)
@@ -73,6 +81,12 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
      * definition the last full one (Schnittstellenbeschreibung §4.3, §4.8).
      */
     static final String FROM_THE_START = "Thu, 01 Jan 1970 00:00:00 GMT";
+
+    /**
+     * The first coverage report waits this long after the first round, so feeds further behind than
+     * {@code max-packages-per-poll} and the static translations have caught up and do not read as gaps.
+     */
+    static final Duration FIRST_COVERAGE_REPORT_AFTER = Duration.ofMinutes(5);
 
     /** What one feed has said so far. Touched only by the polling thread. */
     private static final class FeedState {
@@ -109,17 +123,33 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
     private final Set<String> countryCodes;
     private final Map<String, FeedState> feeds = new LinkedHashMap<>();
     private final AtomicReference<Answer> answer = new AtomicReference<>(Answer.NONE);
+    /** {@code null} where no inventory is available, which only skips the coverage report. */
+    private final StoredChargePoints stored;
+    /** When the coverage is next reported; {@code null} before the first round. */
+    private Instant coverageDueAt;
 
     @Autowired
+    MobilithekAvailabilityProvider(MobilithekProperties properties, ObjectProvider<StoredChargePoints> stored) {
+        this(properties, brokerFor(properties), Clock.systemUTC(), stored.getIfAvailable());
+    }
+
+    /** Test seam: the certificate handling of the real constructor, without an inventory. */
     MobilithekAvailabilityProvider(MobilithekProperties properties) {
-        this(properties, brokerFor(properties), Clock.systemUTC());
+        this(properties, brokerFor(properties), Clock.systemUTC(), null);
     }
 
     /** Test seam: a scripted broker and a controllable clock. {@code broker} is {@code null} when not configured. */
     MobilithekAvailabilityProvider(MobilithekProperties properties, MobilithekBroker broker, Clock clock) {
+        this(properties, broker, clock, null);
+    }
+
+    /** Test seam, with the stored inventory the coverage report compares against. */
+    MobilithekAvailabilityProvider(MobilithekProperties properties, MobilithekBroker broker, Clock clock,
+                                   StoredChargePoints stored) {
         this.properties = properties;
         this.broker = broker;
         this.clock = clock;
+        this.stored = stored;
         this.countryCodes = properties.countryCodes().stream()
                 .map(code -> code.trim().toUpperCase(Locale.ROOT))
                 .filter(code -> !code.isEmpty())
@@ -206,7 +236,9 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
                     log.warn("Mobilithek feed {} failed unexpectedly — keeping its last state", feed.feed.publisher(), e);
                 }
             }
-            answer.set(merge(clock.instant()));
+            Instant now = clock.instant();
+            answer.set(merge(now));
+            reportCoverage(now);
         }
     }
 
@@ -328,21 +360,64 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
      * providers.
      */
     private Answer merge(Instant now) {
-        Instant notBefore = now.minus(properties.maxAge());
         Map<String, ChargePointAvailability> merged = new HashMap<>();
         for (FeedState feed : feeds.values()) {
-            if (feed.lastSuccess == null || feed.lastSuccess.plus(properties.staleAfter()).isBefore(now)) continue;
-            feed.chargePoints.forEach((reportedId, held) -> {
-                if (held.confirmedAt().isBefore(notBefore)) return;
-                // Translated here rather than when a package arrives, so a static feed loaded later applies to the
-                // state already held.
-                String evseId = feed.evseIdsByInternalId.getOrDefault(reportedId, reportedId);
-                AfirStatusParser.Reported reported = held.reported();
-                merged.merge(evseId,
-                        new ChargePointAvailability(evseId, reported.status(), reported.observedAt(), feed.credit),
-                        (kept, candidate) -> Observations.newer(kept, candidate, ChargePointAvailability::observedAt));
-            });
+            served(feed, now).forEach((evseId, reported) -> merged.merge(evseId,
+                    new ChargePointAvailability(evseId, reported.status(), reported.observedAt(), feed.credit),
+                    (kept, candidate) -> Observations.newer(kept, candidate, ChargePointAvailability::observedAt)));
         }
         return new Answer(now, List.copyOf(merged.values()));
+    }
+
+    /**
+     * What one feed contributes right now: nothing once it is past {@code stale-after}, nothing confirmed before
+     * {@code max-age}, and internal ids translated through its static feed. Translated here rather than when a
+     * package arrives, so a static feed loaded later applies to the state already held.
+     */
+    private Map<String, AfirStatusParser.Reported> served(FeedState feed, Instant now) {
+        if (feed.lastSuccess == null || feed.lastSuccess.plus(properties.staleAfter()).isBefore(now)) return Map.of();
+        Instant notBefore = now.minus(properties.maxAge());
+        Map<String, AfirStatusParser.Reported> served = new HashMap<>();
+        feed.chargePoints.forEach((reportedId, held) -> {
+            if (held.confirmedAt().isBefore(notBefore)) return;
+            served.put(feed.evseIdsByInternalId.getOrDefault(reportedId, reportedId), held.reported());
+        });
+        return served;
+    }
+
+    /**
+     * Logs, at most once per {@code coverage-report-interval}, how much of every feed the stored inventory resolves.
+     * A failing inventory query costs the report, never the round: the live data has already been handed out.
+     */
+    private void reportCoverage(Instant now) {
+        if (stored == null) return;
+        if (coverageDueAt == null) coverageDueAt = now.plus(FIRST_COVERAGE_REPORT_AFTER);
+        if (now.isBefore(coverageDueAt)) return;
+        coverageDueAt = now.plus(properties.coverageReportInterval());
+        StoredChargePoints.Inventory inventory;
+        try {
+            inventory = stored.inCountries(countryCodes);
+        } catch (RuntimeException e) {
+            log.warn("Mobilithek coverage report skipped: the stored charge points could not be read", e);
+            return;
+        }
+        Map<String, Long> storedByPrefix = CoverageReport.byPrefix(inventory.evseIds());
+        List<Set<String>> liveByFeed = new ArrayList<>(feeds.size());
+        for (FeedState feed : feeds.values()) {
+            Set<String> live = served(feed, now).keySet();
+            liveByFeed.add(live);
+            if (live.isEmpty()) continue;
+            CoverageReport.Feed coverage =
+                    CoverageReport.forFeed(feed.feed.publisher(), live, inventory.evseIds(), storedByPrefix);
+            log.info("Mobilithek coverage {}: {} of {} live charge point(s) match a stored EVSE-ID, {} untranslated "
+                            + "internal id(s); operator prefixes {} carry {} stored EVSE-ID(s); unmatched e.g. {}",
+                    coverage.publisher(), coverage.matched(), coverage.live(), coverage.untranslated(),
+                    coverage.prefixesText(), coverage.storedWithPrefixes(), coverage.unmatchedSamples());
+        }
+        CoverageReport.Total total = CoverageReport.total(inventory.chargePoints(), inventory.evseIds(), liveByFeed);
+        log.info("Mobilithek coverage: {} of {} stored EVSE-ID(s) have a live status; {} stored charge point(s) in {}, "
+                        + "{} distinct live EVSE-ID(s) from {} feed(s)",
+                total.matchedEvseIds(), total.storedEvseIds(), total.chargePoints(), countryCodes,
+                total.liveEvseIds(), feeds.size());
     }
 }
