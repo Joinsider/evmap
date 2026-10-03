@@ -407,6 +407,46 @@ each of ladenetz.de, Wirelane and eRound was fetched with the machine certificat
   older than 72 h for 4.034 of 4.081 charge points; eRound sends none (the publication time stands in). `max-age`
   therefore drops most of an operator whose charge points rarely change state (open point e).
 
+### First run against the broker (2026-10-02)
+
+All 28 dynamic offerings are subscribed (five await the operator's approval and answer 404 until then). One package
+each of ladenetz.de, Wirelane and eRound was fetched with the machine certificate and parsed locally:
+
+- **Syntax is per publisher, not per offering.** ladenetz.de and ladebusiness deliver XML (`text/xml`) although their
+  offerings say JSON. `AfirStatusParser` now decides by the first character and reads both; the XML shape matched the
+  JSON one element for element (`refillPointStatus`, `reference/@id`, `lastUpdated`, `status`). ladenetz.de: 8.910
+  charge points, all with EVSE-IDs.
+- **Not every operator publishes EVSE-IDs in `reference.idG`.** EnBW, Tesla, SMATRICS and ladenetz.de do. Wirelane uses
+  UUIDs (4.081 charge points) and eRound 32-character hashes (19.187), so nothing of theirs can match until the static
+  feeds translate the ids (open point b, answered). A UUID occasionally fits the EVSE-ID pattern by chance; the log's
+  count now excludes hex hashes and names sample ids of any other shape.
+- **Survey of every active feed** (one package each, 2026-10-02, charge points after parsing):
+
+  | Ids in `reference.idG` | Feeds |
+  |---|---|
+  | EVSE-IDs | chargecloud 26.840, EnBW 11.505, ladenetz.de 8.910, e-clearing.net 7.335 (+2.443 internal `CO_…`), Tesla 3.997, Monta 2.970, ladebusiness 2.911, EDRI 1.731, SMATRICS 290, ENIO 35, ELU 1 |
+  | EVSE-ID embedded | GP JOULE 844 (`cp-DE*CNT*EP90046*002*1-1`) — the starred EVSE-ID is taken literally |
+  | internal (static feed needed) | eRound 19.187, vaylens 16.058, LichtBlick 6.233, Wirelane 4.081, Qwello 1.994, EWE 1.577, EV Price 32, Grid & Co 4, Road 4, VW Group Charging 1 |
+  | nothing on the broker (204) | Audi charging hub |
+
+  ladebusiness's only package is from 2026-09-15 and is dropped by `max-age` — a feed that stopped, correctly unknown.
+- **`lastUpdated` is the last change, not the last observation.** Wirelane's fresh snapshot carries a `lastUpdated`
+  older than 72 h for 4.034 of 4.081 charge points; eRound sends none (the publication time stands in). `max-age`
+  therefore drops most of an operator whose charge points rarely change state (open point e).
+
+### Static feeds for internal ids (2026-10-02)
+
+Decision b, built: a feed entry may name the operator's static offering (`static-subscription-id`). The provider reads
+it once a day (`static-refresh-interval`, failures retried after `backoff`) with `AfirStaticIdParser`, which streams the
+package — eRound's is 121 MB unpacked — and keeps only each refill point's `idG` and the `externalIdentifier` typed
+`evseId` (an untyped one only if it has the shape of an EVSE-ID). The live state is translated when the answer is
+assembled, so a translation loaded later applies to statuses already held. Matching stays exact: the translation is
+the operator's own statement of which EVSE-ID an internal id stands for.
+
+Subscribed and configured for eRound, vaylens, LichtBlick, Wirelane, Qwello, EWE, EV Price, Grid & Co, Road, VW Group
+Charging and e-clearing.net. Checked against real packages: every live charge point of eRound (19.187), Wirelane
+(4.081) and EWE (1.577) translates; parsing eRound's static package takes 0,6 s.
+
 ### Open points (L5)
 
 a. **Push delivery** — worth it only if pull hits the operators' access quotas (404 in the logs) or one minute of
@@ -414,7 +454,7 @@ a. **Push delivery** — worth it only if pull hits the operators' access quotas
    pull only for the replay after a restart.
 b. ~~**Static AFIR feeds**~~ — decided 2026-10-02: the static feeds of operators that publish internal ids
    (Wirelane, eRound, and whichever the first full day shows) are subscribed and read only to translate `idG` into
-   the EVSE-ID; matching stays exact. Built as its own step after the XML fix.
+   the EVSE-ID; matching stays exact. Built, see "Static feeds for internal ids".
 c. **Mobilithek prices** — separate step under ADR 0022 (decision 4).
 d. **Second API replica** — the in-process state now has a subscription cursor per feed; two replicas would each poll
    (doubling quota use) but stay correct. Unchanged blocker, see open point 4.

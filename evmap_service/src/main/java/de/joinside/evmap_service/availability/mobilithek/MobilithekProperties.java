@@ -31,6 +31,9 @@ import java.util.List;
  *                            Beyond it the feed reads as unknown until it answers again.
  * @param backoff             how long a feed is left alone after 403 or 404 — the subscription is gone,
  *                            not approved yet, or the operator's access quota is used up.
+ * @param staticRefreshInterval how often a feed's static description is checked for new id translations. It
+ *                            changes when an operator builds or renames a charge point, not by the minute, and
+ *                            eRound's is 121 MB unpacked.
  * @param timeout             connect and read timeout per request.
  * @param feeds               one entry per subscription. See {@link Feed}.
  */
@@ -46,6 +49,7 @@ record MobilithekProperties(@DefaultValue("true") boolean enabled,
                             @DefaultValue("72h") Duration maxAge,
                             @DefaultValue("10m") Duration staleAfter,
                             @DefaultValue("1h") Duration backoff,
+                            @DefaultValue("24h") Duration staticRefreshInterval,
                             @DefaultValue("30s") Duration timeout,
                             @DefaultValue List<Feed> feeds) {
 
@@ -62,11 +66,18 @@ record MobilithekProperties(@DefaultValue("true") boolean enabled,
      * @param licence        the offering's licence title. CC BY requires naming the publisher, which is
      *                       why credit is per feed rather than one line for the platform (ADR 0015).
      * @param url            the offering's page on the Mobilithek, where data and licence are described
+     * @param staticSubscriptionId the subscription of the operator's static offering, for operators whose live feed
+     *                       names refill points by internal id rather than EVSE-ID (Wirelane, eRound, …). Blank for
+     *                       the others. Read only to translate those ids (ADR 0015, L5 open point b).
      */
-    record Feed(String subscriptionId, String publisher, String licence, String url) {
+    record Feed(String subscriptionId, String publisher, String licence, String url, String staticSubscriptionId) {
 
         boolean subscribed() {
             return isSet(subscriptionId);
+        }
+
+        boolean hasStaticFeed() {
+            return isSet(staticSubscriptionId);
         }
     }
 

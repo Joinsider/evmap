@@ -12,7 +12,7 @@ class MobilithekPropertiesTests {
 
     private static MobilithekProperties properties(String path, String base64, List<MobilithekProperties.Feed> feeds) {
         return new MobilithekProperties(true, "https://broker.invalid", path, base64, "", List.of("DE"),
-                Duration.ofSeconds(60), 50, Duration.ofHours(72), Duration.ofMinutes(10), Duration.ofHours(1),
+                Duration.ofSeconds(60), 50, Duration.ofHours(72), Duration.ofMinutes(10), Duration.ofHours(1), Duration.ofHours(24),
                 Duration.ofSeconds(30), feeds);
     }
 
@@ -31,9 +31,9 @@ class MobilithekPropertiesTests {
     @Test
     @DisplayName("only feeds with a subscription id are read; a missing table is an empty one")
     void subscribedFeeds() {
-        MobilithekProperties.Feed subscribed = new MobilithekProperties.Feed("123", "EnBW AG", "CC BY 4.0", "u");
-        MobilithekProperties.Feed blank = new MobilithekProperties.Feed(" ", "EWE", "CC0", "u");
-        MobilithekProperties.Feed missing = new MobilithekProperties.Feed(null, "Tesla", "CC0", "u");
+        MobilithekProperties.Feed subscribed = new MobilithekProperties.Feed("123", "EnBW AG", "CC BY 4.0", "u", null);
+        MobilithekProperties.Feed blank = new MobilithekProperties.Feed(" ", "EWE", "CC0", "u", null);
+        MobilithekProperties.Feed missing = new MobilithekProperties.Feed(null, "Tesla", "CC0", "u", null);
 
         assertThat(properties("", "", List.of(subscribed, blank, missing)).subscribedFeeds()).containsExactly(subscribed);
         assertThat(properties("", "", null).feeds()).isEmpty();
