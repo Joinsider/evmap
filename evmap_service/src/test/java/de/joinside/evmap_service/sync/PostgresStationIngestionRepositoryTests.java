@@ -73,23 +73,53 @@ class PostgresStationIngestionRepositoryTests {
                 false, true, Instant.parse("2026-09-01T00:00:00Z"));
         var priced = new SourceStation.SourceChargePoint("FRS01E1", "FRS01E1", List.of(type2(1)), "Izivia", price);
         var unpriced = new SourceStation.SourceChargePoint("FRS01E2", "FRS01E2", List.of(type2(1)));
-        var stationsOwn = new SourceStation.SourceChargePoint("FRS01E3", "FRS01E3", List.of(type2(1)), " enbw", null);
+        var stationsOwn = new SourceStation.SourceChargePoint("FRS01E3", "FRS01E3", List.of(type2(1)), " enbw", List.of());
         repository.upsert(Stream.of(station("IRVE", "FRS01", "FR", 48.8566, 2.3522, "Paris", List.of(),
                 List.of(priced, unpriced, stationsOwn))));
 
         // Stored only where it differs from the station's operator ("EnBW"), so the column stays sparse.
         assertThat(jdbc.sql("SELECT operator_name FROM master.charge_point ORDER BY evse_id").query(String.class).list())
                 .containsExactly("Izivia", null, null);
-        Map<String, Object> stored = jdbc.sql("SELECT currency, energy_per_kwh, session_fee, time_fee_per_minute, free, "
-                + "further_fees FROM master.charge_point_price").query().singleRow();
+        Map<String, Object> stored = jdbc.sql("SELECT currency, energy_per_kwh, session_fee, time_fees, free, "
+                + "further_fees, vat_basis_stated FROM master.charge_point_price").query().singleRow();
         assertThat(stored).containsEntry("currency", "EUR").containsEntry("free", false)
-                .containsEntry("further_fees", true).containsEntry("time_fee_per_minute", null);
+                .containsEntry("further_fees", true).containsEntry("time_fees", null)
+                .containsEntry("vat_basis_stated", false);
         assertThat((BigDecimal) stored.get("energy_per_kwh")).isEqualByComparingTo("0.371");
         assertThat((BigDecimal) stored.get("session_fee")).isEqualByComparingTo("1.5");
 
         repository.upsert(Stream.of(station("IRVE", "FRS01", "FR", 48.8566, 2.3522, "Paris", List.of(),
                 List.of(unpriced))));
         assertThat(count("master.charge_point_price")).isZero();
+    }
+
+    @Test
+    @DisplayName("stores several prices per charge point with their windows, ends, caps and payment means")
+    void storesPriceDetails() {
+        var window = new SourceStation.TimeWindow("09:00", "22:00", List.of("monday", "saturday"));
+        var qr = new SourceStation.SourcePrice("EUR", new BigDecimal("0.58"), List.of(), null,
+                List.of(new SourceStation.TimeFee(240, 390, new BigDecimal("0.1"), new BigDecimal("15"), window)),
+                false, false, Instant.parse("2026-08-17T09:40:49Z"), List.of("qrCode"), true,
+                "Ampeco Ltd. (EDRI) via Mobilithek");
+        var card = new SourceStation.SourcePrice("EUR", null,
+                List.of(new SourceStation.EnergyWindow(new BigDecimal("0.69"), window)), new BigDecimal("1"),
+                List.of(), false, true, null, List.of("emv", "paymentCreditCard"), true, null);
+        var chargePoint = new SourceStation.SourceChargePoint("DEEDRE1", "DE*EDR*E1", List.of(type2(1)), null,
+                List.of(qr, card));
+        repository.upsert(Stream.of(station("MOBILITHEK", "edri/1", "DE", 48.1, 11.5, "Edri", List.of(),
+                List.of(chargePoint))));
+
+        List<Map<String, Object>> rows = jdbc.sql("SELECT ordinal, energy_per_kwh, energy_windows::text AS windows, "
+                + "time_fees::text AS fees, payment_means::text AS means, vat_basis_stated, stated_by "
+                + "FROM master.charge_point_price ORDER BY ordinal").query().listOfRows();
+        assertThat(rows).hasSize(2);
+        assertThat(rows.get(0)).containsEntry("windows", null).containsEntry("means", "{qrCode}")
+                .containsEntry("vat_basis_stated", true).containsEntry("stated_by", "Ampeco Ltd. (EDRI) via Mobilithek");
+        assertThat((String) rows.get(0).get("fees")).contains("\"fromMinute\": 240", "\"toMinute\": 390",
+                "\"cap\": 15", "\"from\": \"09:00\"", "\"days\": [\"monday\", \"saturday\"]");
+        assertThat(rows.get(1)).containsEntry("energy_per_kwh", null).containsEntry("fees", null)
+                .containsEntry("means", "{emv,paymentCreditCard}").containsEntry("stated_by", null);
+        assertThat((String) rows.get(1).get("windows")).contains("\"perKwh\": 0.69");
     }
 
     @Test

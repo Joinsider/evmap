@@ -69,7 +69,8 @@ class PricingServiceTests {
         PostgisDatabase.jdbc().sql("UPDATE master.charge_point SET operator_name='Partner AG' WHERE id=:id")
                 .param("id", unpricedPoint).update();
         PostgisDatabase.jdbc().sql("INSERT INTO master.charge_point_price (charge_point_id, currency, energy_per_kwh, "
-                        + "time_fee_per_minute, free, further_fees, observed_at) VALUES (:id, 'EUR', 0.3710, 0.0250, false, true, :at)")
+                        + "time_fees, free, further_fees, observed_at) VALUES (:id, 'EUR', 0.3710, "
+                        + "'[{\"fromMinute\": 0, \"perMinute\": 0.0250}]'::jsonb, false, true, :at)")
                 .param("id", registerPoint).param("at", java.sql.Timestamp.from(OBSERVED)).update();
         // The register would be overridden by a live tariff for the same charge point.
         PostgisDatabase.jdbc().sql("INSERT INTO master.charge_point_price (charge_point_id, currency, energy_per_kwh, "
@@ -150,6 +151,87 @@ class PricingServiceTests {
     @Test
     void anUnknownStationIsEmpty() {
         assertThat(service(new GermanTariffs()).forStation(UUID.randomUUID())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a stored price that states its VAT basis wins over the live tariff, which is then not even asked for")
+    void statedBasisWins() {
+        PostgisDatabase.jdbc().sql("DELETE FROM master.charge_point_price WHERE charge_point_id=:id")
+                .param("id", livePoint).update();
+        PostgisDatabase.jdbc().sql("UPDATE master.charge_point_price SET vat_basis_stated=true WHERE charge_point_id=:id")
+                .param("id", registerPoint).update();
+        insertStated(livePoint, 0, "0.7900", "{qrCode}", "[{\"fromMinute\": 240, \"toMinute\": 390, "
+                + "\"perMinute\": 0.10, \"cap\": 12.00, \"window\": {\"from\": \"08:00\", \"to\": \"20:00\", "
+                + "\"days\": [\"monday\", \"friday\"]}}]", null);
+        insertStated(livePoint, 1, "0.8400", "{emv}", null,
+                "[{\"perKwh\": 0.84, \"window\": {\"from\": \"08:00\", \"to\": \"22:00\"}}, "
+                        + "{\"perKwh\": 0.69, \"window\": {\"from\": \"22:00\", \"to\": \"08:00\"}}]");
+        GermanTariffs provider = new GermanTariffs();
+
+        StationPrices prices = service(provider).forStation(station).orElseThrow();
+
+        StationPrices.PricedChargePoint stated = byId(prices, livePoint);
+        assertThat(stated.prices()).hasSize(2);
+        assertThat(stated.price()).isNull();
+        assertThat(stated.priceSource()).isEqualTo("Lidl via Mobilithek");
+        AdHocPrice qr = stated.prices().getFirst();
+        assertThat(qr.paymentMeans()).containsExactly("qrCode");
+        assertThat(qr.timeFees()).singleElement().satisfies(fee -> {
+            assertThat(fee.fromMinute()).isEqualTo(240);
+            assertThat(fee.toMinute()).isEqualTo(390);
+            assertThat(fee.cap()).isEqualByComparingTo("12");
+            assertThat(fee.cap().toPlainString()).isEqualTo("12");
+            assertThat(fee.window()).isEqualTo(new AdHocPrice.TimeWindow("08:00", "20:00", List.of("monday", "friday")));
+        });
+        assertThat(qr.hasLimits()).isTrue();
+        AdHocPrice card = stated.prices().get(1);
+        assertThat(card.energyPerKwh()).isNull();
+        assertThat(card.energyWindows()).extracting(AdHocPrice.EnergyWindow::perKwh)
+                .usingElementComparator(BigDecimal::compareTo)
+                .containsExactly(new BigDecimal("0.84"), new BigDecimal("0.69"));
+        assertThat(card.lowestEnergyPerKwh()).isEqualByComparingTo("0.69");
+        // The cheapest of the station is the register's 0,371, the card's lowest its night window; no live source.
+        assertThat(prices.cheapestEnergyPerKwh()).isEqualByComparingTo("0.371");
+        assertThat(prices.sources()).isEmpty();
+        assertThat(provider.calls).isZero();
+    }
+
+    @Test
+    @DisplayName("a stored price without a stated VAT basis stays behind the live tariff")
+    void inferredBasisStaysBehind() {
+        PostgisDatabase.jdbc().sql("DELETE FROM master.charge_point_price WHERE charge_point_id=:id")
+                .param("id", livePoint).update();
+        PostgisDatabase.jdbc().sql("INSERT INTO master.charge_point_price (charge_point_id, ordinal, currency, "
+                        + "energy_per_kwh, vat_basis_stated, stated_by) VALUES (:id, 0, 'EUR', 0.49, false, 'chargecloud')")
+                .param("id", livePoint).update();
+
+        StationPrices prices = service(new GermanTariffs()).forStation(station).orElseThrow();
+
+        assertThat(byId(prices, livePoint).price()).isEqualTo(LIVE);
+        assertThat(byId(prices, livePoint).priceSource()).isEqualTo("MobiData BW");
+    }
+
+    @Test
+    @DisplayName("a stored detail that does not read costs only that detail")
+    void unreadableDetail() {
+        PostgisDatabase.jdbc().sql("UPDATE master.charge_point_price SET time_fees='{\"not\": \"a list\"}'::jsonb "
+                + "WHERE charge_point_id=:id").param("id", registerPoint).update();
+
+        StationPrices prices = service(new GermanTariffs()).forStation(station).orElseThrow();
+
+        assertThat(byId(prices, registerPoint).price().energyPerKwh()).isEqualByComparingTo("0.371");
+        assertThat(byId(prices, registerPoint).price().timeFees()).isEmpty();
+    }
+
+    private static void insertStated(UUID chargePoint, int ordinal, String energy, String means, String timeFees,
+                                     String energyWindows) {
+        PostgisDatabase.jdbc().sql("INSERT INTO master.charge_point_price (charge_point_id, ordinal, currency, "
+                        + "energy_per_kwh, energy_windows, time_fees, payment_means, vat_basis_stated, stated_by) "
+                        + "VALUES (:id, :ordinal, 'EUR', CAST(:energy AS numeric), CAST(:windows AS jsonb), "
+                        + "CAST(:fees AS jsonb), CAST(:means AS varchar[]), true, 'Lidl via Mobilithek')")
+                .param("id", chargePoint).param("ordinal", ordinal)
+                .param("energy", energyWindows == null ? energy : null)
+                .param("windows", energyWindows).param("fees", timeFees).param("means", means).update();
     }
 
     private static StationPrices.PricedChargePoint byId(StationPrices prices, UUID id) {

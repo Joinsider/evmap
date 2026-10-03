@@ -23,3 +23,5 @@ databaseChangeLog:
       file: db/changelog/011-charge-point-operator-and-price.sql
   - include:
       file: db/changelog/012-superseded-stations.sql
+  - include:
+      file: db/changelog/013-charge-point-price-details.sql

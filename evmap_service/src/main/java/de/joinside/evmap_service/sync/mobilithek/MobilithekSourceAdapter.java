@@ -4,6 +4,8 @@ import de.joinside.evmap_service.mobilithek.HttpsMobilithekBroker;
 import de.joinside.evmap_service.mobilithek.MobilithekBroker;
 import de.joinside.evmap_service.sync.SourceAdapter;
 import de.joinside.evmap_service.sync.SourceStation;
+import de.joinside.evmap_service.vatbasis.VatBasisProperties;
+import de.joinside.evmap_service.vatbasis.VatBasisTable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,7 +43,7 @@ import java.util.stream.Stream;
  */
 @Component
 @ConditionalOnProperty(name = "evmap.sync.enabled", havingValue = "true")
-@EnableConfigurationProperties(MobilithekSyncProperties.class)
+@EnableConfigurationProperties({MobilithekSyncProperties.class, VatBasisProperties.class})
 class MobilithekSourceAdapter implements SourceAdapter {
     private static final Logger log = LoggerFactory.getLogger(MobilithekSourceAdapter.class);
 
@@ -50,18 +52,21 @@ class MobilithekSourceAdapter implements SourceAdapter {
             PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"));
 
     private final MobilithekSyncProperties properties;
+    private final VatBasisProperties vatBasis;
     /** {@code null} when no certificate is configured or it could not be loaded. */
     private final MobilithekBroker broker;
     private final Clock clock;
 
     @Autowired
-    MobilithekSourceAdapter(MobilithekSyncProperties properties) {
-        this(properties, brokerFor(properties), Clock.systemUTC());
+    MobilithekSourceAdapter(MobilithekSyncProperties properties, VatBasisProperties vatBasis) {
+        this(properties, vatBasis, brokerFor(properties), Clock.systemUTC());
     }
 
     /** Test seam: a scripted broker, or {@code null} for "no certificate", and a fixed clock. */
-    MobilithekSourceAdapter(MobilithekSyncProperties properties, MobilithekBroker broker, Clock clock) {
+    MobilithekSourceAdapter(MobilithekSyncProperties properties, VatBasisProperties vatBasis, MobilithekBroker broker,
+                            Clock clock) {
         this.properties = properties;
+        this.vatBasis = vatBasis;
         this.broker = broker;
         this.clock = clock;
     }
@@ -95,17 +100,21 @@ class MobilithekSourceAdapter implements SourceAdapter {
             return Stream.empty();
         }
         Set<String> emittedEvseIds = new HashSet<>();
+        // One table per run: an entry a price contradicts is suspended until the next run reads the file again.
+        VatBasisTable table = VatBasisTable.of(vatBasis.operators());
         return properties.subscribedFeeds().stream()
-                .flatMap(feed -> stationsOf(feed, emittedEvseIds).stream());
+                .flatMap(feed -> stationsOf(feed, emittedEvseIds, table).stream());
     }
 
-    private List<SourceStation> stationsOf(MobilithekSyncProperties.Feed feed, Set<String> emittedEvseIds) {
+    private List<SourceStation> stationsOf(MobilithekSyncProperties.Feed feed, Set<String> emittedEvseIds,
+                                           VatBasisTable table) {
         Path snapshot = null;
         try {
             snapshot = latestSnapshot(feed);
             if (snapshot == null) return List.of();
+            AfirPriceReader prices = new AfirPriceReader(table, feed.publisher() + " via Mobilithek");
             AfirSiteMapper mapper = new AfirSiteMapper(SOURCE, feed, properties.registerSource(),
-                    properties.countryCode(), emittedEvseIds, clock.instant());
+                    properties.countryCode(), emittedEvseIds, clock.instant(), prices);
             List<SourceStation> stations = new ArrayList<>();
             try (InputStream in = Files.newInputStream(snapshot)) {
                 AfirSiteReader.read(in, site -> stations.addAll(mapper.map(site)));
@@ -115,6 +124,11 @@ class MobilithekSourceAdapter implements SourceAdapter {
                             + "{} foreign, {} without position, {} charge point(s) relayed by an earlier feed; {} charge "
                             + "point(s) without EVSE-ID", feed.key(), counted.stations, counted.chargePoints,
                     counted.linked, counted.foreign, counted.withoutPosition, counted.relayed, counted.withoutEvseId);
+            AfirPriceReader.Counters priced = prices.counters;
+            if (priced.priced + priced.uncertain + priced.basisUnknown > 0)
+                log.info("Mobilithek feed {}: ad-hoc prices for {} charge point(s); {} without an established VAT "
+                        + "basis, {} with a rate not understood (ADR 0022, L6p)", feed.key(), priced.priced,
+                        priced.basisUnknown, priced.uncertain);
             return stations;
         } catch (IOException e) {
             throw new UncheckedIOException("Mobilithek feed " + feed.key() + " could not be read", e);

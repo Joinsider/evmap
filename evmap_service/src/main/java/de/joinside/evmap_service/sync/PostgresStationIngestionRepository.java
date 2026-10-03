@@ -315,7 +315,8 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
                     .param("evseNormalized", EvseIds.normalize(chargePoint.evseId()))
                     .param(PARAM_OPERATOR, clip(ownOperator(chargePoint, source), 500))
                     .update();
-            if (chargePoint.price() != null) insertPrice(chargePointId, chargePoint.price());
+            for (int ordinal = 0; ordinal < chargePoint.prices().size(); ordinal++)
+                insertPrice(chargePointId, ordinal, chargePoint.prices().get(ordinal));
             for (SourceStation.SourceConnector connector : chargePoint.connectors()) {
                 insertConnector(stationId, chargePointId, connector);
             }
@@ -339,19 +340,26 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
     }
 
     /** Removed with its charge point by the cascade, so replacing the inventory replaces the price. */
-    private void insertPrice(UUID chargePointId, SourceStation.SourcePrice price) {
+    private void insertPrice(UUID chargePointId, int ordinal, SourceStation.SourcePrice price) {
         jdbc.sql("INSERT INTO master.charge_point_price " +
-                        "(charge_point_id, currency, energy_per_kwh, session_fee, time_fee_per_minute, free, " +
-                        "further_fees, observed_at) " +
-                        "VALUES (:id,:currency,:energy,:session,:time,:free,:further,:observed)")
+                        "(charge_point_id, ordinal, currency, energy_per_kwh, energy_windows, session_fee, time_fees, " +
+                        "free, further_fees, observed_at, payment_means, vat_basis_stated, stated_by) " +
+                        "VALUES (:id,:ordinal,:currency,:energy,CAST(:energyWindows AS jsonb),:session," +
+                        "CAST(:timeFees AS jsonb),:free,:further,:observed,:paymentMeans,:stated,:statedBy)")
                 .param("id", chargePointId)
+                .param("ordinal", ordinal)
                 .param("currency", price.currency())
                 .param("energy", price.energyPerKwh())
+                .param("energyWindows", PriceJson.energyWindows(price.energyWindows()))
                 .param("session", price.sessionFee())
-                .param("time", price.timeFeePerMinute())
+                .param("timeFees", PriceJson.timeFees(price.timeFees()))
                 .param("free", price.free())
                 .param("further", price.furtherFees())
                 .param("observed", timestamp(price.observedAt()))
+                .param("paymentMeans", price.paymentMeans().isEmpty() ? null
+                        : price.paymentMeans().stream().map(means -> clip(means, 32)).toArray(String[]::new))
+                .param("stated", price.vatBasisStated())
+                .param("statedBy", clip(price.statedBy(), 300))
                 .update();
     }
 

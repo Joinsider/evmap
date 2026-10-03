@@ -473,7 +473,7 @@ final class MiterdDatexParser {
         }
         // The register has no price: ad-hoc prices are in its separate dynamic publication (ADR 0022).
         return new SourceStation.SourceChargePoint(point.id, evseId(point, seenEvseIds, counters),
-                connectors(point, counters), operator, null);
+                connectors(point, counters), operator, List.of());
     }
 
     /** @return the EVSE-ID, or {@code null} for a name that is none or one another charge point already has */

@@ -62,6 +62,8 @@ final class AfirSiteMapper {
     private final String countryCode;
     private final Set<String> emittedEvseIds;
     private final Instant fetchedAt;
+    /** {@code null} reads no prices. */
+    private final AfirPriceReader prices;
     final Counters counters = new Counters();
 
     /**
@@ -71,6 +73,13 @@ final class AfirSiteMapper {
      */
     AfirSiteMapper(String source, MobilithekSyncProperties.Feed feed, String registerSource, String countryCode,
                    Set<String> emittedEvseIds, Instant fetchedAt) {
+        this(source, feed, registerSource, countryCode, emittedEvseIds, fetchedAt, null);
+    }
+
+    /** @param prices reads each refill point's ad-hoc prices (ADR 0022, L6p) */
+    AfirSiteMapper(String source, MobilithekSyncProperties.Feed feed, String registerSource, String countryCode,
+                   Set<String> emittedEvseIds, Instant fetchedAt, AfirPriceReader prices) {
+        this.prices = prices;
         this.source = source;
         this.feed = feed;
         this.registerSource = registerSource;
@@ -109,11 +118,11 @@ final class AfirSiteMapper {
         }
 
         String key = feed.key() + "/" + id;
-        List<SourceStation.SourceChargePoint> chargePoints = chargePoints(key, station);
-        if (chargePoints.isEmpty()) return null;
-
         String stationName = text(field(station, "name"));
         String operator = operatorName(stationName, field(station, "operator"), field(site, "operator"));
+        List<SourceStation.SourceChargePoint> chargePoints = chargePoints(key, station, operator);
+        if (chargePoints.isEmpty()) return null;
+
         String name = displayName(stationName, text(field(site, "name")), operator);
         List<SourceStation.SourceLink> links = links(station);
         if (!links.isEmpty()) counters.linked++;
@@ -124,7 +133,7 @@ final class AfirSiteMapper {
                 lastUpdated(site, station), List.of(), chargePoints, links, false);
     }
 
-    private List<SourceStation.SourceChargePoint> chargePoints(String stationKey, JsonNode station) {
+    private List<SourceStation.SourceChargePoint> chargePoints(String stationKey, JsonNode station, String operator) {
         List<SourceStation.SourceChargePoint> chargePoints = new ArrayList<>();
         for (JsonNode refillPoint : items(field(station, "refillPoint"))) {
             JsonNode point = field(refillPoint, "aegiElectricChargingPoint");
@@ -138,7 +147,8 @@ final class AfirSiteMapper {
             if (normalized == null) counters.withoutEvseId++;
             // Keyed by EVSE-ID, which is unique per source; a refill point without one by its own id in its station.
             String chargePointId = normalized != null ? normalized : stationKey + "*" + idOf(point);
-            chargePoints.add(new SourceStation.SourceChargePoint(chargePointId, evseId, connectors(point)));
+            List<SourceStation.SourcePrice> priced = prices == null ? List.of() : prices.read(point, operator, fetchedAt);
+            chargePoints.add(new SourceStation.SourceChargePoint(chargePointId, evseId, connectors(point), null, priced));
         }
         return chargePoints;
     }
