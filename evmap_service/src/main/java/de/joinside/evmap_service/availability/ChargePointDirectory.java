@@ -22,6 +22,8 @@ import java.util.UUID;
 @Repository
 @ConditionalOnProperty(name = "evmap.availability.enabled", havingValue = "true", matchIfMissing = true)
 class ChargePointDirectory implements StoredChargePoints {
+    private static final String EVSE_ID_NORMALIZED = "evse_id_normalized";
+
     private final JdbcClient jdbc;
 
     ChargePointDirectory(JdbcClient jdbc) {
@@ -55,7 +57,7 @@ class ChargePointDirectory implements StoredChargePoints {
                 .param("stationId", stationId)
                 .query((rs, row) -> new KnownChargePoint(rs.getObject("id", UUID.class),
                         rs.getObject("station_id", UUID.class),
-                        rs.getString("evse_id"), rs.getString("evse_id_normalized")))
+                        rs.getString("evse_id"), rs.getString(EVSE_ID_NORMALIZED)))
                 .list();
     }
 
@@ -82,7 +84,7 @@ class ChargePointDirectory implements StoredChargePoints {
                 .param("limit", limit)
                 .query((rs, row) -> new KnownChargePoint(rs.getObject("id", UUID.class),
                         rs.getObject("station_id", UUID.class),
-                        rs.getString("evse_id"), rs.getString("evse_id_normalized")))
+                        rs.getString("evse_id"), rs.getString(EVSE_ID_NORMALIZED)))
                 .list();
     }
 
@@ -101,7 +103,7 @@ class ChargePointDirectory implements StoredChargePoints {
                 .param("countries", countryCodes)
                 .query(rs -> {
                     chargePoints[0]++;
-                    String evseId = rs.getString("evse_id_normalized");
+                    String evseId = rs.getString(EVSE_ID_NORMALIZED);
                     if (evseId != null) evseIds.add(evseId);
                 });
         return new Inventory(chargePoints[0], evseIds);
