@@ -461,6 +461,13 @@ d. **Second API replica** — the in-process state now has a subscription cursor
 e. ~~**What `max-age` measures for the Mobilithek**~~ — decided 2026-10-02: from the package that last confirmed the
    charge point (its publication time, bounded by its arrival), not from `lastUpdated`. A snapshot confirms every
    charge point in it, a delta only those it names. The client keeps showing `lastUpdated`. France is unchanged.
+f. **Large operators missing from the Mobilithek** (2026-10-03) — IONITY, Aral pulse (bp), Allego, Shell Recharge and
+   Fastned have no offering in the catalogue under their own name, and MobiData BW carries no live status for IONITY
+   or Aral either (product owner). AFIR Art. 20 obliges them to publish through the national access point, but an
+   intermediary may deliver on their behalf: eRound's feed, for one, also carries Pfalzwerke. Decided: the product
+   owner asks the Mobilithek support and the operators which offering carries their data (texts drafted 2026-10-03);
+   meanwhile the operators in Eco-Movement's feed are checked as soon as its subscription is approved. Any offering
+   found is subscribed like the others; nothing else changes.
 
 ## Corrections (2026-08-24)
 
