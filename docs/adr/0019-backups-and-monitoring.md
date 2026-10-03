@@ -2,7 +2,7 @@
 
 - Status: Accepted — roadmap phase 0; restore rehearsal on the VPS pending (👤)
 - Date: 2026-09-29
-- Deciders: Johannes Popp
+- Deciders: Joinsider
 
 ## Context
 

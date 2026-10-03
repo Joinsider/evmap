@@ -3,7 +3,7 @@
 - Status: Accepted 2026-09-29 — implemented in roadmap phase 1 (`feature/phase-1-login-web`); account
   deletion and Apple token revocation followed in phase 2 ([ADR 0020](0020-account-area-and-app-store-obligations.md))
 - Date: 2026-09-29
-- Deciders: Johannes Popp
+- Deciders: Joinsider
 
 ## Context
 

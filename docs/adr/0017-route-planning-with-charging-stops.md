@@ -2,7 +2,7 @@
 
 - Status: Accepted 2026-09-29 — stage 1 (manual planner) implemented in roadmap phase 4 (`feature/phase-4-manual-route-planner`, 2026-10-01); stages 2–4 not started; stages scheduled in `docs/roadmap.md`
 - Date: 2026-09-29
-- Deciders: Johannes Popp
+- Deciders: Joinsider
 
 ## Context
 
