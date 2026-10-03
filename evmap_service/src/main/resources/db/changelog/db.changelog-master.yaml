@@ -21,3 +21,5 @@ databaseChangeLog:
       file: db/changelog/010-favorites-and-station-reports.sql
   - include:
       file: db/changelog/011-charge-point-operator-and-price.sql
+  - include:
+      file: db/changelog/012-superseded-stations.sql

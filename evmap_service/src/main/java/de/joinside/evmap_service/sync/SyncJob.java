@@ -3,6 +3,8 @@ package de.joinside.evmap_service.sync;
 import de.joinside.evmap_service.logging.LogContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -27,10 +29,23 @@ class SyncJob {
 
     private final List<SourceAdapter> adapters;
     private final StationIngestionPort ingestion;
+    private final List<String> supersedingSources;
 
-    SyncJob(List<SourceAdapter> adapters, StationIngestionPort ingestion) {
+    /**
+     * @param supersedingSources sources whose stations hide the ones they make redundant, recomputed after every run
+     *                           ({@code evmap.sync.supersede}, ADR 0025). Configuration, because this class names no
+     *                           source.
+     */
+    @Autowired
+    SyncJob(List<SourceAdapter> adapters, StationIngestionPort ingestion,
+            @Value("${evmap.sync.supersede:}") List<String> supersedingSources) {
         this.adapters = adapters;
         this.ingestion = ingestion;
+        this.supersedingSources = supersedingSources.stream().map(String::trim).filter(token -> !token.isEmpty()).toList();
+    }
+
+    SyncJob(List<SourceAdapter> adapters, StationIngestionPort ingestion) {
+        this(adapters, ingestion, List.of());
     }
 
     @Scheduled(fixedDelayString = "${evmap.sync.fixed-delay}")
@@ -54,6 +69,7 @@ class SyncJob {
             long startedAt = System.nanoTime();
             try {
                 List<SourceAdapterRun> runs = ingestAll(active);
+                supersedeDuplicates();
                 StationIngestionPort.IngestionResult total = totalOf(runs);
 
                 Duration took = Duration.ofNanos(System.nanoTime() - startedAt);
@@ -123,6 +139,20 @@ class SyncJob {
             }
         }
         return runs;
+    }
+
+    /**
+     * After every source, because the marks depend on all of them: a register entry the authority made redundant
+     * yesterday may have gained an EVSE-ID of its own today. Recomputed even when the superseding source failed —
+     * its stations from earlier runs are still there, and the marks describe them.
+     */
+    private void supersedeDuplicates() {
+        for (String source : supersedingSources) {
+            try (var _ = LogContext.scope(LogContext.SOURCE, source)) {
+                int superseded = ingestion.supersedeDuplicates(source);
+                log.info("Source {} supersedes {} station(s)", source, superseded);
+            }
+        }
     }
 
     private static StationIngestionPort.IngestionResult totalOf(List<SourceAdapterRun> runs) {

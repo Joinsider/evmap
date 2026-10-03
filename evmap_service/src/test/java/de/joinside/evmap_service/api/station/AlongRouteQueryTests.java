@@ -74,6 +74,15 @@ class AlongRouteQueryTests {
     }
 
     @Test
+    @DisplayName("a superseded station is not offered along the route")
+    void skipsSupersededStations() {
+        PostgisDatabase.jdbc().sql("UPDATE master.charging_station SET superseded_by=:by WHERE id=:id")
+                .param("by", middle).param("id", nearMiss).update();
+
+        assertThat(ids(along(5))).containsExactly(start, middle, end);
+    }
+
+    @Test
     @DisplayName("measures how far along the route and how far off it each station is")
     void measuresPosition() {
         var found = service.alongRoute(along(5));

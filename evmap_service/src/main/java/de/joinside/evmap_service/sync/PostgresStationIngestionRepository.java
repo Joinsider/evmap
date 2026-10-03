@@ -16,6 +16,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -34,6 +36,46 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
     private static final String PARAM_COUNTRY = "country";
     private static final String PARAM_LATITUDE = "latitude";
     private static final String PARAM_LONGITUDE = "longitude";
+
+    /**
+     * The superseded marks of every station in the source's countries, recomputed: {@code NULL} for the source's own
+     * stations; the source's station holding most of the EVSE-IDs of a station whose EVSE-IDs all sit on the source's
+     * stations; the nearest source station within 30 m for a station without EVSE-IDs; {@code NULL} otherwise.
+     */
+    private static final String SUPERSEDE = """
+            WITH own AS (SELECT DISTINCT station_id FROM master.station_source WHERE source = :source),
+            own_evse AS (SELECT cp.evse_id_normalized, cp.station_id FROM master.charge_point cp
+                         JOIN own ON own.station_id = cp.station_id WHERE cp.evse_id_normalized IS NOT NULL),
+            scope AS (SELECT s.id, s.country_code, s.location, s.superseded_by FROM master.charging_station s
+                      WHERE s.country_code IN (SELECT DISTINCT o.country_code FROM master.charging_station o
+                                               JOIN own ON own.station_id = o.id)),
+            desired AS (
+                SELECT s.id, s.superseded_by AS current,
+                       CASE
+                           WHEN EXISTS (SELECT 1 FROM own WHERE own.station_id = s.id) THEN NULL
+                           WHEN EXISTS (SELECT 1 FROM master.charge_point cp
+                                        WHERE cp.station_id = s.id AND cp.evse_id_normalized IS NOT NULL) THEN
+                               CASE WHEN NOT EXISTS (
+                                        SELECT 1 FROM master.charge_point cp
+                                        WHERE cp.station_id = s.id AND cp.evse_id_normalized IS NOT NULL
+                                          AND NOT EXISTS (SELECT 1 FROM own_evse e
+                                                          WHERE e.evse_id_normalized = cp.evse_id_normalized))
+                                    THEN (SELECT e.station_id FROM master.charge_point cp
+                                          JOIN own_evse e ON e.evse_id_normalized = cp.evse_id_normalized
+                                          WHERE cp.station_id = s.id
+                                          GROUP BY e.station_id ORDER BY COUNT(*) DESC, e.station_id LIMIT 1)
+                               END
+                           ELSE (SELECT o.id FROM master.charging_station o
+                                 WHERE o.country_code = s.country_code
+                                   AND ST_DWithin(o.location, s.location, 30)
+                                   AND EXISTS (SELECT 1 FROM own WHERE own.station_id = o.id)
+                                 ORDER BY o.location <-> s.location, o.id LIMIT 1)
+                       END AS target
+                FROM scope s)
+            UPDATE master.charging_station s SET superseded_by = d.target
+            FROM desired d
+            WHERE s.id = d.id AND d.current IS DISTINCT FROM d.target
+            """;
 
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
@@ -67,6 +109,23 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
         return BatchedIngestion.run(stations, batchSize,
                 work -> transactions.executeWithoutResult(status -> work.run()),
                 this::upsertOne);
+    }
+
+    /**
+     * One statement, so a run never leaves the marks half recomputed: the desired mark of every station in the
+     * source's countries, written only where it differs from the current one.
+     */
+    @Override
+    public int supersedeDuplicates(String source) {
+        Integer changed = transactions.execute(status -> jdbc.sql(SUPERSEDE)
+                .param(PARAM_SOURCE, source)
+                .update());
+        int superseded = jdbc.sql("SELECT COUNT(*) FROM master.charging_station s " +
+                        "JOIN master.station_source own ON own.station_id = s.superseded_by AND own.source = :source")
+                .param(PARAM_SOURCE, source)
+                .query(Integer.class).single();
+        log.debug("{} station mark(s) changed for {}", changed, source);
+        return superseded;
     }
 
     @Override
@@ -148,7 +207,7 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
                         "WHERE source=:source AND source_station_id=:sourceId")
                 .param(PARAM_SOURCE, source.source())
                 .param(PARAM_SOURCE_ID, source.sourceStationId())
-                .query(UUID.class).optional().orElseGet(() -> nearby(source));
+                .query(UUID.class).optional().orElseGet(() -> resolve(source));
 
         BatchedIngestion.Outcome outcome;
         if (stationId == null) {
@@ -171,12 +230,16 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
             outcome = BatchedIngestion.Outcome.CREATED;
             log.debug("Created station {} from {}/{}", stationId, source.source(), source.sourceStationId());
         } else if (mayUpdate(stationId, source)) {
+            // A source that does not name stations keeps the labels another source gave this one (ADR 0025).
+            boolean relabel = source.namesStation() || !namedByAnotherSource(stationId, source);
             jdbc.sql("UPDATE master.charging_station " +
-                            "SET display_name=:name, street=:street, city=:city, " +
-                            "postal_code=:postal, country_code=:country, operator_name=:operator, " +
+                            "SET display_name=CASE WHEN :relabel THEN :name ELSE display_name END, " +
+                            "street=:street, city=:city, postal_code=:postal, country_code=:country, " +
+                            "operator_name=CASE WHEN :relabel THEN :operator ELSE operator_name END, " +
                             "latitude=:latitude, longitude=:longitude, availability_status=:availability, " +
                             "updated_at=now() WHERE id=:id")
                     .param("id", stationId)
+                    .param("relabel", relabel)
                     .param("name", clip(source.name(), 500))
                     .param("street", clip(source.street(), 500))
                     .param("city", clip(source.city(), 200))
@@ -298,16 +361,72 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
                 .update();
     }
 
+    /**
+     * The existing station a record the source has not delivered before describes, or {@code null} for a new one.
+     * <p>
+     * Exact evidence first, position last (ADR 0025): the links the record states, then the station already holding
+     * most of its EVSE-IDs, then the nearest station within 30 m. Position alone paired 6.091 Mobilithek stations
+     * with the neighbour of the register entry that carried their EVSE-IDs.
+     * <p>
+     * Every step skips stations the record's own source already maintains under another id. Two records of one
+     * source are two stations by that source's own account; letting the second match the first would make them
+     * overwrite each other's charge points on every run — two AFIR stations of one site share their coordinates.
+     */
+    private UUID resolve(SourceStation source) {
+        UUID linked = linked(source);
+        if (linked != null) return linked;
+        UUID sharing = sharingEvseIds(source);
+        return sharing != null ? sharing : nearby(source);
+    }
+
+    private UUID linked(SourceStation source) {
+        for (SourceStation.SourceLink link : source.links()) {
+            UUID stationId = jdbc.sql("SELECT ss.station_id FROM master.station_source ss " +
+                            "WHERE ss.source=:linkSource AND ss.source_station_id=:linkId AND " + notMaintainedBySource("ss.station_id"))
+                    .param("linkSource", link.source())
+                    .param("linkId", link.sourceStationId())
+                    .param(PARAM_SOURCE, source.source())
+                    .query(UUID.class).optional().orElse(null);
+            if (stationId != null) return stationId;
+        }
+        return null;
+    }
+
+    private UUID sharingEvseIds(SourceStation source) {
+        List<String> evseIds = source.chargePoints().stream()
+                .map(chargePoint -> EvseIds.normalize(chargePoint.evseId()))
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (evseIds.isEmpty()) return null;
+        return jdbc.sql("SELECT cp.station_id FROM master.charge_point cp " +
+                        "WHERE cp.evse_id_normalized IN (:evseIds) AND " + notMaintainedBySource("cp.station_id") +
+                        " GROUP BY cp.station_id ORDER BY count(*) DESC, cp.station_id LIMIT 1")
+                .param("evseIds", evseIds)
+                .param(PARAM_SOURCE, source.source())
+                .query(UUID.class).optional().orElse(null);
+    }
+
     private UUID nearby(SourceStation source) {
-        return jdbc.sql("SELECT id FROM master.charging_station " +
-                        "WHERE country_code=:country AND ST_DWithin(location, ST_SetSRID(ST_MakePoint(:longitude,:latitude),4326)::geography, 30) " +
-                        "ORDER BY location <-> ST_SetSRID(ST_MakePoint(:longitude,:latitude),4326)::geography LIMIT 1")
+        return jdbc.sql("SELECT s.id FROM master.charging_station s " +
+                        "WHERE s.country_code=:country AND ST_DWithin(s.location, ST_SetSRID(ST_MakePoint(:longitude,:latitude),4326)::geography, 30) " +
+                        "AND " + notMaintainedBySource("s.id") + " " +
+                        "ORDER BY s.location <-> ST_SetSRID(ST_MakePoint(:longitude,:latitude),4326)::geography LIMIT 1")
                 .param(PARAM_COUNTRY, clip(source.countryCode(), 2))
                 .param(PARAM_LATITUDE, source.latitude())
                 .param(PARAM_LONGITUDE, source.longitude())
+                .param(PARAM_SOURCE, source.source())
                 .query(UUID.class)
                 .optional()
                 .orElse(null);
+    }
+
+    /** Whether another source than the record's has delivered this station — and therefore named it. */
+    private boolean namedByAnotherSource(UUID stationId, SourceStation source) {
+        return jdbc.sql("SELECT EXISTS (SELECT 1 FROM master.station_source WHERE station_id=:stationId AND source<>:source)")
+                .param(PARAM_STATION_ID, stationId)
+                .param(PARAM_SOURCE, source.source())
+                .query(Boolean.class).single();
     }
 
     /**
@@ -335,5 +454,11 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
                 .param(PARAM_STATION_ID, stationId)
                 .param(PARAM_SOURCE, source)
                 .query(Boolean.class).single();
+    }
+
+    /** SQL: the station in {@code stationColumn} is not already maintained by the source bound as {@code :source}. */
+    private static String notMaintainedBySource(String stationColumn) {
+        return "NOT EXISTS (SELECT 1 FROM master.station_source own WHERE own.station_id=" + stationColumn
+                + " AND own.source=:source)";
     }
 }

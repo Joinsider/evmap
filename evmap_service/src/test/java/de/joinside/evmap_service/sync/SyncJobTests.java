@@ -91,6 +91,12 @@ class SyncJobTests {
         }
 
         @Override
+        public int supersedeDuplicates(String source) {
+            ingested.add("supersede:" + source);
+            return 7;
+        }
+
+        @Override
         public UUID startRun() {
             return runId;
         }
@@ -119,6 +125,19 @@ class SyncJobTests {
         assertThat(port.ingested).hasSize(5);
         assertThat(bnetza.committed).isTrue();
         assertThat(ocm.committed).isTrue();
+    }
+
+    @Test
+    @DisplayName("after all sources, the superseding sources recompute their marks — configured, never named here")
+    void supersedesAfterAllSources() {
+        FakeAdapter bnetza = FakeAdapter.healthy("BNETZA", 1);
+        FakeAdapter mobilithek = FakeAdapter.healthy("MOBILITHEK", 1);
+        RecordingPort port = new RecordingPort(0, false);
+
+        new SyncJob(List.of(mobilithek, bnetza), port, List.of(" MOBILITHEK ", "")).synchronize();
+
+        assertThat(port.ingested).containsExactly("MOBILITHEK/0", "BNETZA/0", "supersede:MOBILITHEK");
+        assertThat(port.status).isEqualTo(StationIngestionPort.RunStatus.SUCCEEDED);
     }
 
     @Test

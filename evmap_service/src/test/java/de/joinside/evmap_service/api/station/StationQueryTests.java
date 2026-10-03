@@ -189,6 +189,17 @@ class StationQueryTests {
         assertThatThrownBy(() -> operators.search("x", 0)).isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    @DisplayName("a superseded station is left off the map and out of the operator directory")
+    void skipsSupersededStations() {
+        PostgisDatabase.jdbc().sql("UPDATE master.charging_station SET superseded_by=:by WHERE id=:id")
+                .param("by", ionity).param("id", enbw).update();
+
+        assertThat(ids(around(5))).containsExactly(ionity, unnamed);
+        // The Berlin station keeps EnBW in the directory, now with one station instead of two.
+        assertThat(operators.search("enbw", 10)).containsExactly(new OperatorController.Operator("EnBW mobility+", 1));
+    }
+
     private static ChargingConnector connector(String type, String powerKw, int quantity) {
         ChargingConnector connector = new ChargingConnector();
         connector.connectorType = type;
