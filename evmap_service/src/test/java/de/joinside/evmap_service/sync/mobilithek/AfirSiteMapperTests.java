@@ -19,11 +19,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** The reader and the mapper together, on the dialects of real publishers ({@link AfirFixtures}). */
 class AfirSiteMapperTests {
+    private static final Instant FETCHED = Instant.parse("2026-10-03T12:00:00Z");
     private final Set<String> emitted = new HashSet<>();
 
     private AfirSiteMapper mapper(String key, String publisher) {
         return new AfirSiteMapper("MOBILITHEK", new MobilithekSyncProperties.Feed(key, "1", publisher), "BNetzA", "DE",
-                emitted);
+                emitted, FETCHED);
     }
 
     private static List<SourceStation> read(AfirSiteMapper mapper, String body) throws IOException {
@@ -66,6 +67,8 @@ class AfirSiteMapperTests {
         // Two plugs of one type and rating are one connector row with quantity 2; the second station shares the site.
         SourceStation second = stations.get(1);
         assertThat(second.links()).isEmpty();
+        // Undated, like most publishers' stations: the fetch time stands in, the provenance record requires one.
+        assertThat(second.lastUpdatedAt()).isEqualTo(FETCHED);
         assertThat(second.latitude()).isEqualTo(first.latitude());
         assertThat(second.chargePoints().getFirst().connectors()).containsExactly(connector("CCS", "150", 2));
 
@@ -85,6 +88,8 @@ class AfirSiteMapperTests {
 
         SourceStation wangen = stations.getFirst();
         assertThat(wangen.sourceStationId()).isEqualTo("enbw/13529");
+        // The site's date stands in for a station that has none.
+        assertThat(wangen.lastUpdatedAt()).isEqualTo(Instant.parse("2026-10-02T22:00:00Z"));
         assertThat(wangen.latitude()).isEqualTo(48.718544);
         assertThat(wangen.countryCode()).isEqualTo("DE");
         assertThat(wangen.street()).isEqualTo("Siemensstraße");

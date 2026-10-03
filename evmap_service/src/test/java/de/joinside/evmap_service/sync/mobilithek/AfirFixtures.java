@@ -66,7 +66,7 @@ final class AfirFixtures {
     static final String ENBW_JSON = """
             {"payload": {"aegiEnergyInfrastructureTablePublication": {"energyInfrastructureTable": [{
               "energyInfrastructureSite": [
-                {"idG": "800030182",
+                {"idG": "800030182", "lastUpdated": "2026-10-02T22:00:00Z",
                  "operator": {"afacAnOrganisation": {"name": {"values": [{"lang": "de", "value": "ENBW"}]}}},
                  "energyInfrastructureStation": [{"idG": "13529",
                    "externalIdentifier": [{"identifier": "1121150",
