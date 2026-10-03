@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 /**
  * Reads one DATEX II v3 package of the AFIR dynamic profile ({@code AFIR-Recharging-Dynamic-01-00-00_Delta}) into
@@ -54,29 +53,6 @@ final class AfirStatusParser {
     private static final String LAST_UPDATED = "lastUpdated";
     private static final String DELTA_PULL = "deltaPull";
     private static final String DELTA_PUSH = "deltaPush";
-
-    /**
-     * The shape of an eMI3 EVSE-ID once {@link EvseIds} has removed the separators: country, operator, then the
-     * {@code E} that marks an EVSE. Used only to count, never to filter — matching is by exact identifier, so an
-     * internal id that is not an EVSE-ID cannot produce a wrong answer, only none.
-     */
-    private static final Pattern EVSE_ID_SHAPE = Pattern.compile("^[A-Z]{2}[A-Z0-9]{3}E[A-Z0-9]+$");
-
-    /**
-     * A UUID or hash with its dashes removed. Wirelane and eRound publish such internal ids, and one in a few dozen
-     * happens to fit {@link #EVSE_ID_SHAPE} — {@code ae0b0ee4…} reads as {@code AE}, {@code 0B0}, {@code E…}. A real
-     * EVSE-ID is far shorter than 24 characters.
-     */
-    private static final Pattern HEX_HASH = Pattern.compile("^[0-9A-F]{24,}$");
-
-
-    /**
-     * An EVSE-ID in its starred spelling inside a longer id. GP JOULE wraps theirs as
-     * {@code cp-DE*CNT*EP90046*002*1-1}; the stars make the embedded id unambiguous, so it is taken literally and
-     * the join stays exact. Without stars nothing is extracted — a hash can contain any letters.
-     */
-    private static final Pattern EMBEDDED_EVSE_ID =
-            Pattern.compile("(?<![A-Za-z0-9])([A-Za-z]{2}\\*[A-Za-z0-9]{3}\\*[Ee][A-Za-z0-9*]*[A-Za-z0-9])");
 
     /** How many ids of another shape a package reports for the log, so a feed's id scheme can be judged. */
     private static final int OTHER_ID_SAMPLES = 3;

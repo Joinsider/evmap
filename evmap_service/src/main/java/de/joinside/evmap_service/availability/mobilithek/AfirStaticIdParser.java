@@ -78,21 +78,27 @@ final class AfirStaticIdParser {
     private record Identifier(String value, boolean typedAsEvseId) {
     }
 
-    // --- JSON: {"idG": "…", "externalIdentifier": [{"identifier": "…", "typeOfIdentifier": {"value": "extendedG",
-    //     "extendedValueG": "evseId"}}]}
-
+    /**
+     * The JSON syntax: each refill point object carries its internal id as {@code idG} and a list of
+     * {@code externalIdentifier} objects, each with an {@code identifier} and a {@code typeOfIdentifier} whose
+     * {@code extendedValueG} is {@code evseId} for the one wanted.
+     */
     private static void readJson(InputStream in, Map<String, String> into) throws IOException {
         try (JsonParser parser = Datex.JSON.createParser(in)) {
-            for (JsonToken token = parser.nextToken(); token != null; token = parser.nextToken()) {
-                if (token != JsonToken.FIELD_NAME) continue;
-                String field = parser.currentName();
-                if (!ELECTRIC_CHARGING_POINT.equals(field) && !REFILL_POINT_KEY.equals(field)) continue;
-                parser.nextToken();
-                JsonNode node = Datex.JSON.readTree(parser);
-                for (JsonNode refillPoint : node.isArray() ? node : List.of(node))
-                    add(into, refillPoint.path("idG").asText(null), jsonIdentifiers(refillPoint.path(EXTERNAL_IDENTIFIER)));
-            }
+            for (JsonToken token = parser.nextToken(); token != null; token = parser.nextToken())
+                if (token == JsonToken.FIELD_NAME && isRefillPoint(parser.currentName())) readRefillPoints(parser, into);
         }
+    }
+
+    private static boolean isRefillPoint(String field) {
+        return ELECTRIC_CHARGING_POINT.equals(field) || REFILL_POINT_KEY.equals(field);
+    }
+
+    private static void readRefillPoints(JsonParser parser, Map<String, String> into) throws IOException {
+        parser.nextToken();
+        JsonNode node = Datex.JSON.readTree(parser);
+        for (JsonNode refillPoint : node.isArray() ? node : List.of(node))
+            add(into, refillPoint.path("idG").asText(null), jsonIdentifiers(refillPoint.path(EXTERNAL_IDENTIFIER)));
     }
 
     private static List<Identifier> jsonIdentifiers(JsonNode node) {
@@ -107,8 +113,10 @@ final class AfirStaticIdParser {
         return identifiers;
     }
 
-    // --- XML: <refillPoint id="…"><externalIdentifier><identifier>…</identifier><typeOfIdentifier>…</…>
-
+    /**
+     * The XML syntax: each {@code refillPoint} element carries its internal id as the {@code id} attribute and
+     * {@code externalIdentifier} children with an {@code identifier} and a {@code typeOfIdentifier}.
+     */
     private static void readXml(InputStream in, Map<String, String> into) throws IOException {
         try {
             XMLStreamReader xml = Datex.XML.createXMLStreamReader(in);
@@ -130,36 +138,62 @@ final class AfirStaticIdParser {
      * {@code externalIdentifier} marks it.
      */
     private static List<Identifier> xmlIdentifiers(XMLStreamReader xml) throws XMLStreamException {
-        List<Identifier> identifiers = new ArrayList<>();
-        String value = null;
-        boolean typed = false;
-        int depth = 1;
-        int externalDepth = -1;
-        while (depth > 0 && xml.hasNext()) {
-            int event = xml.next();
-            if (event == XMLStreamConstants.END_ELEMENT) {
-                if (depth == externalDepth) {
-                    identifiers.add(new Identifier(value, typed));
-                    externalDepth = -1;
+        XmlRefillPoint refillPoint = new XmlRefillPoint();
+        while (refillPoint.open() && xml.hasNext()) {
+            switch (xml.next()) {
+                case XMLStreamConstants.END_ELEMENT -> refillPoint.end();
+                case XMLStreamConstants.START_ELEMENT -> refillPoint.start(xml);
+                case XMLStreamConstants.CHARACTERS -> refillPoint.text(xml.getText());
+                default -> {
+                    // Comments, whitespace events and the like carry nothing.
                 }
-                depth--;
-            } else if (event == XMLStreamConstants.START_ELEMENT) {
-                String name = xml.getLocalName();
-                if (externalDepth < 0 && EXTERNAL_IDENTIFIER.equals(name)) {
-                    depth++;
-                    externalDepth = depth;
-                    value = null;
-                    typed = false;
-                } else if (externalDepth > 0 && IDENTIFIER.equals(name)) {
-                    value = Datex.blankToNull(xml.getElementText());
-                } else {
-                    depth++;
-                }
-            } else if (event == XMLStreamConstants.CHARACTERS && externalDepth > 0
-                    && EVSE_ID_TYPE.equalsIgnoreCase(xml.getText().trim())) {
-                typed = true;
             }
         }
-        return identifiers;
+        return refillPoint.identifiers;
+    }
+
+    /** Where the XML reader is inside one {@code refillPoint}, and what it has collected so far. */
+    private static final class XmlRefillPoint {
+        final List<Identifier> identifiers = new ArrayList<>();
+        private int depth = 1;
+        /** The depth of the {@code externalIdentifier} being read, or -1 outside one. */
+        private int externalDepth = -1;
+        private String value;
+        private boolean typed;
+
+        boolean open() {
+            return depth > 0;
+        }
+
+        private boolean insideExternalIdentifier() {
+            return externalDepth > 0;
+        }
+
+        void start(XMLStreamReader xml) throws XMLStreamException {
+            String name = xml.getLocalName();
+            if (!insideExternalIdentifier() && EXTERNAL_IDENTIFIER.equals(name)) {
+                depth++;
+                externalDepth = depth;
+                value = null;
+                typed = false;
+            } else if (insideExternalIdentifier() && IDENTIFIER.equals(name)) {
+                // Consumes the element up to its end tag, so the depth does not change.
+                value = Datex.blankToNull(xml.getElementText());
+            } else {
+                depth++;
+            }
+        }
+
+        void end() {
+            if (depth == externalDepth) {
+                identifiers.add(new Identifier(value, typed));
+                externalDepth = -1;
+            }
+            depth--;
+        }
+
+        void text(String text) {
+            if (insideExternalIdentifier() && EVSE_ID_TYPE.equalsIgnoreCase(text.trim())) typed = true;
+        }
     }
 }

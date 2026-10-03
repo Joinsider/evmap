@@ -276,14 +276,16 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
         if (feed.staticDueAt != null && now.isBefore(feed.staticDueAt)) return;
         feed.staticDueAt = now.plus(properties.backoff());
         int before = feed.evseIdsByInternalId.size();
-        for (int fetched = 0; fetched < properties.maxPackagesPerPoll(); fetched++) {
+        boolean more = true;
+        for (int fetched = 0; more && fetched < properties.maxPackagesPerPoll(); fetched++) {
             try (MobilithekBroker.Response response = broker.next(feed.feed.staticSubscriptionId(), feed.staticCursor)) {
                 if (response.status() == 200) {
                     feed.evseIdsByInternalId.putAll(AfirStaticIdParser.parse(response.body()));
-                    if (response.lastModified() == null) break;
-                    feed.staticCursor = response.lastModified();
+                    // Without a cursor the next request would return the same package again.
+                    more = response.lastModified() != null;
+                    if (more) feed.staticCursor = response.lastModified();
                 } else if (response.status() == 304 || response.status() == 204) {
-                    break;
+                    more = false;
                 } else {
                     log.warn("Mobilithek static feed of {} answered HTTP {} — keeping {} id translation(s), retrying at {}",
                             feed.feed.publisher(), response.status(), before, feed.staticDueAt);
