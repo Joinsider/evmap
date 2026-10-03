@@ -37,6 +37,8 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | L3 | Lückenfüller: Italien | übersprungen ⁷ | | [0012](adr/0012-additional-national-charging-registers.md) |
 | L4 | Lückenfüller: Spanien | fertig ⁸ | [#22](https://github.com/Joinsider/evmap/pull/22) | [0012](adr/0012-additional-national-charging-registers.md) |
 | L5 | Lückenfüller: Mobilithek (Live-Daten Deutschland), vor 8b | fertig ¹³ | [#34](https://github.com/Joinsider/evmap/pull/34) | [0015](adr/0015-live-availability-national-access-points-with-tomtom-fallback.md) |
+| L6 | Lückenfüller: Mobilithek als Stammdatenquelle Deutschland (BNetzA als Rückfall) | in Arbeit | `feature/sync-mobilithek` | [0025](adr/0025-mobilithek-as-germanys-master-data-source.md) |
+| L6p | Preise aus den statischen Mobilithek-Feeds, direkt nach L6 | offen | | [0022](adr/0022-prices-at-the-station.md) |
 
 ¹ Im Repository fertig; offen sind die 👤-Schritte auf dem VPS (Backup-Ziel, Monitore, erste
 Restore-Probe, `docs/operations/backup-and-restore.md` §5).
@@ -260,7 +262,8 @@ und im ADR 0012 vermerkt. Österreich wurde so übersprungen (Stand 2026-09-30),
 übersprungen (Stand 2026-10-01), Spanien ist umgesetzt (Stand 2026-10-01). Damit sind alle vier Lückenfüller
 erledigt; danach folgte **Phase 4**, dann **Phase 5** (5a und 5r fertig); als Nächstes **Phase 8** (vor 5b gezogen,
 entschieden 2026-10-02), danach 5b. Als zusätzlicher Lückenfüller **L5** kam am 2026-10-02 die Mobilithek (Live-Daten
-Deutschland) hinzu, nachdem die Organisation genehmigt war.
+Deutschland) hinzu, nachdem die Organisation genehmigt war. Am 2026-10-03 folgte **L6**: die statischen
+Mobilithek-Feeds als Stammdatenquelle für Deutschland, danach direkt **L6p** (Preise aus diesen Feeds).
 
 ### Skalierung / Variante C · bei Bedarf
 
@@ -340,6 +343,20 @@ Lückenfüller Italien (2026-10-01, Details in ADR 0012, Abschnitt „Italy skip
 - L3 wird übersprungen. Die PUN hat keinen offenen Export mehr; die Portal-API ist laut Product Owner nur mit
   italienischem Ausweis erreichbar, ihre Lizenz ist nicht ausdrücklich erklärt. Ein Adapter gegen die Portal-API
   wurde verworfen. Italien bleibt über OCM abgedeckt.
+
+Lückenfüller Mobilithek-Stammdaten (2026-10-03, Details in ADR 0025):
+
+- Die Messung (ADR 0015, „Coverage report“) zeigte: Nur 16,5 % der deutschen Ladepunkte haben einen Live-Status, weil
+  dem BNetzA-Register die EVSE-IDs fehlen (EWE: keine einzige). Die statischen AFIR-Feeds der Mobilithek werden deshalb
+  **Autorität für Deutschland** (`DE: MOBILITHEK`), das Register bleibt Rückfall für alles, was sie nicht abdecken.
+  Umgesetzt als **L6**, mit **allen Feeds auf einmal**.
+- Abonniert werden **alle 20 weiteren statischen Angebote**, auch die fünf mit Betreiberfreigabe; Claude hat sie im
+  Portal im Namen des Product Owners abgeschlossen.
+- **Dubletten**: Registereinträge neben einer Mobilithek-Station werden ausgeblendet (nicht gelöscht), wenn alle ihre
+  EVSE-IDs aus der Mobilithek kommen oder sie keine EVSE-ID haben und höchstens 30 m entfernt liegen.
+- **Neue Stationen** ohne Gegenstück im Register werden angelegt.
+- **Betreibername**: Verknüpfte Stationen behalten den Namen aus dem Register; neue bekommen den Namen aus dem Feed.
+- **Preise** aus den statischen Feeds kommen als eigener Schritt **L6p direkt im Anschluss** (ADR 0022).
 
 Lückenfüller Mobilithek (2026-10-02, Details in ADR 0015, Abschnitt „Mobilithek (L5)“):
 
