@@ -78,9 +78,12 @@ private let sampleProviders = [
     ChargingProvider(name: "IONITY", stationCount: 412)
 ]
 
-/// Long enough for the 300 ms debounce plus the stubbed round trip to have finished.
-private func settle() async throws {
-    try await Task.sleep(for: .milliseconds(500))
+/// Waits until `condition` holds, for up to ten seconds; the expectations that follow report it if it never does.
+/// Polled rather than slept: a fixed pause past the 300 ms debounce is shorter than it looks when the main actor
+/// is busy, as it is with parallel test clones under load.
+@MainActor
+private func waitUntil(_ condition: () -> Bool) async throws {
+    for _ in 0..<1_000 where !condition() { try await Task.sleep(for: .milliseconds(10)) }
 }
 
 @Suite("Provider search")
@@ -93,7 +96,7 @@ struct ProviderSearchTests {
         let model = ProviderSearchViewModel(repository: repository)
 
         model.load()
-        try await settle()
+        try await waitUntil { !model.providers.isEmpty }
 
         #expect(model.providers == sampleProviders)
         #expect(repository.queries == [""])
@@ -104,8 +107,10 @@ struct ProviderSearchTests {
         let repository = StubProviderRepository(sampleProviders)
         let model = ProviderSearchViewModel(repository: repository)
 
+        // Each keystroke cancels the previous search synchronously, so once one request has arrived no
+        // earlier one can follow it.
         for query in ["i", "io", "ion", "ioni"] { model.queryChanged(to: query) }
-        try await settle()
+        try await waitUntil { !repository.queries.isEmpty }
 
         #expect(repository.queries == ["ioni"])
     }
@@ -116,7 +121,7 @@ struct ProviderSearchTests {
         let model = ProviderSearchViewModel(repository: repository)
 
         model.queryChanged(to: "  ionity  ")
-        try await settle()
+        try await waitUntil { !repository.queries.isEmpty }
 
         #expect(repository.queries == ["ionity"])
     }
@@ -129,12 +134,11 @@ struct ProviderSearchTests {
         repository.gateNextCall()
 
         model.queryChanged(to: "stale")
-        // Until the first lookup is inside the repository and parked there. Polled rather than slept: a fixed
-        // pause past the debounce is shorter than it looks when the main actor is busy.
-        for _ in 0..<500 where repository.queries.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        // Until the first lookup is inside the repository and parked there.
+        try await waitUntil { !repository.queries.isEmpty }
         model.queryChanged(to: "ionity")
         repository.releaseGate()
-        try await settle()
+        try await waitUntil { model.loadedQuery == "ionity" && !model.isLoading }
 
         #expect(repository.queries == ["stale", "ionity"])
         #expect(model.loadedQuery == "ionity")
@@ -148,7 +152,7 @@ struct ProviderSearchTests {
         let model = ProviderSearchViewModel(repository: repository)
 
         model.load()
-        try await settle()
+        try await waitUntil { model.errorMessage != nil }
 
         #expect(model.errorMessage != nil)
         #expect(model.providers.isEmpty)
