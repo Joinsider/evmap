@@ -29,8 +29,11 @@ class OperatorRepository {
      */
     List<OperatorController.Operator> search(OperatorSearch search) {
         StringBuilder sql = new StringBuilder("SELECT o.operator_name, COUNT(DISTINCT o.station_id) AS station_count FROM ("
-                + "SELECT s.id AS station_id, s.operator_name FROM master.charging_station s "
-                + "UNION ALL SELECT cp.station_id, cp.operator_name FROM master.charge_point cp WHERE cp.operator_name IS NOT NULL"
+                + "SELECT s.id AS station_id, s.operator_name FROM master.charging_station s WHERE "
+                + StationSpatialRepository.NOT_SUPERSEDED
+                + " UNION ALL SELECT cp.station_id, cp.operator_name FROM master.charge_point cp "
+                + "JOIN master.charging_station s ON s.id = cp.station_id WHERE cp.operator_name IS NOT NULL AND "
+                + StationSpatialRepository.NOT_SUPERSEDED
                 + ") o WHERE o.operator_name IS NOT NULL AND o.operator_name <> ''");
         if (search.pattern() != null) sql.append(" AND lower(o.operator_name) LIKE lower(:pattern) ESCAPE '\\'");
         sql.append(" GROUP BY o.operator_name ORDER BY station_count DESC, o.operator_name LIMIT :limit");

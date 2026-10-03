@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -192,6 +193,144 @@ class PostgresStationIngestionRepositoryTests {
 
         assertThat(result.updated()).isOne();
         assertThat(displayName()).isEqualTo("OCM new");
+    }
+
+    /** The Mobilithek's shape: links to the register, labels it does not impose (ADR 0025). */
+    private static SourceStation mobilithek(String id, double latitude, double longitude, String name, String operator,
+                                            List<SourceStation.SourceChargePoint> chargePoints,
+                                            List<SourceStation.SourceLink> links) {
+        return new SourceStation("MOBILITHEK", id, name, "Donnerschweer Straße 1", "Oldenburg", "26123", "DE", operator,
+                latitude, longitude, null, Instant.parse("2026-10-03T00:00:00Z"), List.of(), chargePoints, links, false);
+    }
+
+    private static SourceStation.SourceChargePoint point(String evseId) {
+        return new SourceStation.SourceChargePoint(evseId, evseId, List.of(type2(1)));
+    }
+
+    private PostgresStationIngestionRepository mobilithekIsAuthority() {
+        return new PostgresStationIngestionRepository(jdbc, new DataSourceTransactionManager(PostgisDatabase.dataSource()),
+                2, new SourceAuthority(Map.of("DE", "MOBILITHEK")));
+    }
+
+    private String stationOf(String source, String sourceId) {
+        return jdbc.sql("SELECT station_id::text FROM master.station_source WHERE source=:source AND source_station_id=:id")
+                .param("source", source).param("id", sourceId).query(String.class).single();
+    }
+
+    @Test
+    @DisplayName("a record joins the station its link names, however far apart the coordinates are")
+    void resolvesByLink() {
+        var ingestion = mobilithekIsAuthority();
+        ingestion.upsert(Stream.of(station("BNetzA", "1115028", "DE", 53.1460, 8.2160, "Register name", List.of(),
+                List.of(new SourceStation.SourceChargePoint("1115028*1", null, List.of(type2(1)))))));
+
+        // ~70 m away: too far for position, but the feed names the register entry.
+        var result = ingestion.upsert(Stream.of(mobilithek("ewe/1", 53.1464, 8.2167, "000501", "DE*EWE",
+                List.of(point("DE*EWE*E000501S04*01")), List.of(new SourceStation.SourceLink("BNetzA", "1115028")))));
+
+        assertThat(result.updated()).isOne();
+        assertThat(count("master.charging_station")).isOne();
+        assertThat(stationOf("MOBILITHEK", "ewe/1")).isEqualTo(stationOf("BNetzA", "1115028"));
+        // The authority took over the inventory, but the register keeps its labels.
+        assertThat(jdbc.sql("SELECT display_name, operator_name FROM master.charging_station").query().singleRow())
+                .containsEntry("display_name", "Register name").containsEntry("operator_name", "EnBW");
+        assertThat(jdbc.sql("SELECT evse_id_normalized FROM master.charge_point").query(String.class).list())
+                .containsExactly("DEEWEE000501S0401");
+    }
+
+    @Test
+    @DisplayName("without a link, the station holding most of the record's EVSE-IDs is the same station")
+    void resolvesBySharedEvseIds() {
+        var ingestion = mobilithekIsAuthority();
+        ingestion.upsert(Stream.of(
+                station("BNetzA", "A", "DE", 48.0000, 9.0000, "A", List.of(), List.of(point("DE*EBW*E1*1"))),
+                station("BNetzA", "B", "DE", 48.0001, 9.0001, "B", List.of(), List.of(point("DE*EBW*E2*1"), point("DE*EBW*E2*2")))));
+
+        // ~200 m from both, nearer to neither by position: the EVSE-IDs decide.
+        ingestion.upsert(Stream.of(mobilithek("enbw/9", 48.0018, 9.0000, null, "ENBW",
+                List.of(point("DE*EBW*E1*1"), point("DE*EBW*E2*1"), point("DE*EBW*E2*2")), List.of())));
+
+        assertThat(stationOf("MOBILITHEK", "enbw/9")).isEqualTo(stationOf("BNetzA", "B"));
+        assertThat(count("master.charging_station")).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("two records of one source at the same place stay two stations instead of overwriting each other")
+    void sameSourceNeverMatchesItself() {
+        var ingestion = mobilithekIsAuthority();
+        ingestion.upsert(Stream.of(station("BNetzA", "R1", "DE", 48.0, 9.0, "Register", List.of(), List.of())));
+
+        ingestion.upsert(Stream.of(
+                mobilithek("ewe/1", 48.0, 9.0, "Hof 1", "EWE Go GmbH", List.of(point("DE*EWE*E1")), List.of()),
+                mobilithek("ewe/2", 48.0, 9.0, "Hof 2", "EWE Go GmbH", List.of(point("DE*EWE*E2")), List.of())));
+        ingestion.upsert(Stream.of(
+                mobilithek("ewe/1", 48.0, 9.0, "Hof 1", "EWE Go GmbH", List.of(point("DE*EWE*E1")), List.of()),
+                mobilithek("ewe/2", 48.0, 9.0, "Hof 2", "EWE Go GmbH", List.of(point("DE*EWE*E2")), List.of())));
+
+        // The first took over the register entry, the second is a station of its own; each keeps its charge point.
+        assertThat(count("master.charging_station")).isEqualTo(2);
+        assertThat(stationOf("MOBILITHEK", "ewe/1")).isEqualTo(stationOf("BNetzA", "R1"));
+        assertThat(jdbc.sql("SELECT evse_id_normalized FROM master.charge_point ORDER BY 1").query(String.class).list())
+                .containsExactly("DEEWEE1", "DEEWEE2");
+    }
+
+    @Test
+    @DisplayName("a source that does not name stations still labels the ones it alone delivers")
+    void labelsOwnStations() {
+        var ingestion = mobilithekIsAuthority();
+        ingestion.upsert(Stream.of(mobilithek("monta/1", 54.19, 11.02, "M&M Grömitz", "Mangels-Elektro",
+                List.of(point("DK*MON*E1")), List.of())));
+        ingestion.upsert(Stream.of(mobilithek("monta/1", 54.19, 11.02, "M&M Grömitz Nord", "Mangels-Elektro GmbH",
+                List.of(point("DK*MON*E1")), List.of())));
+
+        assertThat(jdbc.sql("SELECT display_name, operator_name FROM master.charging_station").query().singleRow())
+                .containsEntry("display_name", "M&M Grömitz Nord").containsEntry("operator_name", "Mangels-Elektro GmbH");
+    }
+
+    private String supersededBy(String source, String sourceId) {
+        return jdbc.sql("SELECT s.superseded_by::text FROM master.charging_station s JOIN master.station_source ss "
+                        + "ON ss.station_id = s.id WHERE ss.source=:source AND ss.source_station_id=:id")
+                .param("source", source).param("id", sourceId)
+                .query((rs, row) -> Optional.ofNullable(rs.getString(1))).single().orElse(null);
+    }
+
+    @Test
+    @DisplayName("register entries the authority made redundant are superseded, the others stay, and marks follow the data")
+    void supersedesDuplicates() {
+        var ingestion = mobilithekIsAuthority();
+        ingestion.upsert(Stream.of(
+                // the entry the Mobilithek station names, so the others are left over
+                station("BNetzA", "main", "DE", 48.0, 9.0, "M", List.of(), List.of()),
+                // proven: its only EVSE-ID is on a Mobilithek station, ~300 m away
+                station("BNetzA", "proven", "DE", 48.0030, 9.0, "P", List.of(), List.of(point("DE*EBW*E1*2"))),
+                // no EVSE-ID, ~10 m from a Mobilithek station
+                station("BNetzA", "near", "DE", 48.00009, 9.0, "N", List.of(), List.of()),
+                // no EVSE-ID, but ~60 m away
+                station("BNetzA", "far", "DE", 48.0005, 9.0, "F", List.of(), List.of()),
+                // an EVSE-ID the Mobilithek does not know: a different charge point
+                station("BNetzA", "other", "DE", 48.00005, 9.0, "O", List.of(), List.of(point("DE*XYZ*E9"))),
+                // another country: never looked at
+                station("OCM", "ch", "CH", 47.0, 8.0, "CH", List.of(), List.of())));
+        ingestion.upsert(Stream.of(
+                mobilithek("enbw/1", 48.0, 9.0, "Site", "ENBW", List.of(point("DE*EBW*E1*1"), point("DE*EBW*E1*2")),
+                        List.of(new SourceStation.SourceLink("BNetzA", "main"))),
+                mobilithek("enbw/2", 47.0, 8.0005, "Elsewhere", "ENBW", List.of(point("DE*EBW*E5*1")), List.of())));
+
+        assertThat(ingestion.supersedeDuplicates("MOBILITHEK")).isEqualTo(2);
+        String site = stationOf("MOBILITHEK", "enbw/1");
+        assertThat(site).isEqualTo(stationOf("BNetzA", "main"));
+        assertThat(supersededBy("BNetzA", "proven")).isEqualTo(site);
+        assertThat(supersededBy("BNetzA", "near")).isEqualTo(site);
+        assertThat(supersededBy("BNetzA", "far")).isNull();
+        assertThat(supersededBy("BNetzA", "other")).isNull();
+        assertThat(supersededBy("MOBILITHEK", "enbw/1")).isNull();
+        assertThat(supersededBy("OCM", "ch")).isNull();
+
+        // The register entry gains an EVSE-ID of its own: it is a different charge point after all.
+        ingestion.upsert(Stream.of(station("BNetzA", "near", "DE", 48.00009, 9.0, "N", List.of(),
+                List.of(point("DE*NEW*E1")))));
+        assertThat(ingestion.supersedeDuplicates("MOBILITHEK")).isOne();
+        assertThat(supersededBy("BNetzA", "near")).isNull();
     }
 
     @Test

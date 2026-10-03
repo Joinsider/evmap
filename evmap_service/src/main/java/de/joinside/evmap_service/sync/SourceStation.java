@@ -17,16 +17,35 @@ import java.util.List;
  *                           {@code id_pdc_itinerance}. Empty for sources that report only totals,
  *                           which is why {@code master.charging_connector.charge_point_id} is
  *                           nullable. See ADR 0015.
+ * @param links              records of other sources that describe the same station, as the source itself
+ *                           states — the Mobilithek's feeds name the register's station id. The ingestion
+ *                           resolves a new record through them before it falls back to position (ADR 0025).
+ * @param namesStation       whether this source's display name and operator name replace those of a station
+ *                           another source already named. {@code false} for a source whose labels are worse than
+ *                           the register's — the Mobilithek's are often codes ("000501") or brands ("ENBW"), and
+ *                           the operator name is what every user's provider preferences are keyed by (ADR 0014).
+ *                           A station the source creates or names alone still gets its labels.
  */
 public record SourceStation(String source, String sourceStationId, String name, String street, String city,
                             String postalCode, String countryCode, String operatorName, double latitude,
                             double longitude, String availabilityStatus,
                             Instant lastUpdatedAt, List<SourceConnector> connectors,
-                            List<SourceChargePoint> chargePoints) {
+                            List<SourceChargePoint> chargePoints, List<SourceLink> links, boolean namesStation) {
 
     public SourceStation {
         connectors = connectors == null ? List.of() : List.copyOf(connectors);
         chargePoints = chargePoints == null ? List.of() : List.copyOf(chargePoints);
+        links = links == null ? List.of() : List.copyOf(links);
+    }
+
+    /** A record that states no links and names its stations — every source but the Mobilithek. */
+    public SourceStation(String source, String sourceStationId, String name, String street, String city,
+                         String postalCode, String countryCode, String operatorName, double latitude,
+                         double longitude, String availabilityStatus,
+                         Instant lastUpdatedAt, List<SourceConnector> connectors,
+                         List<SourceChargePoint> chargePoints) {
+        this(source, sourceStationId, name, street, city, postalCode, countryCode, operatorName,
+                latitude, longitude, availabilityStatus, lastUpdatedAt, connectors, chargePoints, List.of(), true);
     }
 
     /**
@@ -42,6 +61,15 @@ public record SourceStation(String source, String sourceStationId, String name, 
     }
 
     public record SourceConnector(String connectorType, BigDecimal powerKw, int quantity) {
+    }
+
+    /**
+     * Another source's record of the same station, in that source's terms.
+     *
+     * @param source          the other source's token, e.g. {@code BNetzA}
+     * @param sourceStationId that source's id for the station
+     */
+    public record SourceLink(String source, String sourceStationId) {
     }
 
     /**
