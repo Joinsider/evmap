@@ -96,6 +96,9 @@ The sync log of a run, per feed:
 - `Source MOBILITHEK supersedes N station(s)` — register entries hidden as duplicates of a Mobilithek station
   (all their EVSE-IDs come from the Mobilithek, or they have none and lie within 30 m). They stay in the database and
   reachable by id; the map, the route corridor and the operator directory skip them.
+- `Removed N charge point(s) MOBILITHEK also describes from visible stations it does not maintain` — register
+  entries that share some charge points with a Mobilithek station and have others of their own stay visible, without
+  the shared ones. The register re-delivers them every run, so this line appears every run.
 
 A feed that cannot be read or parsed fails the MOBILITHEK source for that run (`master.sync_run`, `PARTIAL`); the
 other sources run normally. Without `MOBILITHEK_KEYSTORE` in the sync container the source skips itself with a

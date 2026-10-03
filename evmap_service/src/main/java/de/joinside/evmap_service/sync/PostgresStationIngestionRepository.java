@@ -120,6 +120,13 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
         Integer changed = transactions.execute(status -> jdbc.sql(SUPERSEDE)
                 .param(PARAM_SOURCE, source)
                 .update());
+        // After the marks, which need these charge points as proof; superseded stations are hidden anyway.
+        Integer removed = transactions.execute(status -> jdbc.sql(REMOVE_SHARED_CHARGE_POINTS)
+                .param(PARAM_SOURCE, source)
+                .update());
+        if (removed != null && removed > 0)
+            log.info("Removed {} charge point(s) {} also describes from visible stations it does not maintain",
+                    removed, source);
         int superseded = jdbc.sql("SELECT COUNT(*) FROM master.charging_station s " +
                         "JOIN master.station_source own ON own.station_id = s.superseded_by AND own.source = :source")
                 .param(PARAM_SOURCE, source)
@@ -455,6 +462,24 @@ class PostgresStationIngestionRepository implements StationIngestionPort, SyncSt
                 .param(PARAM_SOURCE, source)
                 .query(Boolean.class).single();
     }
+
+    /**
+     * Charge points of visible stations the source does not maintain whose EVSE-ID sits on one of the source's
+     * stations. A register entry that shares some charge points with a Mobilithek station and has others of its own
+     * stays visible (ADR 0025), but must not list the shared ones a second time — a live status would attach to both.
+     * The register re-delivers them every run; this removes them again, so every run ends without a repeated EVSE-ID.
+     */
+    private static final String REMOVE_SHARED_CHARGE_POINTS = """
+            WITH own AS (SELECT DISTINCT station_id FROM master.station_source WHERE source = :source)
+            DELETE FROM master.charge_point cp
+            USING master.charging_station s
+            WHERE cp.station_id = s.id
+              AND s.superseded_by IS NULL
+              AND cp.evse_id_normalized IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM own WHERE own.station_id = s.id)
+              AND EXISTS (SELECT 1 FROM master.charge_point o JOIN own ON own.station_id = o.station_id
+                          WHERE o.evse_id_normalized = cp.evse_id_normalized)
+            """;
 
     /** SQL: the station in {@code stationColumn} is not already maintained by the source bound as {@code :source}. */
     private static String notMaintainedBySource(String stationColumn) {

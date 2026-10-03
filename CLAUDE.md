@@ -149,7 +149,8 @@ states (`SourceStation.links`), then the station holding most of its EVSE-IDs, t
 step matches a station the record's own source already maintains under another id, or two stations of one source at
 one place would overwrite each other. After every run the sources in `evmap.sync.supersede` (`MOBILITHEK`) mark the
 stations they make redundant (`master.charging_station.superseded_by`: all EVSE-IDs on the source's stations, or none
-and ≤ 30 m from one); the map, route corridor and operator directory skip them (`StationSpatialRepository
+and ≤ 30 m from one) and strip the visible rest of charge points whose EVSE-ID they hold, so no EVSE-ID is listed
+twice; the map, route corridor and operator directory skip them (`StationSpatialRepository
 .NOT_SUPERSEDED`), nothing is deleted — favorites, comments and reports reference stations. Any new station query
 must skip them too.
 

@@ -1,6 +1,6 @@
 # 25. The Mobilithek as Germany's master data source
 
-- Status: Accepted 2026-10-03 — gap filler L6, implemented on `feature/sync-mobilithek`
+- Status: Accepted 2026-10-03 — gap filler L6, implemented on `feature/sync-mobilithek` (#45)
 - Date: 2026-10-03
 - Deciders: Joinsider
 
@@ -117,7 +117,10 @@ maintain, in a country where it maintains stations, is marked `master.charging_s
 - it has no EVSE-ID at all and lies within 30 m of a station of that source (the same rule the ingestion already uses
   to say "same place") — then by the nearest.
 
-A station with an EVSE-ID the source does not know is never hidden. The mark is recomputed every run, so a station
+A station with an EVSE-ID the source does not know is never hidden — but it loses the charge points whose EVSE-ID
+sits on one of the source's stations, so no EVSE-ID is listed twice and a live status attaches once. The end-to-end
+run (see "Implementation") found 1.064 such repeated EVSE-IDs before this rule. The register re-delivers them every
+run and the step after the run removes them again. The mark is recomputed every run, so a station
 comes back when the reason goes away. Map, route corridor and operator directory skip superseded stations; a
 station's own page, favorites, comments and reports keep working, because nothing is deleted — deleting would cascade
 into user data. (Owner, 2026-10-03: "proof + 30 m rule".)
@@ -158,6 +161,14 @@ feed. Until then the adapter emits no prices.
   .NOT_SUPERSEDED`); a station's page still loads by id.
 - Checked against every real package of 2026-10-03: 67.312 stations, 128.954 charge points (128.810 with EVSE-ID),
   18.027 stations linked by register id; the largest package (eRound, 121 MB) parses in 0,6 s.
+- **End-to-end run** (throwaway test, 2026-10-03): the register edition of 2026-09-01 and all 24 real packages through
+  the real parser and ingestion against PostGIS, twice. Register 116.443 stations in 322 s; Mobilithek 67.312 records
+  in 184 s, 0 failed (the first attempt lost 14.936 to undated stations, now dated by their site or the fetch), 48.047
+  linked to a register entry, 19.265 new. 7.479 stations superseded (26 s). Repeated EVSE-IDs involving a Mobilithek
+  station: 3.527 before the shared charge points were removed, 0 after; the 919 that remain are repeated inside the
+  register itself (one EVSE-ID on 69 rows) and were there before. Visible German charge points with an EVSE-ID:
+  156.322 of 235.082 (66 %), against 65.424 of 209.136 (31 %) in the register. The second run created nothing and
+  superseded the same 7.479.
 - Website: the data sources page credits every publisher; the privacy page now names the Mobilithek (missing since
   L5).
 
@@ -184,6 +195,9 @@ feed. Until then the adapter emits no prices.
 2. **eliso** answers 422 to the broker: ask the Mobilithek support how the offering is delivered.
 3. **Duplicates beyond 30 m** — measure after the first run on the server (new stations within 100 m of an unclaimed
    register entry), then decide whether stations without an EVSE-ID warrant a wider radius.
+4. **New stations of platform feeds carry the platform as operator** where the feed names no operator: e-clearing.net
+   writes "Ladenetz" (2.282 stations in the end-to-end run). Accepted for now (owner: feed names for new stations);
+   revisit if the directory shows it as a problem.
 
 ## References
 

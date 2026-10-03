@@ -37,7 +37,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | L3 | Lückenfüller: Italien | übersprungen ⁷ | | [0012](adr/0012-additional-national-charging-registers.md) |
 | L4 | Lückenfüller: Spanien | fertig ⁸ | [#22](https://github.com/Joinsider/evmap/pull/22) | [0012](adr/0012-additional-national-charging-registers.md) |
 | L5 | Lückenfüller: Mobilithek (Live-Daten Deutschland), vor 8b | fertig ¹³ | [#34](https://github.com/Joinsider/evmap/pull/34) | [0015](adr/0015-live-availability-national-access-points-with-tomtom-fallback.md) |
-| L6 | Lückenfüller: Mobilithek als Stammdatenquelle Deutschland (BNetzA als Rückfall) | in Arbeit | `feature/sync-mobilithek` | [0025](adr/0025-mobilithek-as-germanys-master-data-source.md) |
+| L6 | Lückenfüller: Mobilithek als Stammdatenquelle Deutschland (BNetzA als Rückfall) | fertig ¹⁴ | [#45](https://github.com/Joinsider/evmap/pull/45) | [0025](adr/0025-mobilithek-as-germanys-master-data-source.md) |
 | L6p | Preise aus den statischen Mobilithek-Feeds, direkt nach L6 | offen | | [0022](adr/0022-prices-at-the-station.md) |
 
 ¹ Im Repository fertig; offen sind die 👤-Schritte auf dem VPS (Backup-Ziel, Monitore, erste
@@ -107,6 +107,14 @@ Zertifikat und SMS-Passwort als `MOBILITHEK_KEYSTORE`/`MOBILITHEK_KEYSTORE_PASSW
 abonnieren (fünf brauchen die Freigabe des Betreibers) und die Subskriptions-IDs in die Feed-Tabelle eintragen lassen.
 Danach den ersten Tag Logs prüfen: Anteil EVSE-förmiger IDs je Feed (statische Feeds nötig?) und 404 durch
 Zugriffslimits (Push nötig?), ADR 0015, L5 offene Punkte a und b.
+
+¹⁴ Im Repository fertig (Backend `./mvnw verify` grün, Web 121 Tests und Build grün; Ende-zu-Ende gegen das echte
+Register und alle 24 echten Pakete: 67.312 Stationen ohne Ausfall, deutsche Ladepunkte mit EVSE-ID 66 % statt 31 %,
+7.479 Registereinträge als Dublette ausgeblendet). Offen sind die 👤-Schritte: `MOBILITHEK_KEYSTORE` und
+`MOBILITHEK_KEYSTORE_PASSWORD` auch für den Sync-Container setzen, nach dem ersten Lauf das Log prüfen
+(`docs/operations/mobilithek.md` §6) und danach die Live-Abdeckung im stündlichen `Mobilithek coverage`-Log. Fünf statische
+Abos warten auf die Freigabe der Betreiber; eliso wird nicht über den Broker geliefert (ADR 0025, offener Punkt 2).
+Als Nächstes: **L6p** (Preise aus den statischen Feeds).
 
 Separat angestoßen (Teil von Phase 0): `permitAll` für `/api/v1/stations/**` auf GET beschränken.
 Erledigt mit PR #8 (Commit `3d40492`), vor Beginn von Phase 0 auf `master` geprüft.

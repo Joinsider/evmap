@@ -326,6 +326,16 @@ class PostgresStationIngestionRepositoryTests {
         assertThat(supersededBy("MOBILITHEK", "enbw/1")).isNull();
         assertThat(supersededBy("OCM", "ch")).isNull();
 
+        // "other" shares nothing; give it a charge point the Mobilithek also lists, beside its own.
+        ingestion.upsert(Stream.of(station("BNetzA", "other", "DE", 48.00005, 9.0, "O", List.of(),
+                List.of(point("DE*XYZ*E9"), point("DE*EBW*E1*1")))));
+        ingestion.supersedeDuplicates("MOBILITHEK");
+        // It stays visible for its own charge point, but no longer repeats the shared one.
+        assertThat(supersededBy("BNetzA", "other")).isNull();
+        assertThat(jdbc.sql("SELECT cp.evse_id_normalized FROM master.charge_point cp JOIN master.station_source ss "
+                        + "ON ss.station_id = cp.station_id WHERE ss.source = 'BNetzA' AND ss.source_station_id = 'other'")
+                .query(String.class).list()).containsExactly("DEXYZE9");
+
         // The register entry gains an EVSE-ID of its own: it is a different charge point after all.
         ingestion.upsert(Stream.of(station("BNetzA", "near", "DE", 48.00009, 9.0, "N", List.of(),
                 List.of(point("DE*NEW*E1")))));
