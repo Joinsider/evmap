@@ -2,6 +2,9 @@ package de.joinside.evmap_service.pricing.mobidata;
 
 import de.joinside.evmap_service.availability.GeoBounds;
 import de.joinside.evmap_service.pricing.ChargePointPrice;
+import de.joinside.evmap_service.vatbasis.OperatorBasis;
+import de.joinside.evmap_service.vatbasis.TableBasis;
+import de.joinside.evmap_service.vatbasis.VatBasisProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -70,8 +73,8 @@ class MobiDataBwPriceProviderTests {
         RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL);
         server = MockRestServiceServer.bindTo(builder).build();
         provider = new MobiDataBwPriceProvider(new MobiDataPricingProperties(true, BASE_URL, List.of("DE"), 200, 3,
-                1000, 10, Duration.ofMinutes(15), Duration.ofSeconds(10),
-                List.of(new MobiDataPricingProperties.OperatorBasis("Allego", OcpiTariffs.TableBasis.NET,
+                1000, 10, Duration.ofMinutes(15), Duration.ofSeconds(10)),
+                new VatBasisProperties(List.of(new OperatorBasis("Allego", TableBasis.NET,
                         LocalDate.parse("2026-10-01"), "test")), Period.ofMonths(6)),
                 builder.build(), clock);
     }
@@ -160,9 +163,9 @@ class MobiDataBwPriceProviderTests {
         RestClient.Builder builder = RestClient.builder().baseUrl(BASE_URL);
         MockRestServiceServer mock = MockRestServiceServer.bindTo(builder).build();
         MobiDataBwPriceProvider wrongTable = new MobiDataBwPriceProvider(new MobiDataPricingProperties(true, BASE_URL,
-                List.of("DE"), 200, 3, 1000, 10, Duration.ofMinutes(15), Duration.ofSeconds(10), List.of(
-                        basis("Lidl", OcpiTariffs.TableBasis.GROSS), basis("TankE GmbH", OcpiTariffs.TableBasis.NET)),
-                Period.ofMonths(6)), builder.build(), clock);
+                List.of("DE"), 200, 3, 1000, 10, Duration.ofMinutes(15), Duration.ofSeconds(10)),
+                new VatBasisProperties(List.of(basis("Lidl", TableBasis.GROSS), basis("TankE GmbH", TableBasis.NET)),
+                        Period.ofMonths(6)), builder.build(), clock);
         mock.expect(once(), requestTo(BASE_URL + "/tariffs?limit=1000&offset=0"))
                 .andRespond(withSuccess(tariffs, MediaType.APPLICATION_JSON));
         mock.expect(once(), request -> assertThat(request.getURI().getPath()).endsWith("/locations"))
@@ -178,8 +181,8 @@ class MobiDataBwPriceProviderTests {
         mock.verify();
     }
 
-    private static MobiDataPricingProperties.OperatorBasis basis(String operator, OcpiTariffs.TableBasis basis) {
-        return new MobiDataPricingProperties.OperatorBasis(operator, basis, LocalDate.parse("2026-10-02"), "test");
+    private static OperatorBasis basis(String operator, TableBasis basis) {
+        return new OperatorBasis(operator, basis, LocalDate.parse("2026-10-02"), "test");
     }
 
     private static final class MutableClock extends Clock {

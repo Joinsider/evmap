@@ -6,6 +6,10 @@ import de.joinside.evmap_service.pricing.AdHocPrice;
 import de.joinside.evmap_service.pricing.ChargePointPrice;
 import de.joinside.evmap_service.pricing.PriceProvider;
 import de.joinside.evmap_service.sync.EvseIds;
+import de.joinside.evmap_service.vatbasis.OperatorBasis;
+import de.joinside.evmap_service.vatbasis.TableBasis;
+import de.joinside.evmap_service.vatbasis.VatBasisProperties;
+import de.joinside.evmap_service.vatbasis.VatBasisTable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +23,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -40,7 +45,7 @@ import java.util.stream.Collectors;
  * becomes a gross price, or none, is {@link OcpiTariffs}'s job.
  */
 @Component
-@EnableConfigurationProperties(MobiDataPricingProperties.class)
+@EnableConfigurationProperties({MobiDataPricingProperties.class, VatBasisProperties.class})
 @ConditionalOnProperty(name = "evmap.pricing.enabled", havingValue = "true", matchIfMissing = true)
 public class MobiDataBwPriceProvider implements PriceProvider {
     private static final Logger log = LoggerFactory.getLogger(MobiDataBwPriceProvider.class);
@@ -55,6 +60,7 @@ public class MobiDataBwPriceProvider implements PriceProvider {
     private final RestClient restClient;
     private final Set<String> countryCodes;
     private final VatBasisTable basisTable;
+    private final Period recheckAfter;
     private final Clock clock;
 
     private record Catalog(Instant loadedAt, Map<String, OcpiTariffs.Tariff> tariffs,
@@ -66,31 +72,35 @@ public class MobiDataBwPriceProvider implements PriceProvider {
     private final Map<String, OcpiTariffs.TimeUnit> lastUnits = new HashMap<>();
 
     @Autowired
-    MobiDataBwPriceProvider(MobiDataPricingProperties properties, RestClient.Builder restClientBuilder) {
-        this(properties, restClientBuilder.requestFactory(requestFactory(properties)).baseUrl(properties.baseUrl()).build(),
+    MobiDataBwPriceProvider(MobiDataPricingProperties properties, VatBasisProperties vatBasis,
+                            RestClient.Builder restClientBuilder) {
+        this(properties, vatBasis,
+                restClientBuilder.requestFactory(requestFactory(properties)).baseUrl(properties.baseUrl()).build(),
                 Clock.systemUTC());
     }
 
     /** Test seam: a preconfigured client and a clock the test controls. */
-    MobiDataBwPriceProvider(MobiDataPricingProperties properties, RestClient restClient, Clock clock) {
+    MobiDataBwPriceProvider(MobiDataPricingProperties properties, VatBasisProperties vatBasis, RestClient restClient,
+                            Clock clock) {
         this.properties = properties;
+        this.recheckAfter = vatBasis.recheckAfter();
         this.restClient = restClient;
         this.clock = clock;
         this.countryCodes = properties.countryCodes().stream()
                 .map(code -> code.trim().toUpperCase(Locale.ROOT))
                 .filter(code -> !code.isEmpty())
                 .collect(Collectors.toUnmodifiableSet());
-        this.basisTable = VatBasisTable.of(properties.vatBasis());
+        this.basisTable = VatBasisTable.of(vatBasis.operators());
         reportDueChecks();
     }
 
     /** Names the table entries whose check is older than {@code recheckAfter}; they stay in force (ADR 0022). */
     private void reportDueChecks() {
-        List<MobiDataPricingProperties.OperatorBasis> due =
-                basisTable.dueForRecheck(LocalDate.now(clock), properties.recheckAfter());
+        List<OperatorBasis> due =
+                basisTable.dueForRecheck(LocalDate.now(clock), recheckAfter);
         if (!due.isEmpty())
             log.warn("{} VAT basis entr(ies) checked more than {} ago, due for a new check against the price pages: {}",
-                    due.size(), properties.recheckAfter(),
+                    due.size(), recheckAfter,
                     due.stream().map(entry -> entry.operator() + " (" + entry.checkedOn() + ")").toList());
     }
 
@@ -153,8 +163,8 @@ public class MobiDataBwPriceProvider implements PriceProvider {
      */
     private void checkTable(OcpiTariffs.Location location, Catalog current) {
         String operator = operatorOf(location);
-        OcpiTariffs.TableBasis listed = basisTable.basisOf(operator);
-        if (listed == OcpiTariffs.TableBasis.UNCHECKED) return;
+        TableBasis listed = basisTable.basisOf(operator);
+        if (listed == TableBasis.UNCHECKED) return;
         for (OcpiTariffs.Evse evse : evsesOf(location)) {
             OcpiTariffs.Tariff tariff = singleTariff(evse, current);
             if (OcpiTariffs.contradicts(tariff, listed, location.assumedVatRate()) && basisTable.suspend(operator)) {

@@ -1,7 +1,4 @@
-package de.joinside.evmap_service.pricing.mobidata;
-
-import de.joinside.evmap_service.pricing.mobidata.MobiDataPricingProperties.OperatorBasis;
-import de.joinside.evmap_service.pricing.mobidata.OcpiTariffs.TableBasis;
+package de.joinside.evmap_service.vatbasis;
 
 import java.time.LocalDate;
 import java.time.Period;
@@ -15,13 +12,15 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Operators whose publishing basis — net or gross — was checked by hand against their own price pages (ADR 0022,
- * phase 5r), because OCPDB drops the flag that would say so (binary-butterfly/ocpdb#278).
+ * phase 5r), because OCPDB drops the flag that would say so (binary-butterfly/ocpdb#278) and chargecloud's
+ * Mobilithek feed never states it (L6p).
  * <p>
  * An entry is only as good as the day it was checked. When the feed later contradicts it — a tariff of an
  * operator listed as gross that the arithmetic proves net, or the reverse — the entry is {@linkplain #suspend
- * suspended} for the rest of the process's life and the operator's prices disappear until someone checks again.
+ * suspended} for the rest of the instance's life and the operator's prices disappear until someone checks again.
+ * The API keeps one instance per process, the sync one per run.
  */
-final class VatBasisTable {
+public final class VatBasisTable {
     private final Map<String, OperatorBasis> entries;
     private final Set<String> suspended = ConcurrentHashMap.newKeySet();
 
@@ -33,16 +32,16 @@ final class VatBasisTable {
      * @throws IllegalArgumentException for an entry without a name, basis or check date, or an operator listed
      *                                  twice — a table that says two things about one operator says nothing
      */
-    static VatBasisTable of(Collection<OperatorBasis> operators) {
+    public static VatBasisTable of(Collection<OperatorBasis> operators) {
         Map<String, OperatorBasis> entries = new HashMap<>();
         if (operators != null) for (OperatorBasis entry : operators) {
             if (entry == null || entry.operator() == null || entry.operator().isBlank())
-                throw new IllegalArgumentException("evmap.pricing.mobidata.vat-basis: an entry has no operator");
+                throw new IllegalArgumentException("evmap.vat-basis.operators: an entry has no operator");
             if (entry.basis() == null || entry.basis() == TableBasis.UNCHECKED || entry.checkedOn() == null)
-                throw new IllegalArgumentException("evmap.pricing.mobidata.vat-basis: " + entry.operator()
+                throw new IllegalArgumentException("evmap.vat-basis.operators: " + entry.operator()
                         + " needs a basis (NET or GROSS) and a checked-on date");
             if (entries.putIfAbsent(key(entry.operator()), entry) != null)
-                throw new IllegalArgumentException("evmap.pricing.mobidata.vat-basis: " + entry.operator() + " is listed twice");
+                throw new IllegalArgumentException("evmap.vat-basis.operators: " + entry.operator() + " is listed twice");
         }
         return new VatBasisTable(entries);
     }
@@ -52,7 +51,7 @@ final class VatBasisTable {
     }
 
     /** What the table says about an operator; {@code UNCHECKED} when it is not listed or its entry is suspended. */
-    TableBasis basisOf(String operatorName) {
+    public TableBasis basisOf(String operatorName) {
         if (operatorName == null) return TableBasis.UNCHECKED;
         String key = key(operatorName);
         OperatorBasis entry = entries.get(key);
@@ -60,14 +59,14 @@ final class VatBasisTable {
     }
 
     /** Suspends a listed operator's entry; {@code true} only the first time, so the caller warns once. */
-    boolean suspend(String operatorName) {
+    public boolean suspend(String operatorName) {
         if (operatorName == null) return false;
         String key = key(operatorName);
         return entries.containsKey(key) && suspended.add(key);
     }
 
     /** The entries checked longer ago than {@code after}, oldest first. */
-    List<OperatorBasis> dueForRecheck(LocalDate today, Period after) {
+    public List<OperatorBasis> dueForRecheck(LocalDate today, Period after) {
         LocalDate cutoff = today.minus(after);
         return entries.values().stream()
                 .filter(entry -> entry.checkedOn().isBefore(cutoff))

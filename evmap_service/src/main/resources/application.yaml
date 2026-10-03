@@ -283,139 +283,142 @@ evmap:
       max-tariff-pages: 10
       tariff-ttl: PT15M
       timeout: PT10S
-      # OCPDB drops DATEX II's taxIncluded flag (binary-butterfly/ocpdb#278), so where a tariff's net or
-      # gross basis is not evident from its arithmetic, it is shown only for operators checked by hand
-      # against their own price pages (ADR 0022, phase 5r; evidence per operator in
-      # docs/operations/price-basis-operators.md). Names exactly as OCPDB writes them on the location.
-      # An entry the feed contradicts is suspended at runtime; one older than recheck-after is named at startup.
-      recheck-after: P6M
-      vat-basis:
-        - operator: Allego
-          basis: NET   # 0,64 net → 0,76 €/kWh
-          checked-on: "2026-10-01"
-          source: checked by the product owner on Allego's price page
-        - operator: TankE GmbH
-          basis: GROSS   # AC 0,49 / DC 0,59 €/kWh inkl. MwSt.
-          checked-on: "2026-10-02"
-          source: https://www.tanke.io/oeffentliche-ladestationen/
-        - operator: N-ERGIE Aktiengesellschaft
-          basis: GROSS   # ad hoc 52 / 62 ct/kWh, brutto
-          checked-on: "2026-10-02"
-          source: https://produkte.n-ergie.de/ladeverbundplus/
-        - operator: IONITY
-          basis: NET   # Germany Direct 0,72 €/kWh incl. VAT = 0,6018 × 1,19
-          checked-on: "2026-10-02"
-          source: https://www.ionity.eu/network/access-and-payments
-        - operator: Berliner Stadtwerke GmbH
-          basis: GROSS   # ad hoc AC 0,55 / DC 0,65 €/kWh, brutto
-          checked-on: "2026-10-02"
-          source: https://berlinerstadtwerke.de/faq-beitrag/was-kostet-das-laden-an-den-ladestationen-der-berliner-stadtwerke/
-        - operator: deer GmbH
-          basis: GROSS   # ad hoc AC + DC 0,49 €/kWh
-          checked-on: "2026-10-02"
-          source: https://www.deer-mobility.de/laden-unterwegs/
-        - operator: Stadtwerke Stuttgart GmbH
-          basis: GROSS   # ad hoc 49 / 59 ct/kWh, brutto
-          checked-on: "2026-10-02"
-          source: https://www.stadtwerke-stuttgart.de/privatkunden/e-mobilitaet/oeffentliches-laden/oeffentliche-ladestationen/
-        - operator: "Energie und Wasserversorgung Bonn/Rhein-Sieg GmbH (EnW Bonn/Rhein-Sieg)"
-          basis: GROSS   # direct payment 0,49 / 0,56 €/kWh
-          checked-on: "2026-10-02"
-          source: https://www.stadtwerke-bonn.de/fuer-zuhause/produkte/e-mobility/elektrotankstellen/
-        - operator: Hochtief Ladepartner GmbH
-          basis: NET   # AC ohne Vertrag 52 ct/kWh = 0,44 × 1,19
-          checked-on: "2026-10-02"
-          source: https://hochtief-ladepartner.de/de/privatkunden
-        - operator: Mainova AG
-          basis: GROSS   # ad hoc AC 0,64 / DC 0,76 €/kWh (brutto); feed 0,6426 / 0,7616
-          checked-on: "2026-10-02"
-          source: https://www.mainova.de/de/loesungen/elektromobilitaet/ladestationen
-        - operator: "Braunschweiger Versorgungs-Aktiengesellschaft & Co. KG"
-          basis: GROSS   # Direct Payment AC 0,53 / DC 0,59 EUR/kWh
-          checked-on: "2026-10-02"
-          source: https://www.bs-energy.de/e-mobilitaet/ladeinfrastruktur
-        - operator: Allgäuer Überlandwerk GmbH
-          basis: GROSS   # 1 €/Ladevorgang + 51 ct; DC 57 / 66 ct/kWh
-          checked-on: "2026-10-02"
-          source: https://auew.de/privatkunden/e-mobilitaet/allgaeustrom-stromtankstellen/
-        - operator: SWLB Mobilität GmbH
-          basis: GROSS   # Ad hoc AC 0,59 / Parkhaus 0,49 / DC 0,79; Preisblatt ab 01.07.2025, inkl. MwSt.
-          checked-on: "2026-10-02"
-          source: https://preise.swlb.de/
-        - operator: ecowerk e-charge GmbH
-          basis: GROSS   # Adhoc Tarif 0,42 / 0,49 / 0,58 €, inkl. 19 % MwSt.
-          checked-on: "2026-10-02"
-          source: https://www.ecowerk-echarge.de/ladetarife.html
-        - operator: ovag Energie AG
-          basis: GROSS   # adhoc-Tarif 59 ct/kWh, Preis (brutto)
-          checked-on: "2026-10-02"
-          source: https://www.ovag.de/privatkunden/produkte/elektromobilitaet.html
-        # Second round (operators 51–100 by unpriced charge points), checked 2026-10-02.
-        - operator: Stadtwerke Münster GmbH
-          basis: GROSS   # Kreditkarte/Ad-Hoc 47,00 / 52,00 ct/kWh, "Endpreise, einschließlich ... Umsatzsteuer"
-          checked-on: "2026-10-02"
-          source: https://www.stadtwerke-muenster.de/unterwegs/e-mobilitaet/elektroauto-laden
-        - operator: Stadtwerke Ingolstadt Beteiligungen GmbH
-          basis: GROSS   # Ad-hoc AC 49 / DC 59 ct, "Alle Preise brutto inkl. MwSt. Gültig ab 01.09.2026"
-          checked-on: "2026-10-02"
-          source: https://sw-i.de/e-mobilitaet/oeffentliches-laden/
-        - operator: Electra
-          basis: NET   # "EC-Karte oder Ladekarte ab 0.69 €/kWh inkl. MwSt" = 0,5798 × 1,19
-          checked-on: "2026-10-02"
-          source: https://www.go-electra.com/de/price/
-        - operator: JOLT Energy
-          basis: NET   # Express "Ohne Anmeldung" 0,79 €/kWh = 0,66 × 1,19
-          checked-on: "2026-10-02"
-          source: https://jolt.energy/de-de/preise/
-        - operator: Stadtwerke Kiel Aktiengesellschaft
-          basis: GROSS   # Spontanladen (brutto) Direct Payment AC 48 / DC 58 ct, FairUse 5 / 10 ct (brutto)
-          checked-on: "2026-10-02"
-          source: https://www.stadtwerke-kiel.de/e-mobilitaet/laden-in-der-kiel-region
-        - operator: Wirtschaftsbetriebe Lingen GmbH
-          basis: GROSS   # Ad hoc Ladetarif 59,00 / 69,00 ct/kWh (Stadtwerke Lingen); equal to the feed
-          checked-on: "2026-10-02"
-          source: https://www.stadtwerke-lingen.de/e-mobilitaet/laden-unterwegs
-        - operator: eins energie in sachsen GmbH & Co. KG
-          basis: GROSS   # Ad-hoc 58,31 / 66,64 ct (brutto); shown as 0,58 / 0,67 € (owner, 2026-10-02)
-          checked-on: "2026-10-02"
-          source: https://www.eins.de/privatkunden/elektromobilitaet/unterwegs-laden
-        - operator: Stadtwerke Bamberg Verkehrs- und Park GmbH
-          basis: GROSS   # "Ad hoc-Laden ohne Registrierung über den QR-Code kostet aktuell 62 Cent/kWh"
-          checked-on: "2026-10-02"
-          source: https://www.stadtwerke-bamberg.de/e-laden
-        - operator: MWEnergy GmbH
-          basis: GROSS   # Laden ohne Vertrag (Ad-hoc) AC 52 / DC 70 ct, Standzeitgebühr 6 ct (brutto)
-          checked-on: "2026-10-02"
-          source: https://mw-autostrom.de/tarife/
-        - operator: Bocholter Energie- und Wasserversorgung GmbH
-          basis: GROSS   # Adhoc-Laden 0,69 €/kWh, "inkl. 19 % Mehrwertsteuer" (Preisstand 01.07.2023)
-          checked-on: "2026-10-02"
-          source: https://www.bew-bocholt.de/fuer-bocholt/emobilitaet/emobilitaet-fuer-unterwegs
-        - operator: öPA Verkehrsgesellschaft mbH
-          basis: GROSS   # Ad-Hoc AC 0,59 / DC 0,69 €/kWh, 10 ct/min (network run with Stadtwerke Troisdorf)
-          checked-on: "2026-10-02"
-          source: https://www.stadtwerke-troisdorf.de/zusatzleistungen/elektromobilitaet/e-ladestationen-in-troisdorf
-        - operator: Stadtwerke Dachau
-          basis: NET   # Direktbezahlung AC 0,65 / DC 0,94 €, Blockiergebühr 0,18 / 0,36 € = 0,55 / 0,79 / 0,15 / 0,30 × 1,19
-          checked-on: "2026-10-02"
-          source: https://www.stadtwerke-dachau.de/tarife-angebote/e-mobilitaet/ladekarte-und-preise
-        - operator: Energie- und Wasserversorgung Bruchsal GmbH
-          basis: GROSS   # Ad-hoc (Kreditkarte) AC 60 / DC 80 Cent (netto 50,42 / 67,23), gültig seit 01.05.2026
-          checked-on: "2026-10-02"
-          source: https://www.stadtwerke-bruchsal.de/wp-content/uploads/2025/03/SWB_Preisblatt_Ladesaeule.pdf
-        - operator: Parkgaragengesellschaft Baden-Baden mbH
-          basis: GROSS   # Roaming/Ad-hoc AC 63,00 / DC 77,00 Cent brutto (52,94 / 64,71 netto), Startgebühr 1,50 €
-          checked-on: "2026-10-02"
-          source: https://www.stadtwerke-baden-baden.de/media/docs/mobilitaet-freizeit/elektromobilitaet/Preisblatt_Stand_Mai_2026_PGG.pdf
-        - operator: Energieversorgung Landsberg GmbH & Co. KG
-          basis: GROSS   # Ad-hoc-Tarif (QR-Code, Direktpayment) 0,62 €/kWh AC und DC, ab 01.09.2026; equal to the feed
-          checked-on: "2026-10-02"
-          source: https://energieversorgung-landsberg.de/e-mobilitaet
-        - operator: Stadtwerke Weinheim GmbH
-          basis: GROSS   # Ad-hoc AC 0,59 € (netto 0,50), DC 0,69 € (netto 0,58); feed DC 0,65 is the 2025 sheet
-          checked-on: "2026-10-02"
-          source: https://sww.de/de/Produkte/Mobilitaet/Tarife.php
 
+  # Operators whose prices reach a feed without a VAT flag were checked by hand against their own price pages
+  # (ADR 0022, phases 5r and L6p; evidence per operator in docs/operations/price-basis-operators.md). Read by both:
+  # MobiData BW's OCPI tariffs in the API (OCPDB drops DATEX II's taxIncluded, binary-butterfly/ocpdb#278) and
+  # chargecloud's static Mobilithek feed in the sync (which never states one). A tariff whose net or gross basis is
+  # evident from its arithmetic needs no entry. Names exactly as the feeds write the operator.
+  # An entry a feed contradicts is suspended (API: per process, sync: per run); one older than recheck-after is named
+  # at startup.
+  vat-basis:
+    recheck-after: P6M
+    operators:
+      - operator: Allego
+        basis: NET   # 0,64 net → 0,76 €/kWh
+        checked-on: "2026-10-01"
+        source: checked by the product owner on Allego's price page
+      - operator: TankE GmbH
+        basis: GROSS   # AC 0,49 / DC 0,59 €/kWh inkl. MwSt.
+        checked-on: "2026-10-02"
+        source: https://www.tanke.io/oeffentliche-ladestationen/
+      - operator: N-ERGIE Aktiengesellschaft
+        basis: GROSS   # ad hoc 52 / 62 ct/kWh, brutto
+        checked-on: "2026-10-02"
+        source: https://produkte.n-ergie.de/ladeverbundplus/
+      - operator: IONITY
+        basis: NET   # Germany Direct 0,72 €/kWh incl. VAT = 0,6018 × 1,19
+        checked-on: "2026-10-02"
+        source: https://www.ionity.eu/network/access-and-payments
+      - operator: Berliner Stadtwerke GmbH
+        basis: GROSS   # ad hoc AC 0,55 / DC 0,65 €/kWh, brutto
+        checked-on: "2026-10-02"
+        source: https://berlinerstadtwerke.de/faq-beitrag/was-kostet-das-laden-an-den-ladestationen-der-berliner-stadtwerke/
+      - operator: deer GmbH
+        basis: GROSS   # ad hoc AC + DC 0,49 €/kWh
+        checked-on: "2026-10-02"
+        source: https://www.deer-mobility.de/laden-unterwegs/
+      - operator: Stadtwerke Stuttgart GmbH
+        basis: GROSS   # ad hoc 49 / 59 ct/kWh, brutto
+        checked-on: "2026-10-02"
+        source: https://www.stadtwerke-stuttgart.de/privatkunden/e-mobilitaet/oeffentliches-laden/oeffentliche-ladestationen/
+      - operator: "Energie und Wasserversorgung Bonn/Rhein-Sieg GmbH (EnW Bonn/Rhein-Sieg)"
+        basis: GROSS   # direct payment 0,49 / 0,56 €/kWh
+        checked-on: "2026-10-02"
+        source: https://www.stadtwerke-bonn.de/fuer-zuhause/produkte/e-mobility/elektrotankstellen/
+      - operator: Hochtief Ladepartner GmbH
+        basis: NET   # AC ohne Vertrag 52 ct/kWh = 0,44 × 1,19
+        checked-on: "2026-10-02"
+        source: https://hochtief-ladepartner.de/de/privatkunden
+      - operator: Mainova AG
+        basis: GROSS   # ad hoc AC 0,64 / DC 0,76 €/kWh (brutto); feed 0,6426 / 0,7616
+        checked-on: "2026-10-02"
+        source: https://www.mainova.de/de/loesungen/elektromobilitaet/ladestationen
+      - operator: "Braunschweiger Versorgungs-Aktiengesellschaft & Co. KG"
+        basis: GROSS   # Direct Payment AC 0,53 / DC 0,59 EUR/kWh
+        checked-on: "2026-10-02"
+        source: https://www.bs-energy.de/e-mobilitaet/ladeinfrastruktur
+      - operator: Allgäuer Überlandwerk GmbH
+        basis: GROSS   # 1 €/Ladevorgang + 51 ct; DC 57 / 66 ct/kWh
+        checked-on: "2026-10-02"
+        source: https://auew.de/privatkunden/e-mobilitaet/allgaeustrom-stromtankstellen/
+      - operator: SWLB Mobilität GmbH
+        basis: GROSS   # Ad hoc AC 0,59 / Parkhaus 0,49 / DC 0,79; Preisblatt ab 01.07.2025, inkl. MwSt.
+        checked-on: "2026-10-02"
+        source: https://preise.swlb.de/
+      - operator: ecowerk e-charge GmbH
+        basis: GROSS   # Adhoc Tarif 0,42 / 0,49 / 0,58 €, inkl. 19 % MwSt.
+        checked-on: "2026-10-02"
+        source: https://www.ecowerk-echarge.de/ladetarife.html
+      - operator: ovag Energie AG
+        basis: GROSS   # adhoc-Tarif 59 ct/kWh, Preis (brutto)
+        checked-on: "2026-10-02"
+        source: https://www.ovag.de/privatkunden/produkte/elektromobilitaet.html
+      # Second round (operators 51–100 by unpriced charge points), checked 2026-10-02.
+      - operator: Stadtwerke Münster GmbH
+        basis: GROSS   # Kreditkarte/Ad-Hoc 47,00 / 52,00 ct/kWh, "Endpreise, einschließlich ... Umsatzsteuer"
+        checked-on: "2026-10-02"
+        source: https://www.stadtwerke-muenster.de/unterwegs/e-mobilitaet/elektroauto-laden
+      - operator: Stadtwerke Ingolstadt Beteiligungen GmbH
+        basis: GROSS   # Ad-hoc AC 49 / DC 59 ct, "Alle Preise brutto inkl. MwSt. Gültig ab 01.09.2026"
+        checked-on: "2026-10-02"
+        source: https://sw-i.de/e-mobilitaet/oeffentliches-laden/
+      - operator: Electra
+        basis: NET   # "EC-Karte oder Ladekarte ab 0.69 €/kWh inkl. MwSt" = 0,5798 × 1,19
+        checked-on: "2026-10-02"
+        source: https://www.go-electra.com/de/price/
+      - operator: JOLT Energy
+        basis: NET   # Express "Ohne Anmeldung" 0,79 €/kWh = 0,66 × 1,19
+        checked-on: "2026-10-02"
+        source: https://jolt.energy/de-de/preise/
+      - operator: Stadtwerke Kiel Aktiengesellschaft
+        basis: GROSS   # Spontanladen (brutto) Direct Payment AC 48 / DC 58 ct, FairUse 5 / 10 ct (brutto)
+        checked-on: "2026-10-02"
+        source: https://www.stadtwerke-kiel.de/e-mobilitaet/laden-in-der-kiel-region
+      - operator: Wirtschaftsbetriebe Lingen GmbH
+        basis: GROSS   # Ad hoc Ladetarif 59,00 / 69,00 ct/kWh (Stadtwerke Lingen); equal to the feed
+        checked-on: "2026-10-02"
+        source: https://www.stadtwerke-lingen.de/e-mobilitaet/laden-unterwegs
+      - operator: eins energie in sachsen GmbH & Co. KG
+        basis: GROSS   # Ad-hoc 58,31 / 66,64 ct (brutto); shown as 0,58 / 0,67 € (owner, 2026-10-02)
+        checked-on: "2026-10-02"
+        source: https://www.eins.de/privatkunden/elektromobilitaet/unterwegs-laden
+      - operator: Stadtwerke Bamberg Verkehrs- und Park GmbH
+        basis: GROSS   # "Ad hoc-Laden ohne Registrierung über den QR-Code kostet aktuell 62 Cent/kWh"
+        checked-on: "2026-10-02"
+        source: https://www.stadtwerke-bamberg.de/e-laden
+      - operator: MWEnergy GmbH
+        basis: GROSS   # Laden ohne Vertrag (Ad-hoc) AC 52 / DC 70 ct, Standzeitgebühr 6 ct (brutto)
+        checked-on: "2026-10-02"
+        source: https://mw-autostrom.de/tarife/
+      - operator: Bocholter Energie- und Wasserversorgung GmbH
+        basis: GROSS   # Adhoc-Laden 0,69 €/kWh, "inkl. 19 % Mehrwertsteuer" (Preisstand 01.07.2023)
+        checked-on: "2026-10-02"
+        source: https://www.bew-bocholt.de/fuer-bocholt/emobilitaet/emobilitaet-fuer-unterwegs
+      - operator: öPA Verkehrsgesellschaft mbH
+        basis: GROSS   # Ad-Hoc AC 0,59 / DC 0,69 €/kWh, 10 ct/min (network run with Stadtwerke Troisdorf)
+        checked-on: "2026-10-02"
+        source: https://www.stadtwerke-troisdorf.de/zusatzleistungen/elektromobilitaet/e-ladestationen-in-troisdorf
+      - operator: Stadtwerke Dachau
+        basis: NET   # Direktbezahlung AC 0,65 / DC 0,94 €, Blockiergebühr 0,18 / 0,36 € = 0,55 / 0,79 / 0,15 / 0,30 × 1,19
+        checked-on: "2026-10-02"
+        source: https://www.stadtwerke-dachau.de/tarife-angebote/e-mobilitaet/ladekarte-und-preise
+      - operator: Energie- und Wasserversorgung Bruchsal GmbH
+        basis: GROSS   # Ad-hoc (Kreditkarte) AC 60 / DC 80 Cent (netto 50,42 / 67,23), gültig seit 01.05.2026
+        checked-on: "2026-10-02"
+        source: https://www.stadtwerke-bruchsal.de/wp-content/uploads/2025/03/SWB_Preisblatt_Ladesaeule.pdf
+      - operator: Parkgaragengesellschaft Baden-Baden mbH
+        basis: GROSS   # Roaming/Ad-hoc AC 63,00 / DC 77,00 Cent brutto (52,94 / 64,71 netto), Startgebühr 1,50 €
+        checked-on: "2026-10-02"
+        source: https://www.stadtwerke-baden-baden.de/media/docs/mobilitaet-freizeit/elektromobilitaet/Preisblatt_Stand_Mai_2026_PGG.pdf
+      - operator: Energieversorgung Landsberg GmbH & Co. KG
+        basis: GROSS   # Ad-hoc-Tarif (QR-Code, Direktpayment) 0,62 €/kWh AC und DC, ab 01.09.2026; equal to the feed
+        checked-on: "2026-10-02"
+        source: https://energieversorgung-landsberg.de/e-mobilitaet
+      - operator: Stadtwerke Weinheim GmbH
+        basis: GROSS   # Ad-hoc AC 0,59 € (netto 0,50), DC 0,69 € (netto 0,58); feed DC 0,65 is the 2025 sheet
+        checked-on: "2026-10-02"
+        source: https://sww.de/de/Produkte/Mobilitaet/Tarife.php
   security:
     jwt-secret: ${JWT_SECRET:change-this-development-secret-to-a-long-random-value}
     jwt-ttl: PT12H
