@@ -63,7 +63,7 @@ export function priceGroups(prices: StationChargePoints, stationOperator: string
     if (all.length === 0) continue;
     const plugs = plugsOf(chargePoint.connectors, locale);
     const key = `${chargePoint.operatorName ?? ''}|${plugs}|${amountsKey(all)}`;
-    const observedAt = all.map((price) => price.observedAt).filter((at): at is string => !!at).sort().at(-1);
+    const observedAt = all.map((price) => price.observedAt).filter((at): at is string => !!at).sort((a, b) => a.localeCompare(b)).at(-1);
     const existing = groups.find((group) => group.key === key);
     if (existing) {
       existing.count += 1;
@@ -117,23 +117,26 @@ export function priceParts(price: AdHocPrice, locale: string): string[] {
 }
 
 export function timeFee(fee: TimeFee, currency: string, locale: string): string {
-  const minute = fee.fromMinute;
-  const until = fee.toMinute;
-  let text: string;
-  if (fee.perMinute !== undefined && fee.perMinute !== null) {
-    const amount = formatAmount(fee.perMinute, currency, locale);
-    if (until !== undefined && until !== null) text = $localize`:@@price.perMinuteRange:Min. ${minute}:minute:–${until}:until:: ${amount}:amount:/min`;
-    else text = minute === 0 ? $localize`:@@price.perMinute:${amount}:amount:/min` : $localize`:@@price.perMinuteFrom:ab Min. ${minute}:minute:: ${amount}:amount:/min`;
-  } else if (until !== undefined && until !== null) {
-    text = $localize`:@@price.timeBasedRange:Min. ${minute}:minute:–${until}:until: zeitabhängige Gebühr`;
-  } else {
-    text = minute === 0 ? $localize`:@@price.timeBased:zzgl. zeitabhängiger Gebühr` : $localize`:@@price.timeBasedFrom:ab Min. ${minute}:minute: zeitabhängige Gebühr`;
-  }
+  let text = feeText(fee, currency, locale);
   if (fee.cap !== undefined && fee.cap !== null) {
     const cap = formatAmount(fee.cap, currency, locale);
     text += ', ' + $localize`:@@price.cap:max. ${cap}:amount:`;
   }
   return fee.window ? withWindow(text, fee.window, locale) : text;
+}
+
+/** The fee without its cap and window: "ab Min. 240: 0,10 €/min", "Min. 240–390: …", or without an amount. */
+function feeText(fee: TimeFee, currency: string, locale: string): string {
+  const minute = fee.fromMinute;
+  const until = fee.toMinute;
+  const ends = until !== undefined && until !== null;
+  if (fee.perMinute === undefined || fee.perMinute === null) {
+    if (ends) return $localize`:@@price.timeBasedRange:Min. ${minute}:minute:–${until}:until: zeitabhängige Gebühr`;
+    return minute === 0 ? $localize`:@@price.timeBased:zzgl. zeitabhängiger Gebühr` : $localize`:@@price.timeBasedFrom:ab Min. ${minute}:minute: zeitabhängige Gebühr`;
+  }
+  const amount = formatAmount(fee.perMinute, currency, locale);
+  if (ends) return $localize`:@@price.perMinuteRange:Min. ${minute}:minute:–${until}:until:: ${amount}:amount:/min`;
+  return minute === 0 ? $localize`:@@price.perMinute:${amount}:amount:/min` : $localize`:@@price.perMinuteFrom:ab Min. ${minute}:minute:: ${amount}:amount:/min`;
 }
 
 /** "0,10 €/min (Mo–Sa 08:00–20:00)". */
@@ -159,10 +162,10 @@ export function formatDays(days: readonly string[], locale: string): string {
   const runs: number[][] = [];
   for (const index of indices) {
     const last = runs.at(-1);
-    if (last && last.at(-1) === index - 1) last.push(index);
+    if (last?.at(-1) === index - 1) last.push(index);
     else runs.push([index]);
   }
-  return runs.flatMap((run) => (run.length >= 3 ? [`${symbol(run[0])}–${symbol(run[run.length - 1])}`] : run.map(symbol))).join(', ');
+  return runs.flatMap((run) => (run.length >= 3 ? [`${symbol(run[0])}–${symbol(run.at(-1)!)}`] : run.map(symbol))).join(', ');
 }
 
 /** How the price at `index` is paid: "QR-Code / App", or "Tarif 2" where the operator names nothing known. Never a raw token. */

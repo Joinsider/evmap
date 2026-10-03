@@ -1580,7 +1580,7 @@
     <unit id="price.free">
       <notes>
         <note category="location">src/app/features/map/domain/prices.ts:101</note>
-        <note category="location">src/app/features/map/domain/prices.ts:204</note>
+        <note category="location">src/app/features/map/domain/prices.ts:207</note>
       </notes>
       <segment>
         <source>Kostenlos</source>
@@ -1603,33 +1603,17 @@
         <source>Startgebühr <ph id="0" equiv="amount" disp="amount"/></source>
       </segment>
     </unit>
-    <unit id="price.perMinuteRange">
+    <unit id="price.cap">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:125</note>
+        <note category="location">src/app/features/map/domain/prices.ts:123</note>
       </notes>
       <segment>
-        <source>Min. <ph id="0" equiv="minute" disp="minute"/>–<ph id="1" equiv="until" disp="until"/>: <ph id="2" equiv="amount" disp="amount"/>/min</source>
-      </segment>
-    </unit>
-    <unit id="price.perMinute">
-      <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:126</note>
-      </notes>
-      <segment>
-        <source><ph id="0" equiv="amount" disp="amount"/>/min</source>
-      </segment>
-    </unit>
-    <unit id="price.perMinuteFrom">
-      <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:126</note>
-      </notes>
-      <segment>
-        <source>ab Min. <ph id="0" equiv="minute" disp="minute"/>: <ph id="1" equiv="amount" disp="amount"/>/min</source>
+        <source>max. <ph id="0" equiv="amount" disp="cap"/></source>
       </segment>
     </unit>
     <unit id="price.timeBasedRange">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:128</note>
+        <note category="location">src/app/features/map/domain/prices.ts:134</note>
       </notes>
       <segment>
         <source>Min. <ph id="0" equiv="minute" disp="minute"/>–<ph id="1" equiv="until" disp="until"/> zeitabhängige Gebühr</source>
@@ -1637,7 +1621,7 @@
     </unit>
     <unit id="price.timeBased">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:130</note>
+        <note category="location">src/app/features/map/domain/prices.ts:135</note>
       </notes>
       <segment>
         <source>zzgl. zeitabhängiger Gebühr</source>
@@ -1645,23 +1629,39 @@
     </unit>
     <unit id="price.timeBasedFrom">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:130</note>
+        <note category="location">src/app/features/map/domain/prices.ts:135</note>
       </notes>
       <segment>
         <source>ab Min. <ph id="0" equiv="minute" disp="minute"/> zeitabhängige Gebühr</source>
       </segment>
     </unit>
-    <unit id="price.cap">
+    <unit id="price.perMinuteRange">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:134</note>
+        <note category="location">src/app/features/map/domain/prices.ts:138</note>
       </notes>
       <segment>
-        <source>max. <ph id="0" equiv="amount" disp="cap"/></source>
+        <source>Min. <ph id="0" equiv="minute" disp="minute"/>–<ph id="1" equiv="until" disp="until"/>: <ph id="2" equiv="amount" disp="amount"/>/min</source>
+      </segment>
+    </unit>
+    <unit id="price.perMinute">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:139</note>
+      </notes>
+      <segment>
+        <source><ph id="0" equiv="amount" disp="amount"/>/min</source>
+      </segment>
+    </unit>
+    <unit id="price.perMinuteFrom">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:139</note>
+      </notes>
+      <segment>
+        <source>ab Min. <ph id="0" equiv="minute" disp="minute"/>: <ph id="1" equiv="amount" disp="amount"/>/min</source>
       </segment>
     </unit>
     <unit id="price.rateNumber">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:172</note>
+        <note category="location">src/app/features/map/domain/prices.ts:175</note>
       </notes>
       <segment>
         <source>Tarif <ph id="0" equiv="number" disp="number"/></source>
@@ -1669,7 +1669,7 @@
     </unit>
     <unit id="price.payment.qrCode">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:178</note>
+        <note category="location">src/app/features/map/domain/prices.ts:181</note>
       </notes>
       <segment>
         <source>QR-Code</source>
@@ -1677,7 +1677,7 @@
     </unit>
     <unit id="price.payment.emv">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:180</note>
+        <note category="location">src/app/features/map/domain/prices.ts:183</note>
       </notes>
       <segment>
         <source>Kartenterminal</source>
@@ -1685,7 +1685,7 @@
     </unit>
     <unit id="price.payment.nfc">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:182</note>
+        <note category="location">src/app/features/map/domain/prices.ts:185</note>
       </notes>
       <segment>
         <source>NFC</source>
@@ -1693,7 +1693,7 @@
     </unit>
     <unit id="price.payment.website">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:184</note>
+        <note category="location">src/app/features/map/domain/prices.ts:187</note>
       </notes>
       <segment>
         <source>Website</source>
@@ -1701,7 +1701,7 @@
     </unit>
     <unit id="price.payment.mobileAccount">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:186</note>
+        <note category="location">src/app/features/map/domain/prices.ts:189</note>
       </notes>
       <segment>
         <source>App</source>
@@ -1709,7 +1709,7 @@
     </unit>
     <unit id="price.payment.creditCard">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:188</note>
+        <note category="location">src/app/features/map/domain/prices.ts:191</note>
       </notes>
       <segment>
         <source>Kreditkarte</source>
@@ -1717,7 +1717,7 @@
     </unit>
     <unit id="price.payment.debitCard">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:190</note>
+        <note category="location">src/app/features/map/domain/prices.ts:193</note>
       </notes>
       <segment>
         <source>Debitkarte</source>
@@ -1725,7 +1725,7 @@
     </unit>
     <unit id="price.fromPerKwh">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:207</note>
+        <note category="location">src/app/features/map/domain/prices.ts:210</note>
       </notes>
       <segment>
         <source>ab <ph id="0" equiv="amount" disp="amount"/>/kWh</source>

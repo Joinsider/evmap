@@ -64,7 +64,7 @@ struct AdHocPrice: Decodable, Hashable {
     /// The price per kWh when it is the same at every hour.
     let energyPerKwh: Decimal?
     /// Prices per kWh by time of day, when they differ (then `energyPerKwh` is `nil`).
-    let energyWindows: [EnergyWindow]
+    private(set) var energyWindows: [EnergyWindow]
     let sessionFee: Decimal?
     let timeFees: [TimeFee]
     let free: Bool
@@ -72,7 +72,7 @@ struct AdHocPrice: Decodable, Hashable {
     let furtherFees: Bool
     let observedAt: Date?
     /// How this price is paid ("qrCode", "emv", …), where a charge point has several prices that differ by it.
-    let paymentMeans: [String]
+    private(set) var paymentMeans: [String]
     /// Who stated the price: a live source's credited name (`MobiData BW`), a publisher
     /// (`EnBW … via Mobilithek`) or the register's token (`IRVE`).
     private(set) var source: String?
@@ -95,19 +95,32 @@ struct AdHocPrice: Decodable, Hashable {
         source = try container.decodeIfPresent(String.self, forKey: .source)
     }
 
-    init(currency: String = "EUR", energyPerKwh: Decimal? = nil, energyWindows: [EnergyWindow] = [],
-         sessionFee: Decimal? = nil, timeFees: [TimeFee] = [], free: Bool = false, furtherFees: Bool = false,
-         observedAt: Date? = nil, paymentMeans: [String] = []) {
+    init(currency: String = "EUR", energyPerKwh: Decimal? = nil, sessionFee: Decimal? = nil, timeFees: [TimeFee] = [],
+         free: Bool = false, furtherFees: Bool = false, observedAt: Date? = nil) {
         self.currency = currency
         self.energyPerKwh = energyPerKwh
-        self.energyWindows = energyWindows
+        self.energyWindows = []
         self.sessionFee = sessionFee
         self.timeFees = timeFees
         self.free = free
         self.furtherFees = furtherFees
         self.observedAt = observedAt
-        self.paymentMeans = paymentMeans
+        self.paymentMeans = []
         self.source = nil
+    }
+
+    /// The same price with energy prices per time of day.
+    func charging(_ windows: [EnergyWindow]) -> AdHocPrice {
+        var price = self
+        price.energyWindows = windows
+        return price
+    }
+
+    /// The same price, paid by `means`.
+    func paid(with means: [String]) -> AdHocPrice {
+        var price = self
+        price.paymentMeans = means
+        return price
     }
 
     private init(_ price: AdHocPrice, source: String?) {
@@ -120,8 +133,10 @@ struct AdHocPrice: Decodable, Hashable {
 
     /// The same price, regardless of when and by whom it was stated — what makes two charge points one row.
     var amounts: AdHocPrice {
-        AdHocPrice(currency: currency, energyPerKwh: energyPerKwh, energyWindows: energyWindows, sessionFee: sessionFee,
-                   timeFees: timeFees, free: free, furtherFees: furtherFees, paymentMeans: paymentMeans)
+        AdHocPrice(currency: currency, energyPerKwh: energyPerKwh, sessionFee: sessionFee, timeFees: timeFees,
+                   free: free, furtherFees: furtherFees)
+            .charging(energyWindows)
+            .paid(with: paymentMeans)
     }
 }
 

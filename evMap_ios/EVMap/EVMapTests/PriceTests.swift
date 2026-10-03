@@ -136,9 +136,9 @@ struct PriceTests {
     @Test("writes ends, caps, windows and weekdays as delivered")
     func formatsLimits() {
         let window = AdHocPrice.TimeWindow(from: "08:00", to: "20:00", days: ["monday", "tuesday", "wednesday", "thursday", "friday", "sunday"])
-        let price = AdHocPrice(energyWindows: [.init(perKwh: Decimal(string: "0.49")!, window: .init(from: "08:00", to: "22:00"))],
-                               timeFees: [.init(fromMinute: 240, toMinute: 390, perMinute: Decimal(string: "0.1"), cap: 15, window: window),
+        let price = AdHocPrice(timeFees: [.init(fromMinute: 240, toMinute: 390, perMinute: Decimal(string: "0.1"), cap: 15, window: window),
                                           .init(fromMinute: 45, toMinute: 90, perMinute: nil)])
+            .charging([.init(perKwh: Decimal(string: "0.49")!, window: .init(from: "08:00", to: "22:00"))])
 
         let parts = PriceFormatter.parts(of: price, locale: Self.german)
 
@@ -157,8 +157,8 @@ struct PriceTests {
 
     @Test("several prices of a charge point are each led by how they are paid, never by a raw token")
     func labelsPaymentMeans() {
-        let qr = AdHocPrice(energyPerKwh: 0.5, paymentMeans: ["qrCode", "mobileAccount"])
-        let unknown = AdHocPrice(energyPerKwh: Decimal(string: "0.5355"), paymentMeans: ["somethingNew"])
+        let qr = AdHocPrice(energyPerKwh: 0.5).paid(with: ["qrCode", "mobileAccount"])
+        let unknown = AdHocPrice(energyPerKwh: Decimal(string: "0.5355")).paid(with: ["somethingNew"])
 
         let lines = PriceFormatter.lines(of: [qr, unknown], locale: Self.german)
 
@@ -171,8 +171,8 @@ struct PriceTests {
 
     @Test("charge points with the same several prices form one group; free means every price is free")
     func groupsSeveralPrices() {
-        let qr = AdHocPrice(energyPerKwh: 0.5, paymentMeans: ["qrCode"])
-        let card = AdHocPrice(energyPerKwh: 0.59, furtherFees: true, paymentMeans: ["emv"])
+        let qr = AdHocPrice(energyPerKwh: 0.5).paid(with: ["qrCode"])
+        let card = AdHocPrice(energyPerKwh: 0.59, furtherFees: true).paid(with: ["emv"])
         let prices = StationChargePoints(stationID: stationID, cheapestEnergyPerKwh: 0.5, currency: "EUR", chargePoints: [
             .init(operatorName: nil, connectors: [], prices: [qr, card]),
             .init(operatorName: nil, connectors: [], prices: [qr, card]),

@@ -23,10 +23,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.StreamSupport;
 
 import static de.joinside.evmap_service.sync.mobilithek.AfirSiteMapper.enumValue;
 import static de.joinside.evmap_service.sync.mobilithek.AfirSiteMapper.field;
@@ -82,6 +84,10 @@ final class AfirPriceReader {
     private static final BigDecimal GERMAN_VAT = new BigDecimal("0.19");
     /** A dated price that ended within this long marks a schedule of short slots, not last season's price. */
     private static final Duration SCHEDULE_HORIZON = Duration.ofDays(1);
+    /** DATEX writes the VAT flag as a boolean, XML as its text. */
+    private static final Map<String, Boolean> FLAGS = Map.of("true", Boolean.TRUE, "false", Boolean.FALSE);
+    /** Publisher extensions, ignored where they are empty ({@code aegiEnergyPriceExtensionG: {}}). */
+    private static final String EXTENSION = "ExtensionG";
     private static final Pattern CLOCK = Pattern.compile("(\\d{2}):(\\d{2})(?::(\\d{2}))?");
     private static final List<String> WEEK =
             List.of("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday");
@@ -144,10 +150,14 @@ final class AfirPriceReader {
     }
 
     private static boolean sameAmounts(SourceStation.SourcePrice a, SourceStation.SourcePrice b) {
-        return Objects.equals(a.currency(), b.currency()) && Objects.equals(a.energyPerKwh(), b.energyPerKwh())
-                && a.energyWindows().equals(b.energyWindows()) && Objects.equals(a.sessionFee(), b.sessionFee())
+        return Objects.equals(a.currency(), b.currency()) && sameAmount(a.energyPerKwh(), b.energyPerKwh())
+                && a.energyWindows().equals(b.energyWindows()) && sameAmount(a.sessionFee(), b.sessionFee())
                 && a.timeFees().equals(b.timeFees()) && a.free() == b.free() && a.furtherFees() == b.furtherFees()
                 && a.vatBasisStated() == b.vatBasisStated();
+    }
+
+    private static boolean sameAmount(BigDecimal a, BigDecimal b) {
+        return a == null ? b == null : b != null && a.compareTo(b) == 0;
     }
 
     private static Instant latest(Instant a, Instant b) {
@@ -168,8 +178,9 @@ final class AfirPriceReader {
     }
 
     private Outcome rate(JsonNode rate, String operator, Instant asOf) {
-        List<String> currencies = new ArrayList<>();
-        for (JsonNode currency : items(field(rate, "applicableCurrency"))) currencies.add(text(currency));
+        List<String> currencies = StreamSupport.stream(items(field(rate, "applicableCurrency")).spliterator(), false)
+                .map(AfirSiteMapper::text)
+                .toList();
         if (!currencies.equals(List.of(EUR))) return Outcome.UNCERTAIN;
 
         List<Component> components = new ArrayList<>();
@@ -216,7 +227,8 @@ final class AfirPriceReader {
         if (applicability == null) return null;
         if (applicability == Applicability.EXPIRED) return EXPIRED;
         BigDecimal cap = decimal(text(field(price, "priceCap")));
-        return new Component(type, value, bool(text(field(price, "taxIncluded"))),
+        String flag = text(field(price, "taxIncluded"));
+        return new Component(type, value, flag == null ? null : FLAGS.get(flag.trim().toLowerCase(Locale.ROOT)),
                 fraction(decimal(text(field(price, "taxRate")))), fromMinute, toMinute,
                 cap == null || cap.signum() == 0 ? null : cap, applicability.window);
     }
@@ -249,14 +261,14 @@ final class AfirPriceReader {
         List<JsonNode> valid = list(field(period, "validPeriod"));
         if (valid.isEmpty()) return new Applicability(null);
         if (valid.size() > 1) return null;
-        JsonNode only = valid.getFirst();
-        for (Iterator<String> names = only.fieldNames(); names.hasNext(); ) {
-            String name = names.next();
-            if (!name.equals("recurringTimePeriodOfDay") && !name.equals("recurringDayWeekMonthPeriod")
-                    && !name.endsWith("ExtensionG") && !isEmpty(only.get(name))) return null;
-        }
-        List<JsonNode> times = list(field(only, "recurringTimePeriodOfDay"));
-        List<JsonNode> dayPeriods = list(field(only, "recurringDayWeekMonthPeriod"));
+        return recurring(valid.getFirst());
+    }
+
+    /** One valid period of times of day and weekdays; {@code null} for anything else in it. */
+    private static Applicability recurring(JsonNode period) {
+        if (!holdsOnly(period, "recurringTimePeriodOfDay", "recurringDayWeekMonthPeriod")) return null;
+        List<JsonNode> times = list(field(period, "recurringTimePeriodOfDay"));
+        List<JsonNode> dayPeriods = list(field(period, "recurringDayWeekMonthPeriod"));
         if (times.size() > 1 || dayPeriods.size() > 1) return null;
 
         String from = "00:00";
@@ -266,13 +278,21 @@ final class AfirPriceReader {
             to = clock(text(field(times.getFirst(), "endTimeOfPeriod")), true);
             if (from == null || to == null || from.equals(to)) return null;
         }
-        List<String> days = List.of();
-        if (!dayPeriods.isEmpty()) {
-            days = days(dayPeriods.getFirst());
-            if (days == null) return null;
+        Optional<List<String>> days = dayPeriods.isEmpty() ? Optional.of(List.of()) : days(dayPeriods.getFirst());
+        if (days.isEmpty()) return null;
+        boolean always = from.equals("00:00") && to.equals("24:00") && days.get().isEmpty();
+        return new Applicability(always ? null : new SourceStation.TimeWindow(from, to, days.get()));
+    }
+
+    /** Whether {@code node} has nothing but the named fields and empty extensions. */
+    private static boolean holdsOnly(JsonNode node, String... allowed) {
+        if (node == null) return true;
+        Set<String> known = Set.of(allowed);
+        for (Iterator<String> names = node.fieldNames(); names.hasNext(); ) {
+            String name = names.next();
+            if (!known.contains(name) && !name.endsWith(EXTENSION) && !isEmpty(node.get(name))) return false;
         }
-        boolean allDay = from.equals("00:00") && to.equals("24:00");
-        return new Applicability(allDay && days.isEmpty() ? null : new SourceStation.TimeWindow(from, to, days));
+        return true;
     }
 
     /**
@@ -288,8 +308,7 @@ final class AfirPriceReader {
         int second = matcher.group(3) == null ? 0 : Integer.parseInt(matcher.group(3));
         if (hour > 23 || minute > 59 || second > 59) return null;
         if (end) {
-            if (second == 59) minute++;
-            else if (minute == 59 && hour == 23) minute++;
+            if (second == 59 || (minute == 59 && hour == 23)) minute++;
             if (minute == 60) {
                 minute = 0;
                 hour++;
@@ -299,29 +318,19 @@ final class AfirPriceReader {
         return String.format(Locale.ROOT, "%02d:%02d", hour, minute);
     }
 
-    /** The applicable weekdays in week order; empty for all seven; {@code null} for anything else (months, dates). */
-    private static List<String> days(JsonNode period) {
-        Set<String> days = new TreeSet<>(Comparator.comparingInt(WEEK::indexOf));
-        for (Iterator<String> names = period.fieldNames(); names.hasNext(); ) {
-            String name = names.next();
-            if (name.equals("comDayWeekMonth")) continue;
-            if (!name.endsWith("ExtensionG") && !isEmpty(period.get(name))) return null;
-        }
+    /** The applicable weekdays in week order, empty for all seven; nothing for anything else (months, dates). */
+    private static Optional<List<String>> days(JsonNode period) {
         JsonNode dayWeekMonth = field(period, "comDayWeekMonth");
-        for (Iterator<String> names = dayWeekMonth == null ? List.<String>of().iterator() : dayWeekMonth.fieldNames();
-             names.hasNext(); ) {
-            String name = names.next();
-            if (!name.equals("applicableDay") && !name.endsWith("ExtensionG") && !isEmpty(dayWeekMonth.get(name)))
-                return null;
-        }
+        if (!holdsOnly(period, "comDayWeekMonth") || !holdsOnly(dayWeekMonth, "applicableDay")) return Optional.empty();
+        Set<String> days = new TreeSet<>(Comparator.comparingInt(WEEK::indexOf));
         for (JsonNode day : items(field(dayWeekMonth, "applicableDay"))) {
             String value = enumValue(day);
             String normalized = value == null ? null : value.toLowerCase(Locale.ROOT);
-            if (!WEEK.contains(normalized)) return null;
+            if (!WEEK.contains(normalized)) return Optional.empty();
             days.add(normalized);
         }
-        if (days.isEmpty()) return null;
-        return days.size() == WEEK.size() ? List.of() : List.copyOf(days);
+        if (days.isEmpty()) return Optional.empty();
+        return Optional.of(days.size() == WEEK.size() ? List.of() : List.copyOf(days));
     }
 
     // --- VAT basis -------------------------------------------------------------------------------------
@@ -354,13 +363,13 @@ final class AfirPriceReader {
         }
         if (flags.size() > 1 || rates.size() > 1) return Basis.INVALID;
         BigDecimal rate = rates.isEmpty() ? null : rates.iterator().next();
-        if (!flags.isEmpty()) {
-            if (Boolean.TRUE.equals(flags.iterator().next())) return new Basis(BigDecimal.ONE, false, true);
-            return rate == null ? Basis.INVALID : new Basis(BigDecimal.ONE.add(rate), false, true);
-        }
+        if (flags.isEmpty()) return inferred(tariff.energyPerKwh, rate, operator);
+        if (Boolean.TRUE.equals(flags.iterator().next())) return new Basis(BigDecimal.ONE, false, true);
+        return rate == null ? Basis.INVALID : new Basis(BigDecimal.ONE.add(rate), false, true);
+    }
 
-        // No flag (chargecloud): what OCPDB's tariffs get — evidence, then the hand-kept table (ADR 0022, 5r).
-        BigDecimal energy = tariff.energyPerKwh;
+    /** No flag (chargecloud): what OCPDB's tariffs get — evidence, then the hand-kept table (ADR 0022, 5r). */
+    private Basis inferred(BigDecimal energy, BigDecimal rate, String operator) {
         if (energy == null || energy.signum() == 0) return null;
         if (rate != null && VatEvidence.provenGross(energy, rate) != null)
             return new Basis(BigDecimal.ONE.add(rate), false, false);
@@ -448,28 +457,42 @@ final class AfirPriceReader {
          * ({@code toMinute}) nothing takes over from: Wirelane writes "ab 120 Min." as minute 0 to 120.
          */
         private boolean readFees(List<Component> perMinute) {
-            for (Component fee : perMinute) {
-                for (Component other : perMinute)
-                    if (other != fee && other.fromMinute == fee.fromMinute && overlap(other.window, fee.window)
-                            && other.value.compareTo(fee.value) != 0) return false;
-                if (fee.toMinute != null && fee.value.signum() > 0 && perMinute.stream().noneMatch(next ->
-                        next.fromMinute == fee.toMinute && overlap(next.window, fee.window))) return false;
-            }
+            if (perMinute.stream().anyMatch(fee -> contradicts(fee, perMinute) || endsByItself(fee, perMinute)))
+                return false;
             Set<String> seen = new LinkedHashSet<>();
-            for (Component fee : perMinute) {
-                if (fee.value.signum() == 0 || !seen.add(fee.fromMinute + "|" + fee.window + "|" + fee.cap)) continue;
-                Integer until = perMinute.stream()
-                        .filter(next -> next.fromMinute > fee.fromMinute && Objects.equals(next.window, fee.window))
-                        .min(Comparator.comparingInt(Component::fromMinute))
-                        .filter(next -> next.value.signum() == 0)
-                        .map(Component::fromMinute)
-                        .orElse(null);
-                fees.add(new Component(fee.type, fee.value, fee.taxIncluded, fee.rate, fee.fromMinute, until, fee.cap,
-                        fee.window));
-            }
+            for (Component fee : perMinute)
+                if (fee.value.signum() != 0 && seen.add(fee.fromMinute + "|" + fee.window + "|" + fee.cap))
+                    fees.add(new Component(fee.type, fee.value, fee.taxIncluded, fee.rate, fee.fromMinute,
+                            until(fee, perMinute), fee.cap, fee.window));
             fees.sort(Comparator.comparingInt(Component::fromMinute)
                     .thenComparing(fee -> fee.window == null ? "" : fee.window.from()));
             return true;
+        }
+
+        /** Another fee from the same minute, in an overlapping window, with a different amount. */
+        private static boolean contradicts(Component fee, List<Component> perMinute) {
+            return perMinute.stream().anyMatch(other -> other != fee && other.fromMinute == fee.fromMinute
+                    && overlap(other.window, fee.window) && other.value.compareTo(fee.value) != 0);
+        }
+
+        /** A fee with its own end that no other fee of its window takes over from. */
+        private static boolean endsByItself(Component fee, List<Component> perMinute) {
+            return fee.toMinute != null && fee.value.signum() > 0 && perMinute.stream().noneMatch(next ->
+                    next.fromMinute == fee.toMinute && overlap(next.window, fee.window));
+        }
+
+        /** The minute a zero fee of the same window takes over, if the next fee of that window is one. */
+        private static Integer until(Component fee, List<Component> perMinute) {
+            return perMinute.stream()
+                    .filter(next -> next.fromMinute > fee.fromMinute && Objects.equals(next.window, fee.window))
+                    .min(Comparator.comparingInt(Component::fromMinute))
+                    .filter(next -> next.value.signum() == 0)
+                    .map(Component::fromMinute)
+                    .orElse(null);
+        }
+
+        private static boolean inBand(BigDecimal value, BigDecimal min, BigDecimal max) {
+            return value.compareTo(min) >= 0 && value.compareTo(max) <= 0;
         }
 
         /** Unwindowed overlaps everything; two different windows are taken as the publisher's split of the day. */
@@ -506,10 +529,6 @@ final class AfirPriceReader {
         }
     }
 
-    private static boolean inBand(BigDecimal value, BigDecimal min, BigDecimal max) {
-        return value.compareTo(min) >= 0 && value.compareTo(max) <= 0;
-    }
-
     // --- values ----------------------------------------------------------------------------------------
 
     /**
@@ -539,15 +558,6 @@ final class AfirPriceReader {
     private static Integer integer(String text) {
         BigDecimal value = decimal(text);
         return value == null ? null : value.intValue();
-    }
-
-    private static Boolean bool(String text) {
-        if (text == null) return null;
-        return switch (text.trim().toLowerCase(Locale.ROOT)) {
-            case "true" -> Boolean.TRUE;
-            case "false" -> Boolean.FALSE;
-            default -> null;
-        };
     }
 
     private static Instant instant(String text) {
