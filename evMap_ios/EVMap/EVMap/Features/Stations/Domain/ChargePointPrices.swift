@@ -6,51 +6,107 @@ import Foundation
 /// ``free``. The backend sends a price only where it is certain of it; a charge point without one simply has
 /// no price, which the screen says rather than guesses.
 struct AdHocPrice: Decodable, Hashable {
+    /// A recurring period of the week in local time, as the operator writes it (ADR 0022, L6p).
+    struct TimeWindow: Decodable, Hashable {
+        /// "08:00".
+        let from: String
+        /// "20:00", "24:00" for midnight at its end; earlier than `from` when it runs past midnight.
+        let to: String
+        /// "monday" … "sunday"; empty for every day.
+        let days: [String]
+
+        private enum CodingKeys: String, CodingKey { case from, to, days }
+
+        init(from: String, to: String, days: [String] = []) {
+            self.from = from
+            self.to = to
+            self.days = days
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            from = try container.decode(String.self, forKey: .from)
+            to = try container.decode(String.self, forKey: .to)
+            days = try container.decodeIfPresent([String].self, forKey: .days) ?? []
+        }
+    }
+
     /// A fee per minute of charging, from a minute of the session on.
     struct TimeFee: Decodable, Hashable {
         /// 0 for the whole session.
         let fromMinute: Int
+        /// The minute from which the fee no longer applies; `nil` for the rest of the session.
+        let toMinute: Int?
         /// `nil` when a time-based fee applies but its amount is not certain; the screen then names the fee
         /// without a number.
         let perMinute: Decimal?
+        /// The most the fee comes to in one session.
+        let cap: Decimal?
+        /// When the fee applies; `nil` for always.
+        let window: TimeWindow?
+
+        init(fromMinute: Int, toMinute: Int? = nil, perMinute: Decimal?, cap: Decimal? = nil, window: TimeWindow? = nil) {
+            self.fromMinute = fromMinute
+            self.toMinute = toMinute
+            self.perMinute = perMinute
+            self.cap = cap
+            self.window = window
+        }
+    }
+
+    /// An energy price that applies only within `window`.
+    struct EnergyWindow: Decodable, Hashable {
+        let perKwh: Decimal
+        let window: TimeWindow
     }
 
     let currency: String
+    /// The price per kWh when it is the same at every hour.
     let energyPerKwh: Decimal?
+    /// Prices per kWh by time of day, when they differ (then `energyPerKwh` is `nil`).
+    let energyWindows: [EnergyWindow]
     let sessionFee: Decimal?
     let timeFees: [TimeFee]
     let free: Bool
-    /// The source lists fees that are not shown (idle fees, time windows), so the amounts are not complete.
+    /// The source lists fees that are not shown (idle fees after charging), so the amounts are not complete.
     let furtherFees: Bool
     let observedAt: Date?
-    /// Who stated the price: a live source's credited name (`MobiData BW`) or the register's token (`IRVE`).
+    /// How this price is paid ("qrCode", "emv", …), where a charge point has several prices that differ by it.
+    let paymentMeans: [String]
+    /// Who stated the price: a live source's credited name (`MobiData BW`), a publisher
+    /// (`EnBW … via Mobilithek`) or the register's token (`IRVE`).
     private(set) var source: String?
 
     private enum CodingKeys: String, CodingKey {
-        case currency, energyPerKwh, sessionFee, timeFees, free, furtherFees, observedAt, source
+        case currency, energyPerKwh, energyWindows, sessionFee, timeFees, free, furtherFees, observedAt, paymentMeans, source
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         currency = try container.decodeIfPresent(String.self, forKey: .currency) ?? "EUR"
         energyPerKwh = try container.decodeIfPresent(Decimal.self, forKey: .energyPerKwh)
+        energyWindows = try container.decodeIfPresent([EnergyWindow].self, forKey: .energyWindows) ?? []
         sessionFee = try container.decodeIfPresent(Decimal.self, forKey: .sessionFee)
         timeFees = try container.decodeIfPresent([TimeFee].self, forKey: .timeFees) ?? []
         free = try container.decodeIfPresent(Bool.self, forKey: .free) ?? false
         furtherFees = try container.decodeIfPresent(Bool.self, forKey: .furtherFees) ?? false
         observedAt = try container.decodeIfPresent(Date.self, forKey: .observedAt)
+        paymentMeans = try container.decodeIfPresent([String].self, forKey: .paymentMeans) ?? []
         source = try container.decodeIfPresent(String.self, forKey: .source)
     }
 
-    init(currency: String = "EUR", energyPerKwh: Decimal? = nil, sessionFee: Decimal? = nil, timeFees: [TimeFee] = [],
-         free: Bool = false, furtherFees: Bool = false, observedAt: Date? = nil) {
+    init(currency: String = "EUR", energyPerKwh: Decimal? = nil, energyWindows: [EnergyWindow] = [],
+         sessionFee: Decimal? = nil, timeFees: [TimeFee] = [], free: Bool = false, furtherFees: Bool = false,
+         observedAt: Date? = nil, paymentMeans: [String] = []) {
         self.currency = currency
         self.energyPerKwh = energyPerKwh
+        self.energyWindows = energyWindows
         self.sessionFee = sessionFee
         self.timeFees = timeFees
         self.free = free
         self.furtherFees = furtherFees
         self.observedAt = observedAt
+        self.paymentMeans = paymentMeans
         self.source = nil
     }
 
@@ -64,12 +120,12 @@ struct AdHocPrice: Decodable, Hashable {
 
     /// The same price, regardless of when and by whom it was stated — what makes two charge points one row.
     var amounts: AdHocPrice {
-        AdHocPrice(currency: currency, energyPerKwh: energyPerKwh, sessionFee: sessionFee, timeFees: timeFees,
-                   free: free, furtherFees: furtherFees)
+        AdHocPrice(currency: currency, energyPerKwh: energyPerKwh, energyWindows: energyWindows, sessionFee: sessionFee,
+                   timeFees: timeFees, free: free, furtherFees: furtherFees, paymentMeans: paymentMeans)
     }
 }
 
-/// One charge point of a station, with its operator, plugs and price.
+/// One charge point of a station, with its operator, plugs and prices.
 struct StationChargePoint: Decodable, Hashable, Identifiable {
     let id: UUID
     let evseId: String?
@@ -77,9 +133,13 @@ struct StationChargePoint: Decodable, Hashable, Identifiable {
     /// the station's where a station bundles several operators' sites (Spain, Switzerland).
     let operatorName: String?
     let connectors: [Connector]
-    let price: AdHocPrice?
+    /// Usually one; several where they differ by payment means (ADR 0022, L6p). Empty when no price is known.
+    let prices: [AdHocPrice]
 
-    private enum CodingKeys: String, CodingKey { case id, evseId, operatorName, connectors, price }
+    /// The one price, `nil` when there is none or several.
+    var price: AdHocPrice? { prices.count == 1 ? prices[0] : nil }
+
+    private enum CodingKeys: String, CodingKey { case id, evseId, operatorName, connectors, price, prices }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -87,16 +147,27 @@ struct StationChargePoint: Decodable, Hashable, Identifiable {
         evseId = try container.decodeIfPresent(String.self, forKey: .evseId)
         operatorName = try container.decodeIfPresent(String.self, forKey: .operatorName)
         connectors = try container.decodeIfPresent([Connector].self, forKey: .connectors) ?? []
-        // A price the app cannot read costs that price, never the station's whole list.
-        price = try? container.decodeIfPresent(AdHocPrice.self, forKey: .price)
+        // A price the app cannot read costs that charge point's prices, never the station's whole list. `prices` is
+        // the full answer since L6p; `price` alone is what an older backend sends.
+        if let all = try? container.decodeIfPresent([AdHocPrice].self, forKey: .prices) {
+            prices = all
+        } else if container.contains(.prices) {
+            prices = []
+        } else {
+            prices = (try? container.decodeIfPresent(AdHocPrice.self, forKey: .price)).flatMap { $0 }.map { [$0] } ?? []
+        }
     }
 
     init(id: UUID = UUID(), evseId: String? = nil, operatorName: String?, connectors: [Connector], price: AdHocPrice?) {
+        self.init(id: id, evseId: evseId, operatorName: operatorName, connectors: connectors, prices: price.map { [$0] } ?? [])
+    }
+
+    init(id: UUID = UUID(), evseId: String? = nil, operatorName: String?, connectors: [Connector], prices: [AdHocPrice]) {
         self.id = id
         self.evseId = evseId
         self.operatorName = operatorName
         self.connectors = connectors
-        self.price = price
+        self.prices = prices
     }
 }
 
@@ -131,36 +202,38 @@ struct StationChargePoints: Decodable, Hashable {
     }
 
     /// Whether any charge point has a price; without one the price section is not shown at all.
-    var hasPrices: Bool { chargePoints.contains { $0.price != nil } }
+    var hasPrices: Bool { chargePoints.contains { !$0.prices.isEmpty } }
 
     /// Whether every charge point is free — then the "from" price says so instead of naming an amount.
-    var isFree: Bool { hasPrices && chargePoints.allSatisfy { $0.price?.free == true } }
+    var isFree: Bool { hasPrices && chargePoints.allSatisfy { !$0.prices.isEmpty && $0.prices.allSatisfy(\.free) } }
 
-    /// The priced charge points, grouped by operator, plugs and price so a station with twelve identical posts
+    /// The priced charge points, grouped by operator, plugs and prices so a station with twelve identical posts
     /// is one row, in the order their first charge point appears.
     func priceGroups(stationOperator: String?) -> [PriceGroup] {
         var groups: [PriceGroup] = []
-        for chargePoint in chargePoints {
-            guard let price = chargePoint.price else { continue }
+        for chargePoint in chargePoints where !chargePoint.prices.isEmpty {
+            let prices = chargePoint.prices
             let plugs = PriceGroup.plugs(of: chargePoint.connectors)
             let operatorName = chargePoint.operatorName
-            if let index = groups.firstIndex(where: { $0.operatorName == operatorName && $0.plugs == plugs && $0.price.amounts == price.amounts }) {
+            let observedAt = prices.compactMap(\.observedAt).max()
+            if let index = groups.firstIndex(where: { $0.operatorName == operatorName && $0.plugs == plugs
+                    && $0.prices.map(\.amounts) == prices.map(\.amounts) }) {
                 groups[index].count += 1
-                groups[index].observedAt = [groups[index].observedAt, price.observedAt].compactMap { $0 }.max()
+                groups[index].observedAt = [groups[index].observedAt, observedAt].compactMap { $0 }.max()
             } else {
                 let differs = operatorName != nil && operatorName?.caseInsensitiveCompare(stationOperator ?? "") != .orderedSame
                 groups.append(PriceGroup(operatorName: operatorName, showsOperator: differs, plugs: plugs, count: 1,
-                                         price: price, observedAt: price.observedAt))
+                                         prices: prices, observedAt: observedAt))
             }
         }
         return groups
     }
 
     /// Charge points without a known price, said next to the groups so the list does not read as complete.
-    var unpricedCount: Int { chargePoints.filter { $0.price == nil }.count }
+    var unpricedCount: Int { chargePoints.filter { $0.prices.isEmpty }.count }
 }
 
-/// Charge points that share operator, plugs and price.
+/// Charge points that share operator, plugs and prices.
 struct PriceGroup: Hashable, Identifiable {
     let operatorName: String?
     /// Only where the operator differs from the station's; otherwise the header already names it.
@@ -168,10 +241,14 @@ struct PriceGroup: Hashable, Identifiable {
     /// "CCS · 150 kW", the plugs of one of the charge points.
     let plugs: String
     var count: Int
-    let price: AdHocPrice
+    /// Usually one; several where they differ by payment means, each then labelled.
+    let prices: [AdHocPrice]
     var observedAt: Date?
 
-    var id: String { "\(operatorName ?? "")|\(plugs)|\(price.amounts.hashValue)" }
+    var id: String { "\(operatorName ?? "")|\(plugs)|\(prices.map(\.amounts).hashValue)" }
+
+    /// Whether any of the prices lists fees that are not shown.
+    var furtherFees: Bool { prices.contains(where: \.furtherFees) }
 
     static func plugs(of connectors: [Connector]) -> String {
         connectors
@@ -197,6 +274,10 @@ enum PriceFormatter {
         if let energy = price.energyPerKwh {
             parts.append(String(format: String(localized: "price.perKwh"), amount(energy, currency: price.currency, locale: locale)))
         }
+        for energy in price.energyWindows {
+            let perKwh = String(format: String(localized: "price.perKwh"), amount(energy.perKwh, currency: price.currency, locale: locale))
+            parts.append(withWindow(perKwh, energy.window, locale: locale))
+        }
         if let session = price.sessionFee {
             parts.append(String(format: String(localized: "price.sessionFee"), amount(session, currency: price.currency, locale: locale)))
         }
@@ -207,15 +288,83 @@ enum PriceFormatter {
     }
 
     static func timeFee(_ fee: AdHocPrice.TimeFee, currency: String, locale: Locale = .current) -> String {
-        switch (fee.fromMinute, fee.perMinute) {
-        case (0, let perMinute?):
+        var text = switch (fee.fromMinute, fee.toMinute, fee.perMinute) {
+        case (let from, let to?, let perMinute?):
+            String(format: String(localized: "price.perMinuteRange"), from, to, amount(perMinute, currency: currency, locale: locale))
+        case (let from, let to?, nil):
+            String(format: String(localized: "price.timeBasedRange"), from, to)
+        case (0, nil, let perMinute?):
             String(format: String(localized: "price.perMinute"), amount(perMinute, currency: currency, locale: locale))
-        case (let minute, let perMinute?):
+        case (let minute, nil, let perMinute?):
             String(format: String(localized: "price.perMinuteFrom"), minute, amount(perMinute, currency: currency, locale: locale))
-        case (0, nil):
+        case (0, nil, nil):
             String(localized: "price.timeBased")
-        case (let minute, nil):
+        case (let minute, nil, nil):
             String(format: String(localized: "price.timeBasedFrom"), minute)
+        }
+        if let cap = fee.cap {
+            text += ", " + String(format: String(localized: "price.cap"), amount(cap, currency: currency, locale: locale))
+        }
+        return fee.window.map { withWindow(text, $0, locale: locale) } ?? text
+    }
+
+    /// "0,10 €/min (Mo–Sa 08:00–20:00)".
+    static func withWindow(_ text: String, _ window: AdHocPrice.TimeWindow, locale: Locale = .current) -> String {
+        "\(text) (\(self.window(window, locale: locale)))"
+    }
+
+    /// "Mo–Sa 08:00–20:00", "22:00–08:00".
+    static func window(_ window: AdHocPrice.TimeWindow, locale: Locale = .current) -> String {
+        let times = "\(window.from)–\(window.to)"
+        let days = days(window.days, locale: locale)
+        return days.isEmpty ? times : "\(days) \(times)"
+    }
+
+    private static let week = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+    /// Weekdays in the locale's short form, runs of three or more joined: "Mo–Fr", "Sa, So".
+    static func days(_ days: [String], locale: Locale = .current) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = locale
+        // Calendar counts from Sunday; the feeds' week starts on Monday.
+        let symbols = calendar.shortStandaloneWeekdaySymbols
+        let indices = Set(days.compactMap { week.firstIndex(of: $0.lowercased()) }).sorted()
+        func symbol(_ index: Int) -> String { symbols[(index + 1) % 7] }
+        var runs: [[Int]] = []
+        for index in indices {
+            if let last = runs.last?.last, last + 1 == index { runs[runs.count - 1].append(index) } else { runs.append([index]) }
+        }
+        return runs.flatMap { run -> [String] in
+            run.count >= 3 ? ["\(symbol(run[0]))–\(symbol(run[run.count - 1]))"] : run.map(symbol)
+        }.joined(separator: ", ")
+    }
+
+    /// How the price at `index` of a charge point's prices is paid: "QR-Code / App", or "Tarif 2" where the operator
+    /// names nothing the app knows. Never a raw token.
+    static func paymentLabel(of price: AdHocPrice, index: Int) -> String {
+        let labels = price.paymentMeans.compactMap(paymentMeans)
+        let unique = labels.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+        return unique.isEmpty ? String(format: String(localized: "price.rateNumber"), index + 1) : unique.joined(separator: " / ")
+    }
+
+    private static func paymentMeans(_ token: String) -> String? {
+        switch token {
+        case "qrCode": String(localized: "price.payment.qrCode")
+        case "emv": String(localized: "price.payment.emv")
+        case "nfc": String(localized: "price.payment.nfc")
+        case "website": String(localized: "price.payment.website")
+        case "mobileAccount": String(localized: "price.payment.mobileAccount")
+        case "paymentCreditCard": String(localized: "price.payment.creditCard")
+        case "paymentDebitCard": String(localized: "price.payment.debitCard")
+        default: nil
+        }
+    }
+
+    /// The lines of a group: one price as its parts; several, each led by how it is paid.
+    static func lines(of prices: [AdHocPrice], locale: Locale = .current) -> [String] {
+        if prices.count == 1 { return [parts(of: prices[0], locale: locale).joined(separator: " · ")] }
+        return prices.enumerated().map { index, price in
+            "\(paymentLabel(of: price, index: index)): " + parts(of: price, locale: locale).joined(separator: " · ")
         }
     }
 

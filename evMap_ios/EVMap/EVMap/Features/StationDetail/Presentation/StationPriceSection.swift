@@ -2,8 +2,8 @@ import SwiftUI
 
 /// The ad-hoc price of a station's charge points (ADR 0022): what charging costs without a charging card.
 ///
-/// One row per group of charge points with the same operator, plugs and price, so twelve identical posts are
-/// one line. Shown only when at least one charge point has a price — the backend sends one only where it is
+/// One row per group of charge points with the same operator, plugs and prices, so twelve identical posts are
+/// one row; a charge point with several prices (one per payment means) shows each on its own line. Shown only when at least one charge point has a price — the backend sends one only where it is
 /// certain, and a section that only ever says "unknown" would read as broken.
 ///
 /// Every price is credited and dated: it is what the operator states, it changes, and the live sources'
@@ -18,12 +18,14 @@ struct StationPriceSection: View {
         Section {
             ForEach(groups) { group in
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(PriceFormatter.parts(of: group.price).joined(separator: " · "))
-                        .font(.headline)
+                    ForEach(PriceFormatter.lines(of: group.prices), id: \.self) { line in
+                        Text(line)
+                            .font(.headline)
+                    }
                     Text(details(of: group))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    if group.price.furtherFees {
+                    if group.furtherFees {
                         Label("price.furtherFees", systemImage: "info.circle")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
@@ -64,7 +66,7 @@ struct StationPriceSection: View {
     @ViewBuilder
     private func credits(_ groups: [PriceGroup]) -> some View {
         let live = Set(prices.sources.map(\.name))
-        let registers = Array(Set(groups.compactMap(\.price.source).filter { !live.contains($0) })).sorted()
+        let registers = Array(Set(groups.flatMap(\.prices).compactMap(\.source).filter { !live.contains($0) })).sorted()
         ForEach(prices.sources, id: \.self) { source in
             let text = String(format: String(localized: "price.source"),
                               source.licence.map { String(format: String(localized: "station.live.source.licence"), source.name, $0) } ?? source.name)

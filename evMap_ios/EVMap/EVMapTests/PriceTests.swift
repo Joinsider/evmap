@@ -102,6 +102,95 @@ struct PriceTests {
         #expect(PriceFormatter.parts(of: AdHocPrice(free: true)) == [String(localized: "price.free")])
     }
 
+    @Test("decodes several prices with windows, ends, caps and payment means, and prefers them over the single price")
+    func decodesPriceDetails() throws {
+        let prices = try decode(StationChargePoints.self, """
+        {"stationId": "\(stationID.uuidString)", "chargePoints": [
+           {"id": "\(UUID().uuidString)", "connectors": [], "prices": [
+             {"currency": "EUR", "energyPerKwh": 0.5, "paymentMeans": ["qrCode"],
+              "timeFees": [{"fromMinute": 240, "toMinute": 390, "perMinute": 0.1, "cap": 12,
+                            "window": {"from": "08:00", "to": "20:00", "days": ["monday"]}}],
+              "free": false, "furtherFees": false, "source": "Grid & Co. GmbH via Mobilithek"},
+             {"currency": "EUR", "energyWindows": [{"perKwh": 0.59, "window": {"from": "22:00", "to": "08:00"}}],
+              "timeFees": [], "free": false, "furtherFees": false, "paymentMeans": ["emv"]}]},
+           {"id": "\(UUID().uuidString)", "connectors": [], "price": {"energyPerKwh": 0.49},
+            "prices": [{"energyPerKwh": 0.49}]},
+           {"id": "\(UUID().uuidString)", "connectors": [], "price": {"energyPerKwh": 0.39}},
+           {"id": "\(UUID().uuidString)", "connectors": [], "prices": [{"energyPerKwh": "not a number"}]}]}
+        """)
+
+        let several = prices.chargePoints[0]
+        #expect(several.prices.count == 2)
+        #expect(several.price == nil)
+        #expect(several.prices[0].timeFees == [.init(fromMinute: 240, toMinute: 390, perMinute: Decimal(string: "0.1"),
+                                                     cap: 12, window: .init(from: "08:00", to: "20:00", days: ["monday"]))])
+        #expect(several.prices[0].paymentMeans == ["qrCode"])
+        #expect(several.prices[1].energyWindows == [.init(perKwh: Decimal(string: "0.59")!, window: .init(from: "22:00", to: "08:00"))])
+        #expect(prices.chargePoints[1].prices.count == 1)
+        // An older backend sends only the single price.
+        #expect(prices.chargePoints[2].price?.energyPerKwh == Decimal(string: "0.39"))
+        #expect(prices.chargePoints[3].prices.isEmpty)
+        #expect(prices.unpricedCount == 1)
+    }
+
+    @Test("writes ends, caps, windows and weekdays as delivered")
+    func formatsLimits() {
+        let window = AdHocPrice.TimeWindow(from: "08:00", to: "20:00", days: ["monday", "tuesday", "wednesday", "thursday", "friday", "sunday"])
+        let price = AdHocPrice(energyWindows: [.init(perKwh: Decimal(string: "0.49")!, window: .init(from: "08:00", to: "22:00"))],
+                               timeFees: [.init(fromMinute: 240, toMinute: 390, perMinute: Decimal(string: "0.1"), cap: 15, window: window),
+                                          .init(fromMinute: 45, toMinute: 90, perMinute: nil)])
+
+        let parts = PriceFormatter.parts(of: price, locale: Self.german)
+
+        #expect(parts.count == 3)
+        #expect(parts[0].contains("0,49"))
+        #expect(parts[0].hasSuffix("(08:00–22:00)"))
+        #expect(parts[1].contains("240–390"))
+        #expect(parts[1].contains("0,10"))
+        #expect(parts[1].contains("15,00"))
+        #expect(parts[1].hasSuffix("08:00–20:00)"))
+        #expect(parts[2].contains("45–90"))
+        #expect(PriceFormatter.days(["saturday", "monday", "tuesday"], locale: Self.german) == "Mo, Di, Sa")
+        #expect(PriceFormatter.days(["monday", "tuesday", "wednesday", "sunday"], locale: Self.german) == "Mo–Mi, So")
+        #expect(PriceFormatter.days([], locale: Self.german).isEmpty)
+    }
+
+    @Test("several prices of a charge point are each led by how they are paid, never by a raw token")
+    func labelsPaymentMeans() {
+        let qr = AdHocPrice(energyPerKwh: 0.5, paymentMeans: ["qrCode", "mobileAccount"])
+        let unknown = AdHocPrice(energyPerKwh: Decimal(string: "0.5355"), paymentMeans: ["somethingNew"])
+
+        let lines = PriceFormatter.lines(of: [qr, unknown], locale: Self.german)
+
+        #expect(lines.count == 2)
+        #expect(lines[0].hasPrefix(String(localized: "price.payment.qrCode") + " / " + String(localized: "price.payment.mobileAccount") + ": "))
+        #expect(lines[1].hasPrefix(String(format: String(localized: "price.rateNumber"), 2) + ": "))
+        #expect(!lines[1].contains("somethingNew"))
+        #expect(PriceFormatter.lines(of: [qr], locale: Self.german) == [PriceFormatter.parts(of: qr, locale: Self.german).joined(separator: " · ")])
+    }
+
+    @Test("charge points with the same several prices form one group; free means every price is free")
+    func groupsSeveralPrices() {
+        let qr = AdHocPrice(energyPerKwh: 0.5, paymentMeans: ["qrCode"])
+        let card = AdHocPrice(energyPerKwh: 0.59, furtherFees: true, paymentMeans: ["emv"])
+        let prices = StationChargePoints(stationID: stationID, cheapestEnergyPerKwh: 0.5, currency: "EUR", chargePoints: [
+            .init(operatorName: nil, connectors: [], prices: [qr, card]),
+            .init(operatorName: nil, connectors: [], prices: [qr, card]),
+            .init(operatorName: nil, connectors: [], prices: [qr])
+        ])
+
+        let groups = prices.priceGroups(stationOperator: nil)
+
+        #expect(groups.count == 2)
+        #expect(groups[0].count == 2)
+        #expect(groups[0].furtherFees)
+        #expect(!groups[1].furtherFees)
+        #expect(!prices.isFree)
+        let free = StationChargePoints(stationID: stationID, cheapestEnergyPerKwh: nil, currency: nil, chargePoints: [
+            .init(operatorName: nil, connectors: [], prices: [AdHocPrice(free: true), AdHocPrice(free: true)])])
+        #expect(free.isFree)
+    }
+
     @Test("the from price names the cheapest energy price, or free")
     func fromPrice() throws {
         let priced = StationChargePoints(stationID: stationID, cheapestEnergyPerKwh: Decimal(string: "0.49"), currency: "EUR",
