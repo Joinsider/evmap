@@ -1165,6 +1165,12 @@
         <target>The source of every charging station is shown in its details. EVMap uses data from:</target>
       </segment>
     </unit>
+    <unit id="imprint.source.mobilithek">
+      <segment>
+        <source>Deutschland: AFIR-Daten der Ladepunktbetreiber über die Mobilithek (mobilithek.info), je Betreiber unter dessen Lizenz, überwiegend CC BY 4.0: EnBW mobility+, Tesla, EWE Go, Wirelane, Qwello, LichtBlick eMobility, SMATRICS, GP JOULE Connect, Volkswagen Group Charging, Audi, 800 Volt Technologies, ENIO, ELU Mobility, ladenetz.de, ladebusiness, EW Pricing, Grid &amp; Co., Road, Ampeco (EDRI), Monta, chargecloud, vaylens, eRound, e-clearing.net</source>
+        <target>Germany: AFIR data of the charge point operators via the Mobilithek (mobilithek.info), each under its operator’s licence, mostly CC BY 4.0: EnBW mobility+, Tesla, EWE Go, Wirelane, Qwello, LichtBlick eMobility, SMATRICS, GP JOULE Connect, Volkswagen Group Charging, Audi, 800 Volt Technologies, ENIO, ELU Mobility, ladenetz.de, ladebusiness, EW Pricing, Grid &amp; Co., Road, Ampeco (EDRI), Monta, chargecloud, vaylens, eRound, e-clearing.net</target>
+      </segment>
+    </unit>
     <unit id="imprint.source.bnetza">
       <segment>
         <source>Deutschland: Ladesäulenregister der Bundesnetzagentur (Bundesnetzagentur.de), CC BY 4.0</source>
@@ -1365,8 +1371,8 @@
     </unit>
     <unit id="privacy.liveBody">
       <segment>
-        <source>Belegung und Preise fragt unser Server bei MobiData BW (Land Baden-Württemberg) und bei transport.data.gouv.fr (Frankreich) ab. Diese Dienste erhalten von uns höchstens einen Kartenausschnitt, nie deine IP-Adresse, eine Kennung oder Kontodaten.</source>
-        <target>Our server fetches availability and prices from MobiData BW (State of Baden-Württemberg) and from transport.data.gouv.fr (France). These services receive at most a map area from us, never your IP address, an identifier or account data.</target>
+        <source>Belegung und Preise fragt unser Server bei MobiData BW (Land Baden-Württemberg), bei der Mobilithek (Bundesministerium für Verkehr) und bei transport.data.gouv.fr (Frankreich) ab. Diese Dienste erhalten von uns höchstens einen Kartenausschnitt, nie deine IP-Adresse, eine Kennung oder Kontodaten.</source>
+        <target>Our server fetches availability and prices from MobiData BW (State of Baden-Württemberg), from the Mobilithek (Federal Ministry for Transport) and from transport.data.gouv.fr (France). These services receive at most a map area from us, never your IP address, an identifier or account data.</target>
       </segment>
     </unit>
     <unit id="privacy.maps">

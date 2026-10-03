@@ -26,7 +26,7 @@ class SourceAdapterRegistrationTests {
     @Configuration
     @ComponentScan(basePackages = {"de.joinside.evmap_service.sync.bnetza", "de.joinside.evmap_service.sync.ch",
             "de.joinside.evmap_service.sync.es", "de.joinside.evmap_service.sync.irve",
-            "de.joinside.evmap_service.sync.ocm"})
+            "de.joinside.evmap_service.sync.mobilithek", "de.joinside.evmap_service.sync.ocm"})
     @EnableConfigurationProperties(SourceAuthority.class)
     static class AdaptersOnly {
         @Bean
@@ -65,7 +65,8 @@ class SourceAdapterRegistrationTests {
             assertThat(context.getBeansOfType(SourceAdapter.class).values())
                     .extracting(adapter -> adapter.getClass().getSimpleName())
                     .containsExactlyInAnyOrder("BnetzaCsvSourceAdapter", "DiemoSourceAdapter",
-                            "IrveCsvSourceAdapter", "MiterdSourceAdapter", "OpenChargeMapSourceAdapter");
+                            "IrveCsvSourceAdapter", "MiterdSourceAdapter", "MobilithekSourceAdapter",
+                            "OpenChargeMapSourceAdapter");
         });
     }
 
@@ -78,7 +79,7 @@ class SourceAdapterRegistrationTests {
                     .extracting(SourceAdapter::source)
                     // Two adapters sharing a token would silently overwrite each other's stations and
                     // each other's incremental watermarks.
-                    .containsExactlyInAnyOrder("BNetzA", "DIEMO", "IRVE", "MITERD", "OCM")
+                    .containsExactlyInAnyOrder("BNetzA", "DIEMO", "IRVE", "MITERD", "MOBILITHEK", "OCM")
                     // master.charging_station_source.source is VARCHAR(32).
                     .allSatisfy(source -> assertThat(source).isNotBlank().hasSizeLessThanOrEqualTo(32));
         });
@@ -96,10 +97,15 @@ class SourceAdapterRegistrationTests {
                             .map(SourceAdapter::source).toList();
                     SourceAuthority authority = context.getBean(SourceAuthority.class);
 
-                    assertThat(authority.authority()).containsEntry("DE", "BNetzA").containsEntry("FR", "IRVE")
+                    assertThat(authority.authority()).containsEntry("DE", "MOBILITHEK").containsEntry("FR", "IRVE")
                             .containsEntry("CH", "DIEMO").containsEntry("ES", "MITERD");
                     assertThat(authority.authority().values()).isNotEmpty().allSatisfy(source ->
                             assertThat(registered).contains(source));
+                    // The superseding sources and the register the Mobilithek links to are tokens too (ADR 0025).
+                    assertThat(context.getEnvironment().getProperty("evmap.sync.supersede", String[].class))
+                            .isNotEmpty().allSatisfy(source -> assertThat(registered).contains(source.trim()));
+                    assertThat(registered).contains(context.getEnvironment()
+                            .getProperty("evmap.sync.mobilithek.register-source"));
                 });
     }
 

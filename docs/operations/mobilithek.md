@@ -1,6 +1,6 @@
-# Mobilithek live data (Germany)
+# Mobilithek: live data and master data (Germany)
 
-Operator runbook for gap filler L5 ([ADR 0015, "Mobilithek (L5)"](../adr/0015-live-availability-national-access-points-with-tomtom-fallback.md#mobilithek-l5-2026-10-02)).
+Operator runbook for gap filler L5 (live status) and L6 (master data, section 6) ([ADR 0015, "Mobilithek (L5)"](../adr/0015-live-availability-national-access-points-with-tomtom-fallback.md#mobilithek-l5-2026-10-02)).
 The API container pulls the operators' AFIR dynamic feeds from the Mobilithek broker once a minute and shows their
 live status wherever the EVSE-ID matches a charge point exactly. Without a machine certificate, or without
 subscription ids, the provider is off and Germany is answered by MobiData BW alone — nothing breaks.
@@ -47,7 +47,8 @@ MOBILITHEK_KEYSTORE=MIIK…
 MOBILITHEK_KEYSTORE_PASSWORD=…
 ```
 
-Then `docker compose -f deploy/docker-compose.yml up -d api`. For local runs `MOBILITHEK_KEYSTORE_PATH` may point at
+Then `docker compose -f deploy/docker-compose.yml up -d api sync` — the sync container reads the static feeds with the
+same certificate (section 6). For local runs `MOBILITHEK_KEYSTORE_PATH` may point at
 the file instead.
 
 ## 4. Check it works
@@ -75,3 +76,29 @@ Then open a German station of a subscribed operator in the app: the live section
 
 Before the certificate expires, request a new one (step 1), replace `MOBILITHEK_KEYSTORE` and
 `MOBILITHEK_KEYSTORE_PASSWORD`, restart `api`. The subscriptions stay.
+
+## 6. Master data from the static feeds (L6)
+
+Since L6 ([ADR 0025](../adr/0025-mobilithek-as-germanys-master-data-source.md)) the **sync** container reads the
+operators' static AFIR feeds once per run and is the authority for German stations (`evmap.sync.authority`,
+`DE: MOBILITHEK`); the BNetzA register keeps running as the fallback. The feeds are a table in
+`evmap_service/src/main/resources/application-sync.yaml` (`evmap.sync.mobilithek.feeds`), checked by
+`ShippedMobilithekSyncFeedsTests`. A new static offering: subscribe (👤 or Claude in the portal, with the owner's
+consent to the licence), add `key`, `subscription-id` and `publisher` in reading order — operators' own feeds before
+platforms that relay them — and release. Never change a `key`: it is part of every station id the feed produced.
+
+The sync log of a run, per feed:
+
+- `Mobilithek feed enbw: 5302 station(s) with 11505 charge point(s), 5255 linked to the register; skipped 0 foreign,
+  0 without position, 0 charge point(s) relayed by an earlier feed; 0 charge point(s) without EVSE-ID`
+- `Mobilithek feed eliso answered HTTP 422 — skipping it this run` — not delivered to us (eliso: not brokered; the
+  five offerings awaiting approval answer 404). The feed's stations stay as earlier runs left them.
+- `Source MOBILITHEK supersedes N station(s)` — register entries hidden as duplicates of a Mobilithek station
+  (all their EVSE-IDs come from the Mobilithek, or they have none and lie within 30 m). They stay in the database and
+  reachable by id; the map, the route corridor and the operator directory skip them.
+
+A feed that cannot be read or parsed fails the MOBILITHEK source for that run (`master.sync_run`, `PARTIAL`); the
+other sources run normally. Without `MOBILITHEK_KEYSTORE` in the sync container the source skips itself with a
+warning and Germany stays as the register left it. To switch the master data back to the register alone, set
+`MOBILITHEK_SYNC_ENABLED=false` **and** change the authority back to `DE: BNetzA` — the switch alone leaves the
+stations the Mobilithek has claimed frozen.

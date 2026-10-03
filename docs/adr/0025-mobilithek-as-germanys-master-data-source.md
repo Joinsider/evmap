@@ -96,21 +96,26 @@ source within 30 m — two AFIR stations of one site, which share coordinates �
 points on every run, the problem Switzerland and Spain solved by clustering. This changes nothing for sources whose
 records never lie within 30 m of each other, and fixes the overwrite for the ones whose do.
 
-### The register's operator name stays
+### The register's labels stay
 
-A source can declare that its operator names do not replace existing ones (`SourceStation.namesOperator = false`).
-The Mobilithek does: a station it takes over keeps the register's operator name, which the operator directory and
-every user's provider preferences are keyed by (ADR 0014); a station it creates gets the feed's `legalName`, then
-`name`, then the feed's publisher. (Owner, 2026-10-03.)
+A source can declare that its labels do not replace existing ones (`SourceStation.namesStation = false`). The
+Mobilithek does: a station it takes over keeps the register's operator name, which the operator directory and every
+user's provider preferences are keyed by (ADR 0014) — owner, 2026-10-03. The display name follows the same rule,
+because the feeds' names are no better: EWE names every station by a code (`000501`), LichtBlick 2.765 of 3.001
+(`ENE_SN0000325`), eRound about half, EnBW and vaylens none at all. A station only the Mobilithek describes gets the
+feed's labels: the operator's `legalName`, then `name`, then the feed's publisher — never an operator id (`DE*EWE`,
+`DESTA`) and never the station's own name, which VW Group Charging writes into `legalName` for all 4.651 stations; the
+station's or site's name where it contains a lowercase word, otherwise the operator, as the register falls back.
 
 ### Duplicates are hidden, not deleted
 
 After every run, for each source in `evmap.sync.supersede` (today `MOBILITHEK`), a station the source does **not**
-maintain is marked `master.charging_station.superseded_by` = the nearest station it **does** maintain within 30 m
-in the same country, when
+maintain, in a country where it maintains stations, is marked `master.charging_station.superseded_by` when
 
-- all of its EVSE-IDs are on stations of that source (proven), or
-- it has no EVSE-ID at all (the same 30 m rule the ingestion already uses to say "same place").
+- all of its EVSE-IDs are on stations of that source (proven) — then by the one holding most of them, at any
+  distance: the evidence is exact, and 630 of the 2.417 proven duplicates lie more than 30 m away; or
+- it has no EVSE-ID at all and lies within 30 m of a station of that source (the same rule the ingestion already uses
+  to say "same place") — then by the nearest.
 
 A station with an EVSE-ID the source does not know is never hidden. The mark is recomputed every run, so a station
 comes back when the reason goes away. Map, route corridor and operator directory skip superseded stations; a
@@ -135,6 +140,26 @@ The static feeds carry ad-hoc prices — explicit gross (eRound, Monta, EDRI, GP
 (EnBW, PUMP), or no VAT statement (chargecloud) — mixed with per-minute and blocking fees. They are read in a separate
 step under ADR 0022 **directly after this one** (owner, 2026-10-03), after analysing the per-minute components per
 feed. Until then the adapter emits no prices.
+
+## Implementation (2026-10-03)
+
+- `sync.mobilithek`: `MobilithekSourceAdapter` (reads each feed's latest snapshot, spooled to a temporary file),
+  `AfirSiteReader` (one site at a time; XML turned into the same tree as JSON), `AfirSiteMapper` (tolerant accessors,
+  links, labels, EVSE-IDs, connectors), `MobilithekSyncProperties` (31 feeds in `application-sync.yaml`).
+- A feed the broker has nothing for (204), does not deliver to us (403/404/422) is skipped with a warning; a feed that
+  cannot be read or parsed fails the source's run (ADR 0013 contains it). Reading on would let a platform feed emit
+  the charge points the broken operator feed relays as stations of its own.
+- `ConnectorTypes.fromDatex` maps the DATEX connector enumeration for Spain and the Mobilithek alike (moved out of
+  `sync.es`). Power below 1 kW is unknown — VW Group Charging writes 0 W for every charge point.
+- Ingestion: `SourceStation.links` and `namesStation`; resolution by own id, link, shared EVSE-ID, position, none of
+  them matching a station the record's own source maintains; `StationIngestionPort.supersedeDuplicates`, called by
+  `SyncJob` after all sources for the sources in `evmap.sync.supersede`; migration 012 adds `superseded_by`.
+- API: viewport, route corridor and operator directory skip superseded stations (`StationSpatialRepository
+  .NOT_SUPERSEDED`); a station's page still loads by id.
+- Checked against every real package of 2026-10-03: 67.312 stations, 128.954 charge points (128.810 with EVSE-ID),
+  18.027 stations linked by register id; the largest package (eRound, 121 MB) parses in 0,6 s.
+- Website: the data sources page credits every publisher; the privacy page now names the Mobilithek (missing since
+  L5).
 
 ## Consequences
 

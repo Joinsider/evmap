@@ -2,6 +2,9 @@ package de.joinside.evmap_service.sync;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Canonical connector vocabulary written into {@code master.charging_connector.connector_type}.
@@ -29,6 +32,18 @@ public final class ConnectorTypes {
      * plug, so it is stored for completeness and simply never offered as a filter.
      */
     public static final String MCS = "MCS";
+
+    /** DATEX II v3 {@code ConnectorTypeEnum} values, which name a plug rather than describe it. */
+    private static final Map<String, String> DATEX_TYPES = Map.of(
+            "iec62196T2", TYPE_2,
+            "iec62196T2COMBO", CCS,
+            "iec62196T1COMBO", CCS,
+            "iec62196T1", TYPE_1,
+            "chademo", CHADEMO,
+            "domesticF", SCHUKO,
+            "iec62196T3A", "Type 3A",
+            "iec62196T3C", "Type 3C");
+    private static final Pattern DATEX_DOMESTIC_SOCKET = Pattern.compile("domestic([A-Z])");
 
     /** Width of {@code master.charging_connector.connector_type}; unmapped labels are kept but clipped. */
     private static final int MAX_LENGTH = 64;
@@ -63,6 +78,22 @@ public final class ConnectorTypes {
     }
 
     private ConnectorTypes() {
+    }
+
+    /**
+     * Maps a DATEX II v3 connector type onto the canonical vocabulary — the Spanish register and the Mobilithek's
+     * AFIR feeds both publish these enumerations rather than labels. The domestic sockets other than Schuko
+     * ({@code domesticE}, {@code domesticA}, …) and the Scame types get a readable label and stay unfilterable, the
+     * intended degradation; anything else goes through {@link #normalize(String)}.
+     */
+    public static String fromDatex(String datexType) {
+        if (datexType == null) return null;
+        String mapped = DATEX_TYPES.get(datexType);
+        if (mapped != null) return mapped;
+        if (datexType.startsWith("iec60309")) return CEE;
+        Matcher domestic = DATEX_DOMESTIC_SOCKET.matcher(datexType);
+        if (domestic.matches()) return "Type " + domestic.group(1);
+        return normalize(datexType);
     }
 
     /**

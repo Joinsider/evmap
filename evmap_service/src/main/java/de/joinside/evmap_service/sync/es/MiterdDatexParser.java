@@ -27,7 +27,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -100,18 +99,7 @@ final class MiterdDatexParser {
 
     /** {@code ES*<operator>*E<id>}; the register also writes {@code ES*CAS*P3} and free text with spaces. */
     private static final Pattern EVSE_ID = Pattern.compile("ES\\*[A-Z0-9]{3}\\*E[A-Z0-9*_-]+", Pattern.CASE_INSENSITIVE);
-    private static final Pattern DOMESTIC_SOCKET = Pattern.compile("domestic([A-Z])");
     private static final Pattern DIACRITICS = Pattern.compile("\\p{M}+");
-
-    private static final Map<String, String> CONNECTOR_TYPES = Map.of(
-            "iec62196T2", ConnectorTypes.TYPE_2,
-            "iec62196T2COMBO", ConnectorTypes.CCS,
-            "iec62196T1COMBO", ConnectorTypes.CCS,
-            "iec62196T1", ConnectorTypes.TYPE_1,
-            "chademo", ConnectorTypes.CHADEMO,
-            "domesticF", ConnectorTypes.SCHUKO,
-            "iec62196T3A", "Type 3A",
-            "iec62196T3C", "Type 3C");
 
     private MiterdDatexParser() {
     }
@@ -509,7 +497,7 @@ final class MiterdDatexParser {
     private static List<SourceStation.SourceConnector> connectors(RawPoint point, Counters counters) {
         Map<Plug, Integer> merged = new LinkedHashMap<>();
         for (RawConnector connector : point.connectors) {
-            String type = connectorType(connector.type);
+            String type = ConnectorTypes.fromDatex(connector.type);
             if (type == null) continue;
             merged.merge(new Plug(type, powerKw(connector.watts, counters)), 1, Integer::sum);
         }
@@ -517,21 +505,6 @@ final class MiterdDatexParser {
         merged.forEach((plug, quantity) ->
                 connectors.add(new SourceStation.SourceConnector(plug.type(), plug.powerKw(), quantity)));
         return connectors;
-    }
-
-    /**
-     * DATEX enumerations rather than labels, so they are mapped explicitly. The domestic sockets other
-     * than Schuko ({@code domesticE}, {@code domesticA}, {@code domesticL}: seven in all) and the Scame
-     * types get a readable label and stay unfilterable, the intended degradation.
-     */
-    private static String connectorType(String raw) {
-        if (raw == null) return null;
-        String mapped = CONNECTOR_TYPES.get(raw);
-        if (mapped != null) return mapped;
-        if (raw.startsWith("iec60309")) return ConnectorTypes.CEE;
-        Matcher domestic = DOMESTIC_SOCKET.matcher(raw);
-        if (domestic.matches()) return "Type " + domestic.group(1);
-        return ConnectorTypes.normalize(raw);
     }
 
     /**

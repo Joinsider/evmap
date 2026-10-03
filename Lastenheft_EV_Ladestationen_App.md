@@ -51,12 +51,13 @@ Die App soll reisenden und privaten E-Auto-Fahrern in Europa eine kartenbasierte
 ### Quellen
 | Quelle | Abdeckung | Lizenz | Format |
 |---|---|---|---|
-| Bundesnetzagentur Ladesäulenregister | Deutschland | CC BY 4.0 | JSON/CSV, tägliches Bulk-Update |
+| Mobilithek (AFIR-Daten der Ladepunktbetreiber, statisch) | Deutschland, maßgeblich seit 2026-10-03 (ADR 0025) | je Betreiber, überwiegend CC BY 4.0 | DATEX II v3 (JSON/XML), täglicher Abruf per mTLS |
+| Bundesnetzagentur Ladesäulenregister | Deutschland, Rückfall für Stationen ohne Mobilithek-Daten | CC BY 4.0 | JSON/CSV, tägliches Bulk-Update |
 | Open Charge Map | International/EU | CC BY 4.0 (Community-Daten), API-Key Pflicht | JSON REST API |
 
 ### Merge-Strategie
 - **Deduplizierung:** Geo-Distanz-Matching (Radius ca. 15-30m) kombiniert mit Adress-Fuzzy-Match, da keine gemeinsame ID über Quellen existiert
-- **Feldpriorität:** BNetzA als "amtliche" Quelle für Adresse/Betreiber/Leistung bei deutschen Standorten; Open Charge Map für internationale Standorte und community-gepflegte Zusatzinfos
+- **Feldpriorität:** BNetzA als "amtliche" Quelle für Adresse/Betreiber/Leistung bei deutschen Standorten; Open Charge Map für internationale Standorte und community-gepflegte Zusatzinfos. *Geändert 2026-10-03 (ADR 0025):* Für Deutschland ist die Mobilithek maßgeblich (Ladepunkte, EVSE-IDs, Adresse, Lage); Anzeigename und Betreibername verknüpfter Stationen bleiben die des Registers, das Register bleibt Rückfall für alle Stationen ohne Mobilithek-Daten. Verknüpft wird zuerst exakt (Register-ID im Feed, gemeinsame EVSE-ID), erst dann über die Entfernung; Registereinträge, die eine Mobilithek-Station ersetzt, werden ausgeblendet statt gelöscht.
 - **Konfliktauflösung:** Pro Feld wird `source` und `lastUpdated` gespeichert; bei Widerspruch gewinnt die aktuellere Quelle, BNetzA als Tie-Breaker für DE-Standorte
 - **Nutzerdaten getrennt:** Kommentare/Preisangaben werden als eigene Entität verknüpft, nicht in Stammdaten geschrieben (Nutzen Nutzer-ID aus interner DB-Tabelle als Identifikation) Aber keine Namensnennung in der App für andere Nutzer
 - **Provenienz-Transparenz:** Datenquelle pro Ladepunkt in der App sichtbar (Pflicht zur Namensnennung), ggf. beide / mehrere wenn mehrere Daten kombiniert werden dann aber auch mit Label, „Kombination mehrerer Datenquellen: "
