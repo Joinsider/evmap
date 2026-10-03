@@ -212,22 +212,49 @@ export interface StationAvailability {
   sources: DataSource[];
 }
 
+/** A recurring period of the week in local time, as the operator writes it (ADR 0022, L6p). */
+export interface TimeWindow {
+  /** "08:00". */
+  from: string;
+  /** "20:00", "24:00" for midnight at its end; earlier than `from` when it runs past midnight. */
+  to: string;
+  /** "monday" … "sunday"; empty or absent for every day. */
+  days?: string[];
+}
+
 export interface TimeFee {
   /** 0 for the whole session. */
   fromMinute: number;
+  /** The minute from which the fee no longer applies; absent for the rest of the session. */
+  toMinute?: number;
   /** Absent when a time-based fee applies but its amount is not certain. */
   perMinute?: number;
+  /** The most the fee comes to in one session. */
+  cap?: number;
+  /** When the fee applies; absent for always. */
+  window?: TimeWindow;
+}
+
+/** An energy price that applies only within `window`. */
+export interface EnergyWindow {
+  perKwh: number;
+  window: TimeWindow;
 }
 
 /** What charging costs without a charging card (ADR 0022). Gross; an absent amount means "not published", never "free". */
 export interface AdHocPrice {
   currency: string;
+  /** The price per kWh when it is the same at every hour. */
   energyPerKwh?: number;
+  /** Prices per kWh by time of day, when they differ (then `energyPerKwh` is absent). */
+  energyWindows?: EnergyWindow[];
   sessionFee?: number;
   timeFees: TimeFee[];
   free: boolean;
   furtherFees: boolean;
   observedAt?: string;
+  /** How this price is paid ("qrCode", "emv", …), where a charge point has several prices that differ by it. */
+  paymentMeans?: string[];
   source?: string;
 }
 
@@ -236,7 +263,10 @@ export interface StationChargePoint {
   evseId?: string;
   operatorName?: string;
   connectors: Connector[];
+  /** The one price in the shape before L6p; absent where there are several or it has limits an old client drops. */
   price?: AdHocPrice;
+  /** Every price, usually one; several where they differ by payment means (ADR 0022, L6p). */
+  prices?: AdHocPrice[];
 }
 
 export interface StationChargePoints {

@@ -1579,8 +1579,8 @@
     </unit>
     <unit id="price.free">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:70</note>
-        <note category="location">src/app/features/map/domain/prices.ts:95</note>
+        <note category="location">src/app/features/map/domain/prices.ts:101</note>
+        <note category="location">src/app/features/map/domain/prices.ts:204</note>
       </notes>
       <segment>
         <source>Kostenlos</source>
@@ -1588,7 +1588,8 @@
     </unit>
     <unit id="price.perKwh">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:74</note>
+        <note category="location">src/app/features/map/domain/prices.ts:105</note>
+        <note category="location">src/app/features/map/domain/prices.ts:109</note>
       </notes>
       <segment>
         <source><ph id="0" equiv="amount" disp="amount"/>/kWh</source>
@@ -1596,15 +1597,23 @@
     </unit>
     <unit id="price.sessionFee">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:78</note>
+        <note category="location">src/app/features/map/domain/prices.ts:113</note>
       </notes>
       <segment>
         <source>Startgebühr <ph id="0" equiv="amount" disp="amount"/></source>
       </segment>
     </unit>
+    <unit id="price.perMinuteRange">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:125</note>
+      </notes>
+      <segment>
+        <source>Min. <ph id="0" equiv="minute" disp="minute"/>–<ph id="1" equiv="until" disp="until"/>: <ph id="2" equiv="amount" disp="amount"/>/min</source>
+      </segment>
+    </unit>
     <unit id="price.perMinute">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:88</note>
+        <note category="location">src/app/features/map/domain/prices.ts:126</note>
       </notes>
       <segment>
         <source><ph id="0" equiv="amount" disp="amount"/>/min</source>
@@ -1612,15 +1621,23 @@
     </unit>
     <unit id="price.perMinuteFrom">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:88</note>
+        <note category="location">src/app/features/map/domain/prices.ts:126</note>
       </notes>
       <segment>
         <source>ab Min. <ph id="0" equiv="minute" disp="minute"/>: <ph id="1" equiv="amount" disp="amount"/>/min</source>
       </segment>
     </unit>
+    <unit id="price.timeBasedRange">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:128</note>
+      </notes>
+      <segment>
+        <source>Min. <ph id="0" equiv="minute" disp="minute"/>–<ph id="1" equiv="until" disp="until"/> zeitabhängige Gebühr</source>
+      </segment>
+    </unit>
     <unit id="price.timeBased">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:90</note>
+        <note category="location">src/app/features/map/domain/prices.ts:130</note>
       </notes>
       <segment>
         <source>zzgl. zeitabhängiger Gebühr</source>
@@ -1628,15 +1645,87 @@
     </unit>
     <unit id="price.timeBasedFrom">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:90</note>
+        <note category="location">src/app/features/map/domain/prices.ts:130</note>
       </notes>
       <segment>
         <source>ab Min. <ph id="0" equiv="minute" disp="minute"/> zeitabhängige Gebühr</source>
       </segment>
     </unit>
+    <unit id="price.cap">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:134</note>
+      </notes>
+      <segment>
+        <source>max. <ph id="0" equiv="amount" disp="cap"/></source>
+      </segment>
+    </unit>
+    <unit id="price.rateNumber">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:172</note>
+      </notes>
+      <segment>
+        <source>Tarif <ph id="0" equiv="number" disp="number"/></source>
+      </segment>
+    </unit>
+    <unit id="price.payment.qrCode">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:178</note>
+      </notes>
+      <segment>
+        <source>QR-Code</source>
+      </segment>
+    </unit>
+    <unit id="price.payment.emv">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:180</note>
+      </notes>
+      <segment>
+        <source>Kartenterminal</source>
+      </segment>
+    </unit>
+    <unit id="price.payment.nfc">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:182</note>
+      </notes>
+      <segment>
+        <source>NFC</source>
+      </segment>
+    </unit>
+    <unit id="price.payment.website">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:184</note>
+      </notes>
+      <segment>
+        <source>Website</source>
+      </segment>
+    </unit>
+    <unit id="price.payment.mobileAccount">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:186</note>
+      </notes>
+      <segment>
+        <source>App</source>
+      </segment>
+    </unit>
+    <unit id="price.payment.creditCard">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:188</note>
+      </notes>
+      <segment>
+        <source>Kreditkarte</source>
+      </segment>
+    </unit>
+    <unit id="price.payment.debitCard">
+      <notes>
+        <note category="location">src/app/features/map/domain/prices.ts:190</note>
+      </notes>
+      <segment>
+        <source>Debitkarte</source>
+      </segment>
+    </unit>
     <unit id="price.fromPerKwh">
       <notes>
-        <note category="location">src/app/features/map/domain/prices.ts:98</note>
+        <note category="location">src/app/features/map/domain/prices.ts:207</note>
       </notes>
       <segment>
         <source>ab <ph id="0" equiv="amount" disp="amount"/>/kWh</source>
@@ -2008,7 +2097,7 @@
     </unit>
     <unit id="price.furtherFees">
       <notes>
-        <note category="location">src/app/features/map/station.panel.html:92,94</note>
+        <note category="location">src/app/features/map/station.panel.html:94,96</note>
       </notes>
       <segment>
         <source>Weitere Gebühren möglich, z. B. fürs Blockieren nach dem Laden</source>
@@ -2016,7 +2105,7 @@
     </unit>
     <unit id="price.disclaimer">
       <notes>
-        <note category="location">src/app/features/map/station.panel.html:100,101</note>
+        <note category="location">src/app/features/map/station.panel.html:102,103</note>
       </notes>
       <segment>
         <source>Preis ohne Ladekarte, wie vom Betreiber veröffentlicht. Mit einer Ladekarte kann er abweichen.</source>
@@ -2024,8 +2113,8 @@
     </unit>
     <unit id="price.source">
       <notes>
-        <note category="location">src/app/features/map/station.panel.html:103,104</note>
-        <note category="location">src/app/features/map/station.panel.html:112</note>
+        <note category="location">src/app/features/map/station.panel.html:105,106</note>
+        <note category="location">src/app/features/map/station.panel.html:114</note>
       </notes>
       <segment>
         <source>Preisdaten:</source>
@@ -2033,7 +2122,7 @@
     </unit>
     <unit id="comments.title">
       <notes>
-        <note category="location">src/app/features/map/station.panel.html:118,119</note>
+        <note category="location">src/app/features/map/station.panel.html:120,121</note>
       </notes>
       <segment>
         <source>Community</source>
@@ -2041,7 +2130,7 @@
     </unit>
     <unit id="comments.empty">
       <notes>
-        <note category="location">src/app/features/map/station.panel.html:121,123</note>
+        <note category="location">src/app/features/map/station.panel.html:123,125</note>
       </notes>
       <segment>
         <source>Noch keine Kommentare.</source>
@@ -2049,7 +2138,7 @@
     </unit>
     <unit id="comments.failed">
       <notes>
-        <note category="location">src/app/features/map/station.panel.html:132,134</note>
+        <note category="location">src/app/features/map/station.panel.html:134,136</note>
       </notes>
       <segment>
         <source>Kommentare konnten nicht geladen werden.</source>
@@ -2057,7 +2146,7 @@
     </unit>
     <unit id="comments.webSoon">
       <notes>
-        <note category="location">src/app/features/map/station.panel.html:134,137</note>
+        <note category="location">src/app/features/map/station.panel.html:136,139</note>
       </notes>
       <segment>
         <source>Kommentieren geht bisher in der iPhone-App.</source>
@@ -2065,7 +2154,7 @@
     </unit>
     <unit id="station.sources">
       <notes>
-        <note category="location">src/app/features/map/station.panel.html:138</note>
+        <note category="location">src/app/features/map/station.panel.html:140</note>
       </notes>
       <segment>
         <source>Datenquellen</source>
@@ -2082,7 +2171,7 @@
     <unit id="station.live.chargePoint">
       <notes>
         <note category="location">src/app/features/map/station.panel.ts:32</note>
-        <note category="location">src/app/features/map/station.panel.ts:121</note>
+        <note category="location">src/app/features/map/station.panel.ts:124</note>
       </notes>
       <segment>
         <source>Ladepunkt</source>
@@ -2106,7 +2195,7 @@
     </unit>
     <unit id="price.chargePointCount">
       <notes>
-        <note category="location">src/app/features/map/station.panel.ts:113</note>
+        <note category="location">src/app/features/map/station.panel.ts:116</note>
       </notes>
       <segment>
         <source><ph id="0" equiv="count" disp="count"/> ×</source>
@@ -2114,7 +2203,7 @@
     </unit>
     <unit id="price.observedAt">
       <notes>
-        <note category="location">src/app/features/map/station.panel.ts:119</note>
+        <note category="location">src/app/features/map/station.panel.ts:122</note>
       </notes>
       <segment>
         <source>Stand <ph id="0" equiv="date" disp="date"/></source>
@@ -2122,7 +2211,7 @@
     </unit>
     <unit id="price.unpriced">
       <notes>
-        <note category="location">src/app/features/map/station.panel.ts:126</note>
+        <note category="location">src/app/features/map/station.panel.ts:129</note>
       </notes>
       <segment>
         <source>Ladepunkte ohne bekannten Preis: <ph id="0" equiv="count" disp="count"/></source>
@@ -2130,7 +2219,7 @@
     </unit>
     <unit id="comments.paid">
       <notes>
-        <note category="location">src/app/features/map/station.panel.ts:138</note>
+        <note category="location">src/app/features/map/station.panel.ts:141</note>
       </notes>
       <segment>
         <source>Bezahlt: <ph id="0" equiv="amount" disp="amount"/></source>
