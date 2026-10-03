@@ -7,6 +7,8 @@ import de.joinside.evmap_service.availability.GeoBounds;
 import de.joinside.evmap_service.availability.Observations;
 import de.joinside.evmap_service.availability.StoredChargePoints;
 import de.joinside.evmap_service.logging.LogContext;
+import de.joinside.evmap_service.mobilithek.HttpsMobilithekBroker;
+import de.joinside.evmap_service.mobilithek.MobilithekBroker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -76,11 +78,8 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
     private static final Attribution ATTRIBUTION = new Attribution(SOURCE,
             "AFIR-Daten der Ladepunktbetreiber", "https://mobilithek.info");
 
-    /**
-     * The cursor of a feed nobody has read yet. The broker answers it with its oldest package, which is by
-     * definition the last full one (Schnittstellenbeschreibung §4.3, §4.8).
-     */
-    static final String FROM_THE_START = "Thu, 01 Jan 1970 00:00:00 GMT";
+    /** The cursor of a feed nobody has read yet: the broker answers it with the last full package. */
+    static final String FROM_THE_START = MobilithekBroker.FROM_THE_START;
 
     /**
      * The first coverage report waits this long after the first round, so feeds further behind than
@@ -166,7 +165,7 @@ public class MobilithekAvailabilityProvider implements AvailabilityProvider {
     private static MobilithekBroker brokerFor(MobilithekProperties properties) {
         if (!properties.enabled() || !properties.hasCertificate()) return null;
         try {
-            return HttpsMobilithekBroker.create(properties, Clock.systemUTC());
+            return HttpsMobilithekBroker.create(properties.connection(), Clock.systemUTC());
         } catch (IOException | GeneralSecurityException e) {
             // The exception names the file and the failure, never the password.
             log.error("Mobilithek machine certificate could not be loaded{} — German live data from the Mobilithek is off",
