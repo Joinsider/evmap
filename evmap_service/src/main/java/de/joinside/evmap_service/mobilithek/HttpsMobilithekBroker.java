@@ -1,4 +1,4 @@
-package de.joinside.evmap_service.availability.mobilithek;
+package de.joinside.evmap_service.mobilithek;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,7 +34,7 @@ import java.util.zip.GZIPInputStream;
  * Only the client side of TLS is ours: the broker presents a public certificate (Telekom Security), so the JVM's
  * default trust store verifies it and no Mobilithek CA has to be shipped.
  */
-final class HttpsMobilithekBroker implements MobilithekBroker {
+public final class HttpsMobilithekBroker implements MobilithekBroker {
     private static final Logger log = LoggerFactory.getLogger(HttpsMobilithekBroker.class);
 
     /** Below this the certificate's end is logged as a warning on every start, so it is renewed in time. */
@@ -52,9 +52,9 @@ final class HttpsMobilithekBroker implements MobilithekBroker {
 
     /**
      * Loads the machine certificate and builds the client. Throws on a wrong password or an unreadable file, which
-     * the provider turns into an ERROR at startup rather than a silent absence of German live data.
+     * the caller turns into an ERROR at startup rather than a silent absence of German live data.
      */
-    static HttpsMobilithekBroker create(MobilithekProperties properties, Clock clock)
+    public static HttpsMobilithekBroker create(MobilithekConnection properties, Clock clock)
             throws IOException, GeneralSecurityException {
         char[] password = properties.keystorePassword().toCharArray();
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
@@ -76,7 +76,7 @@ final class HttpsMobilithekBroker implements MobilithekBroker {
         return new HttpsMobilithekBroker(client, properties.brokerUrl(), properties.timeout());
     }
 
-    private static InputStream keystoreOf(MobilithekProperties properties) throws IOException {
+    private static InputStream keystoreOf(MobilithekConnection properties) throws IOException {
         if (properties.hasBase64Certificate())
             // MIME decoding tolerates the line breaks `base64` inserts by default.
             return new ByteArrayInputStream(Base64.getMimeDecoder().decode(properties.keystoreBase64().trim()));

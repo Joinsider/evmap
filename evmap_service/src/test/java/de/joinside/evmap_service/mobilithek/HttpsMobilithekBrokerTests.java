@@ -1,4 +1,4 @@
-package de.joinside.evmap_service.availability.mobilithek;
+package de.joinside.evmap_service.mobilithek;
 
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
@@ -17,7 +17,6 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Base64;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.zip.GZIPOutputStream;
@@ -45,10 +44,11 @@ class HttpsMobilithekBrokerTests {
         if (server != null) server.stop(0);
     }
 
-    private static MobilithekProperties properties(String brokerUrl, String path, String base64, String password) {
-        return new MobilithekProperties(true, brokerUrl, path, base64, password, List.of("DE"),
-                Duration.ofSeconds(60), 50, Duration.ofHours(72), Duration.ofMinutes(10), Duration.ofHours(1), Duration.ofHours(24),
-                Duration.ofSeconds(5), Duration.ofHours(1), List.of());
+    /** What the broker hands out is opaque to it; any text shows that it arrives unpacked and unchanged. */
+    private static final String PACKAGE = "{\"payload\": {\"modelBaseVersionG\": \"3\"}}";
+
+    private static MobilithekConnection properties(String brokerUrl, String path, String base64, String password) {
+        return new MobilithekConnection(brokerUrl, path, base64, password, Duration.ofSeconds(5));
     }
 
     private String serve(int status, byte[] gzippedBody) throws IOException {
@@ -89,18 +89,18 @@ class HttpsMobilithekBrokerTests {
     @Test
     @DisplayName("asks for gzip, passes the cursor through, and hands back the unpacked package")
     void pullsOnePackage() throws Exception {
-        String url = serve(200, gzip(AfirStatusParserTests.DELTA));
+        String url = serve(200, gzip(PACKAGE));
         MobilithekBroker broker = HttpsMobilithekBroker.create(
                 properties(url, KEYSTORE.toString(), "", KEYSTORE_PASSWORD), Clock.systemUTC());
 
-        try (MobilithekBroker.Response response = broker.next("12345", MobilithekAvailabilityProvider.FROM_THE_START)) {
+        try (MobilithekBroker.Response response = broker.next("12345", MobilithekBroker.FROM_THE_START)) {
             assertThat(response.status()).isEqualTo(200);
             assertThat(response.lastModified()).isEqualTo("Fri, 02 Oct 2026 08:00:01 GMT");
-            assertThat(AfirStatusParser.parse(response.body()).chargePoints()).containsOnlyKeys("DEEBWE10011");
+            assertThat(new String(response.body().readAllBytes(), StandardCharsets.UTF_8)).isEqualTo(PACKAGE);
         }
         assertThat(seen).containsEntry("query", "subscriptionID=12345")
                 .containsEntry("accept-encoding", "gzip")
-                .containsEntry("if-modified-since", MobilithekAvailabilityProvider.FROM_THE_START);
+                .containsEntry("if-modified-since", MobilithekBroker.FROM_THE_START);
     }
 
     @Test
@@ -141,12 +141,12 @@ class HttpsMobilithekBrokerTests {
     @Test
     @DisplayName("an uncompressed answer is passed through as it is")
     void plainBody() throws Exception {
-        String url = serve(200, AfirStatusParserTests.DELTA.getBytes(StandardCharsets.UTF_8), null);
+        String url = serve(200, PACKAGE.getBytes(StandardCharsets.UTF_8), null);
         MobilithekBroker broker = HttpsMobilithekBroker.create(
                 properties(url, KEYSTORE.toString(), "", KEYSTORE_PASSWORD), Clock.systemUTC());
 
-        try (MobilithekBroker.Response response = broker.next("12345", MobilithekAvailabilityProvider.FROM_THE_START)) {
-            assertThat(AfirStatusParser.parse(response.body()).chargePoints()).containsOnlyKeys("DEEBWE10011");
+        try (MobilithekBroker.Response response = broker.next("12345", MobilithekBroker.FROM_THE_START)) {
+            assertThat(new String(response.body().readAllBytes(), StandardCharsets.UTF_8)).isEqualTo(PACKAGE);
         }
     }
 
@@ -159,7 +159,7 @@ class HttpsMobilithekBrokerTests {
 
         Thread.currentThread().interrupt();
         try {
-            assertThatThrownBy(() -> broker.next("12345", MobilithekAvailabilityProvider.FROM_THE_START))
+            assertThatThrownBy(() -> broker.next("12345", MobilithekBroker.FROM_THE_START))
                     .isInstanceOf(IOException.class).hasCauseInstanceOf(InterruptedException.class);
             assertThat(Thread.currentThread().isInterrupted()).isTrue();
         } finally {

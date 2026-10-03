@@ -1,16 +1,22 @@
-package de.joinside.evmap_service.availability.mobilithek;
+package de.joinside.evmap_service.mobilithek;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * The one request the provider makes: "the next package of this subscription after this timestamp".
+ * The one request the Mobilithek knows: "the next package of this subscription after this timestamp".
  * <p>
- * An interface so that the provider's state machine — snapshot, delta, 204, 304, back-off — is testable without
- * a machine certificate or the network. {@link HttpsMobilithekBroker} is the only production implementation.
+ * An interface so that the callers' state machines — the live provider's snapshot, delta, 204, 304 and back-off, the
+ * sync adapter's daily snapshot — are testable without a machine certificate or the network. {@link HttpsMobilithekBroker} is the only production implementation.
  */
-interface MobilithekBroker {
+public interface MobilithekBroker {
+
+    /**
+     * The cursor of a subscription nobody has read yet. The broker answers it with its oldest buffered package, which
+     * is by definition the last full one (Schnittstellenbeschreibung §4.3, §4.8).
+     */
+    String FROM_THE_START = "Thu, 01 Jan 1970 00:00:00 GMT";
 
     /**
      * @param subscriptionId  the organisation's subscription

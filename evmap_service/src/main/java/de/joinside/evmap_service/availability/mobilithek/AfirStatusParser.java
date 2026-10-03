@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.JsonNode;
 import de.joinside.evmap_service.availability.LiveAvailability;
 import de.joinside.evmap_service.availability.Observations;
+import de.joinside.evmap_service.mobilithek.Datex;
 
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
