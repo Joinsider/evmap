@@ -1,6 +1,6 @@
 # EVMap Roadmap
 
-Stand: 2026-10-02 · abgestimmt mit Joinsider · Umsetzung überwiegend durch Claude Code
+Stand: 2026-10-03 · abgestimmt mit Joinsider · Umsetzung überwiegend durch Claude Code
 
 Diese Roadmap legt fest, **was** als Nächstes kommt und **in welcher Reihenfolge**. Das *Warum* und
 *Wie* eines Features steht im jeweiligen ADR. Jede Phase bekommt ihr ADR spätestens zu Beginn der
@@ -38,7 +38,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | L4 | Lückenfüller: Spanien | fertig ⁸ | [#22](https://github.com/Joinsider/evmap/pull/22) | [0012](adr/0012-additional-national-charging-registers.md) |
 | L5 | Lückenfüller: Mobilithek (Live-Daten Deutschland), vor 8b | fertig ¹³ | [#34](https://github.com/Joinsider/evmap/pull/34) | [0015](adr/0015-live-availability-national-access-points-with-tomtom-fallback.md) |
 | L6 | Lückenfüller: Mobilithek als Stammdatenquelle Deutschland (BNetzA als Rückfall) | fertig ¹⁴ | [#45](https://github.com/Joinsider/evmap/pull/45) | [0025](adr/0025-mobilithek-as-germanys-master-data-source.md) |
-| L6p | Preise aus den statischen Mobilithek-Feeds, direkt nach L6 | in Arbeit | `feature/sync-mobilithek-prices` | [0022](adr/0022-prices-at-the-station.md) |
+| L6p | Preise aus den statischen Mobilithek-Feeds, direkt nach L6 | fertig ¹⁵ | [#46](https://github.com/Joinsider/evmap/pull/46) | [0022](adr/0022-prices-at-the-station.md) |
 
 ¹ Im Repository fertig; offen sind die 👤-Schritte auf dem VPS (Backup-Ziel, Monitore, erste
 Restore-Probe, `docs/operations/backup-and-restore.md` §5).
@@ -115,6 +115,13 @@ Register und alle 24 echten Pakete: 67.312 Stationen ohne Ausfall, deutsche Lade
 (`docs/operations/mobilithek.md` §6) und danach die Live-Abdeckung im stündlichen `Mobilithek coverage`-Log. Fünf statische
 Abos warten auf die Freigabe der Betreiber; eliso wird nicht über den Broker geliefert (ADR 0025, offener Punkt 2).
 Als Nächstes: **L6p** (Preise aus den statischen Feeds).
+
+¹⁵ Im Repository fertig (Backend `./mvnw verify` grün mit 694 Tests, Web 126 Tests und Build grün, iOS-Preistests grün;
+alle 24 echten Pakete vom 2026-10-03 durch den Leser: 42.654 Ladepunkte mit Preis, davon ~30.000 mit ausdrücklicher
+Brutto/Netto-Angabe). Gefunden und entschieden beim Lauf über die echten Daten: Blockiergebühren, die wieder enden
+(„Min. 240–390“), und abgelaufene Saisonpreise. Offen sind die 👤-Schritte: Zertifikat für den Sync-Container (aus L6),
+nach dem ersten Lauf einige Stationen auf Handy und Web ansehen (ADR 0022, „Gap filler L6p“). Als Nächstes: **8b**
+(Mitmachen im Web), danach 5b.
 
 Separat angestoßen (Teil von Phase 0): `permitAll` für `/api/v1/stations/**` auf GET beschränken.
 Erledigt mit PR #8 (Commit `3d40492`), vor Beginn von Phase 0 auf `master` geprüft.
