@@ -60,18 +60,22 @@ final class AfirSiteMapper {
     private final String registerSource;
     private final String countryCode;
     private final Set<String> emittedEvseIds;
+    private final Instant fetchedAt;
     final Counters counters = new Counters();
 
     /**
      * @param emittedEvseIds normalized EVSE-IDs already emitted this run, shared across feeds and added to here
+     * @param fetchedAt      when the package was fetched: the timestamp of a station neither it nor its site dates,
+     *                       which most publishers leave out and the provenance record requires
      */
     AfirSiteMapper(String source, MobilithekSyncProperties.Feed feed, String registerSource, String countryCode,
-                   Set<String> emittedEvseIds) {
+                   Set<String> emittedEvseIds, Instant fetchedAt) {
         this.source = source;
         this.feed = feed;
         this.registerSource = registerSource;
         this.countryCode = countryCode;
         this.emittedEvseIds = emittedEvseIds;
+        this.fetchedAt = fetchedAt;
     }
 
     List<SourceStation> map(JsonNode site) {
@@ -115,7 +119,7 @@ final class AfirSiteMapper {
         counters.chargePoints += chargePoints.size();
         return new SourceStation(source, key, name, street(address), text(field(address, "city")),
                 text(field(address, "postcode")), country, operator, position[0], position[1], null,
-                instant(text(field(station, "lastUpdated"))), List.of(), chargePoints, links, false);
+                lastUpdated(site, station), List.of(), chargePoints, links, false);
     }
 
     private List<SourceStation.SourceChargePoint> chargePoints(String stationKey, JsonNode station) {
@@ -255,6 +259,12 @@ final class AfirSiteMapper {
             }
         }
         return null;
+    }
+
+    private Instant lastUpdated(JsonNode site, JsonNode station) {
+        Instant stated = instant(text(field(station, "lastUpdated")));
+        if (stated == null) stated = instant(text(field(site, "lastUpdated")));
+        return stated != null ? stated : fetchedAt;
     }
 
     private static Instant instant(String text) {

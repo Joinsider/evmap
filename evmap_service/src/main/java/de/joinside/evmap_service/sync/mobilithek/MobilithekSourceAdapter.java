@@ -47,16 +47,18 @@ class MobilithekSourceAdapter implements SourceAdapter {
     private final MobilithekSyncProperties properties;
     /** {@code null} when no certificate is configured or it could not be loaded. */
     private final MobilithekBroker broker;
+    private final Clock clock;
 
     @Autowired
     MobilithekSourceAdapter(MobilithekSyncProperties properties) {
-        this(properties, brokerFor(properties));
+        this(properties, brokerFor(properties), Clock.systemUTC());
     }
 
-    /** Test seam: a scripted broker, or {@code null} for "no certificate". */
-    MobilithekSourceAdapter(MobilithekSyncProperties properties, MobilithekBroker broker) {
+    /** Test seam: a scripted broker, or {@code null} for "no certificate", and a fixed clock. */
+    MobilithekSourceAdapter(MobilithekSyncProperties properties, MobilithekBroker broker, Clock clock) {
         this.properties = properties;
         this.broker = broker;
+        this.clock = clock;
     }
 
     private static MobilithekBroker brokerFor(MobilithekSyncProperties properties) {
@@ -98,7 +100,7 @@ class MobilithekSourceAdapter implements SourceAdapter {
             snapshot = latestSnapshot(feed);
             if (snapshot == null) return List.of();
             AfirSiteMapper mapper = new AfirSiteMapper(SOURCE, feed, properties.registerSource(),
-                    properties.countryCode(), emittedEvseIds);
+                    properties.countryCode(), emittedEvseIds, clock.instant());
             List<SourceStation> stations = new ArrayList<>();
             try (InputStream in = Files.newInputStream(snapshot)) {
                 AfirSiteReader.read(in, site -> stations.addAll(mapper.map(site)));

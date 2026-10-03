@@ -10,7 +10,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -23,6 +26,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MobilithekSourceAdapterTests {
+    private static final Instant NOW = Instant.parse("2026-10-03T12:00:00Z");
+    private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
     private static final MobilithekSyncProperties.Feed EWE = new MobilithekSyncProperties.Feed("ewe", "111", "EWE Go GmbH");
     private static final MobilithekSyncProperties.Feed ENBW = new MobilithekSyncProperties.Feed("enbw", "222", "EnBW");
     private static final MobilithekSyncProperties.Feed UNSUBSCRIBED = new MobilithekSyncProperties.Feed("tesla", " ", "Tesla");
@@ -72,7 +77,7 @@ class MobilithekSourceAdapterTests {
         ScriptedBroker broker = new ScriptedBroker()
                 .answer("111", 200, "Sat, 03 Oct 2026 03:03:10 GMT", AfirFixtures.EWE_JSON)
                 .answer("222", 200, "Fri, 02 Oct 2026 22:00:31 GMT", AfirFixtures.ENBW_JSON);
-        MobilithekSourceAdapter adapter = new MobilithekSourceAdapter(properties(true, 5, EWE, UNSUBSCRIBED, ENBW), broker);
+        MobilithekSourceAdapter adapter = new MobilithekSourceAdapter(properties(true, 5, EWE, UNSUBSCRIBED, ENBW), broker, CLOCK);
 
         assertThat(adapter.source()).isEqualTo("MOBILITHEK");
         assertThat(adapter.enabled()).isTrue();
@@ -91,7 +96,7 @@ class MobilithekSourceAdapterTests {
                 .answer("111", 200, "Sat, 03 Oct 2026 03:00:00 GMT", AfirFixtures.EWE_JSON)
                 .answer("111", 200, "Sun, 04 Oct 2026 03:00:00 GMT", AfirFixtures.LADENETZ_XML);
 
-        assertThat(ids(new MobilithekSourceAdapter(properties(true, 2, EWE), broker).fetchStations()))
+        assertThat(ids(new MobilithekSourceAdapter(properties(true, 2, EWE), broker, CLOCK).fetchStations()))
                 .containsExactly("ewe/station-1", "ewe/station-2");
         assertThat(broker.requests).hasSize(2);
     }
@@ -101,7 +106,7 @@ class MobilithekSourceAdapterTests {
     void stopsWithoutCursor() {
         ScriptedBroker broker = new ScriptedBroker().answer("111", 200, null, AfirFixtures.LADENETZ_XML);
 
-        assertThat(ids(new MobilithekSourceAdapter(properties(true, 5, EWE), broker).fetchStations()))
+        assertThat(ids(new MobilithekSourceAdapter(properties(true, 5, EWE), broker, CLOCK).fetchStations()))
                 .containsExactly("ewe/DESTAS0187");
         assertThat(broker.requests).hasSize(1);
     }
@@ -113,7 +118,7 @@ class MobilithekSourceAdapterTests {
                 .answer("111", 404, null, "")
                 .answer("222", 200, null, AfirFixtures.ENBW_JSON);
 
-        assertThat(ids(new MobilithekSourceAdapter(properties(true, 5, EWE, ENBW), broker).fetchStations()))
+        assertThat(ids(new MobilithekSourceAdapter(properties(true, 5, EWE, ENBW), broker, CLOCK).fetchStations()))
                 .containsExactly("enbw/13529", "enbw/elli-3");
     }
 
@@ -121,7 +126,7 @@ class MobilithekSourceAdapterTests {
     @DisplayName("a feed that cannot be read ends the source's run instead of letting a platform stand in for it")
     void failsOnUnreadableFeed() {
         ScriptedBroker broker = new ScriptedBroker().fail("111").answer("222", 200, null, AfirFixtures.ENBW_JSON);
-        MobilithekSourceAdapter adapter = new MobilithekSourceAdapter(properties(true, 5, EWE, ENBW), broker);
+        MobilithekSourceAdapter adapter = new MobilithekSourceAdapter(properties(true, 5, EWE, ENBW), broker, CLOCK);
 
         assertThatThrownBy(() -> ids(adapter.fetchStations()))
                 .isInstanceOf(UncheckedIOException.class).hasMessageContaining("ewe");
@@ -133,7 +138,7 @@ class MobilithekSourceAdapterTests {
     void failsOnUnparseablePackage() {
         ScriptedBroker broker = new ScriptedBroker().answer("111", 200, null, "<broken><energyInfrastructureSite>");
 
-        assertThatThrownBy(() -> ids(new MobilithekSourceAdapter(properties(true, 5, EWE), broker).fetchStations()))
+        assertThatThrownBy(() -> ids(new MobilithekSourceAdapter(properties(true, 5, EWE), broker, CLOCK).fetchStations()))
                 .isInstanceOf(UncheckedIOException.class);
     }
 
@@ -144,14 +149,14 @@ class MobilithekSourceAdapterTests {
                 .answer("111", 200, "Sat, 03 Oct 2026 03:03:10 GMT", AfirFixtures.EWE_JSON)
                 .fail("111");
 
-        assertThatThrownBy(() -> ids(new MobilithekSourceAdapter(properties(true, 5, EWE), broker).fetchStations()))
+        assertThatThrownBy(() -> ids(new MobilithekSourceAdapter(properties(true, 5, EWE), broker, CLOCK).fetchStations()))
                 .isInstanceOf(UncheckedIOException.class);
     }
 
     @Test
     @DisplayName("without a machine certificate the source delivers nothing instead of failing the run")
     void skipsWithoutCertificate() {
-        MobilithekSourceAdapter adapter = new MobilithekSourceAdapter(properties(true, 5, EWE), null);
+        MobilithekSourceAdapter adapter = new MobilithekSourceAdapter(properties(true, 5, EWE), null, CLOCK);
         assertThat(ids(adapter.fetchStations())).isEmpty();
 
         // The production constructor finds no certificate in these properties and loads none.
