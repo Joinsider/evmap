@@ -71,6 +71,6 @@ changelog would help those who compensate today.
 
 - **`tax_included` arrives:** nothing to deploy — `OcpiTariffs` already reads `tax_included` on the tariff and on
   each price component, and an explicit flag wins over the evidence and the table. Then check whether the table
-  `evmap.pricing.mobidata.vat-basis` can shrink (ADR 0022) and whether `ShippedVatBasisTableTests` still holds.
+  `evmap.vat-basis.operators` can shrink (ADR 0022) and whether `ShippedVatBasisTableTests` still holds.
 - **`TIME` becomes per hour:** nothing to deploy either — the unit is detected per feed from the median on every
   refresh, and the API logs the change at WARN (`Time unit of MobiData BW feed … changed from … to …`). Watch for that line after an OCPDB release.

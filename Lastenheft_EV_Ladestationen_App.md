@@ -141,8 +141,9 @@ Für v2 werden folgende Abgrenzungen aus §10 aufgehoben: Routenplanung und exte
 
 ### Ladekarten und Preise
 - Ad-hoc-Preis je Ladepunkt (ohne Ladekarte), soweit eine offene Quelle ihn sicher liefert: deutsche
-  AFIR-Tarife über MobiData BW, Preisangaben des französischen Registers; im Zweifel wird kein Preis
-  angezeigt (ADR 0022)
+  AFIR-Tarife über MobiData BW und die statischen Mobilithek-Feeds der Betreiber (seit L6p, mit Zeitfenstern,
+  Gebührenende, Preisdeckel und je Zahlungsweg, so wie geliefert), Preisangaben des französischen Registers; im
+  Zweifel wird kein Preis angezeigt (ADR 0022)
 - Betreiber je Ladepunkt, damit gebündelte Stationen mehrerer Betreiber richtig angezeigt und gefiltert werden
 - Ladekarten mit Tarifen (gepflegte Liste, möglichst automatisch aktualisiert, plus eigene
   Tarife); Preisanzeige je Ladestation

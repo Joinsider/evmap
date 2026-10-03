@@ -3,7 +3,7 @@
 - Status: Accepted 2026-10-01 — part 5a (operator per charge point, ad-hoc prices) implemented on
   `feature/phase-5a-prices-at-station`; 5r (net/gross check per operator) implemented on
   `feature/phase-5r-vat-basis`, its open points 1 and 2 on `claude/vibrant-cannon-0qy3ym` (2026-10-02);
-  L6p (prices from the Mobilithek's static feeds) in progress on `feature/sync-mobilithek-prices` (2026-10-03);
+  L6p (prices from the Mobilithek's static feeds) implemented on `feature/sync-mobilithek-prices` (2026-10-03);
   5b (charging cards) open
 - Date: 2026-10-01
 - Deciders: Joinsider
@@ -350,6 +350,53 @@ The static AFIR feeds that became Germany's master data in L6 (ADR 0025) carry a
 Unchanged rules apply: plausibility bands (energy 0,05–1,50 €, session fee ≤ 20 €, per minute 0,005–1 €), a fee
 outside its band keeps no amount, two different prices for one moment are no price, `EUR` only.
 
+### What L6p built (2026-10-03)
+
+- **`vatbasis`**, a neutral package like `mobilithek`: `VatBasisTable`, `OperatorBasis`, `TableBasis` and the
+  arithmetic (`VatEvidence`) moved out of `pricing.mobidata`, so the sync reads the same table without a reference
+  between `sync` and `pricing`. The YAML key is now `evmap.vat-basis.operators` (and `.recheck-after`).
+- **`sync.mobilithek.AfirPriceReader`**, called by `AfirSiteMapper` for every refill point; one reader per feed, one
+  table per run (a contradicted entry is suspended for the run). Credited as "<publisher> via Mobilithek".
+- **Schema** `013-charge-point-price-details.sql`: several prices per charge point (`ordinal`), `time_fees` and
+  `energy_windows` as JSONB (the single `time_fee_per_minute` migrated into `time_fees`), `payment_means`,
+  `vat_basis_stated`, `stated_by`.
+- **API**: `prices[]` per charge point with `energyWindows`, `paymentMeans` and fees with `toMinute`, `cap`, `window`;
+  the old `price` only where a client from before L6p can show it correctly (one price, no window, end or cap), so an
+  old app shows no price rather than a wrong one. `PricingService` lets a stated-basis price win and does not ask the
+  live providers for charge points that have one.
+- **iOS and web**: every price per line, led by its payment means where there are several ("QR-Code / App: …", "Tarif
+  2: …" for means the app does not know — never a raw token), "Min. 240–390: 0,10 €/min, max. 15,00 € (Mo–Fr
+  08:00–20:00)", energy prices per window; German and English.
+- **Measured** on all 24 packages of 2026-10-03 through the real reader and the shipped table: **42.654 charge points
+  priced** — EnBW 11.505, eRound 10.666, chargecloud 12.412 (of 25.392; 12.171 without a table entry, 809 not
+  understood), Monta 2.925, gridco 1.917 (758 with two prices), EDRI 1.727, GP JOULE 844, SMATRICS 300, Wirelane 235,
+  PUMP 74, Audi 38, evprice 8, EWE 3. Not understood elsewhere: evprice 26 (dated slots), Wirelane 11 (the mislabeled
+  blocking fee, a fee that ends by itself), Monta 7 (2,00 €/kWh, a 10 € fee from minute 90), PUMP 2 (empty rates).
+
+**Deviations from the plan.** Two shapes were found only by running the reader over the real packages, and both were
+decided by the rule "as delivered":
+
+- **A fee that ends again.** 4.918 chargecloud rates charge a blocking fee from minute 240 *until* a later minute
+  (0,10 €/min to minute 390: at most 15 €). Without the end the fee would have been shown too high; fees now carry
+  `toMinute` where a zero fee of their window takes over. A fee whose own `toMinute` nothing takes over from stays
+  unpriced — Wirelane writes "ab 120 Min." as minute 0 to 120.
+- **Expired and dated periods.** gridco keeps last season's prices (ended 2026-09-03) next to the current ones; a
+  period that ended more than a day before the fetch is left out. One that ended within the day, or runs on, marks a
+  schedule of short slots (evprice) and the rate stays unpriced.
+
+A component without a `taxIncluded` takes its rate's flag (Wirelane's start fee) — the decision "state" applies to
+the rate, not each amount. A price cap is attached only to fees per minute; gridco's caps on energy components are not
+shown (a session cap of 150 €, which no session reaches).
+
+### 👤 Steps for the product owner (L6p)
+
+- The sync container needs `MOBILITHEK_KEYSTORE`/`MOBILITHEK_KEYSTORE_PASSWORD` (the open step of L6); the prices come
+  with the next sync run after the API has migrated to 013.
+- Look at a few stations on the phone and in the web app after the first run: an EDRI station (blocking fee 9–22 Uhr),
+  a gridco station (two tariffs) and a chargecloud station with an ending fee.
+- Optional: 12.171 chargecloud charge points stay unpriced because their operator is not in the table — a further
+  table round (open point 2 below) would price more of them in both readers at once.
+
 ## Open points
 
 1. **Upstream fixes in OCPDB.** Decided 2026-10-02: (a) — the texts are drafted in
@@ -359,8 +406,12 @@ outside its band keeps no amount, two different prices for one moment are no pri
    "Phase 5r open points" above. Done: 16 more operators entered. Operators 101–551 (~9 % of the gap) and the 70
    unclear or platform operators of both rounds remain; options for later: (a) a further round when monitoring or
    users show a need, and the re-check on 2027-04-02 (recommended); (b) ask LadeVerbundPlus for its shared ad-hoc
-   price, which would settle several members at once.
-3. **Charging cards (5b)** — curated list (who maintains it, admin UI or repository file), own tariffs (device
+   price, which would settle several members at once. Since L6p a round also prices chargecloud's Mobilithek feed
+   (12.171 charge points without an entry on 2026-10-03).
+3. **L6p: time-varying prices (evprice)** — the dated two-hour slots are not shown (owner, 2026-10-03). Revisit only
+   if the live feeds start to carry `energyRateUpdate`s: then they could be read like live status. Options: (a) leave
+   as is (recommended); (b) read evprice's static feed hourly in the API.
+4. **Charging cards (5b)** — curated list (who maintains it, admin UI or repository file), own tariffs (device
    or account), price filter and map display.
 
 ## References
