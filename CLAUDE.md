@@ -195,13 +195,20 @@ Sources that describe charge points individually now emit one connector row per 
 (`pricing.mobidata`: MobiData BW's OCPI tariffs, Germany), `PriceProviderRegistrationTests`, an in-process cache, an
 exact EVSE-ID join, nothing written to `master.*` — plus the register prices `sync` stores in
 `master.charge_point_price` (France: `sync.irve.IrvePriceText` reads the free-text `tarification` only where the
-price is certain). `GET /api/v1/stations/{id}/charge-points` merges both, the live tariff first. **The product owner's
+price is certain; Germany since L6p: `sync.mobilithek.AfirPriceReader` reads the static AFIR feeds' ad-hoc
+`energyRate`s **as delivered** — several prices per charge point by payment means, fees from and to a minute, caps,
+daily windows of time of day and weekday in local time (the feeds' offsets are wrong), energy prices per window;
+details as JSON, migration 013). `GET /api/v1/stations/{id}/charge-points` merges both, the live tariff first —
+except over a stored price whose source *stated* its VAT basis (`vat_basis_stated`), which wins and spares the live
+call; the response carries `prices[]`, and the old single `price` only where a client from before L6p can show it
+correctly. **The product owner's
 rule: a price shown wrongly is worse than none.** Every price is gross; an amount whose VAT basis is not established
-is dropped, not guessed. OCPDB drops DATEX's `taxIncluded` (binary-butterfly/ocpdb#278), so a German tariff is shown
+is dropped, not guessed. OCPDB drops DATEX's `taxIncluded` (binary-butterfly/ocpdb#278) and chargecloud's Mobilithek
+feed never states it, so such a tariff is shown
 only when its net price × (1 + VAT) lands on whole cents, or its operator is in the dated table
-`evmap.pricing.mobidata.vat-basis` (`VatBasisTable`, phase 5r): entered only on an exact match with the operator's
+`evmap.vat-basis.operators` (neutral package `vatbasis`, shared by API and sync, phase 5r): entered only on an exact match with the operator's
 official ad-hoc price, amounts shown in whole cents, 19 % assumed for net operators of the rate-less chargecloud feed,
-an entry the feed contradicts suspended at runtime (WARN); an entry settles only the VAT basis, the
+an entry the feed contradicts suspended at runtime (WARN; the sync per run); an entry settles only the VAT basis, the
 feed's amounts are shown as delivered (owner, 2026-10-02). Runbook and evidence: `docs/operations/price-basis-operators.md`;
 `ShippedVatBasisTableTests` binds the real file. An explicit `tax_included` will win once OCPDB delivers it. OCPDB also maps DATEX per-minute prices into
 OCPI `TIME` unconverted, so the time unit is detected per feed from the median on every refresh and a change is

@@ -142,7 +142,7 @@ they share this package as they share `sync.EvseIds`. The sync container gets th
 The static feeds carry ad-hoc prices — explicit gross (eRound, Monta, EDRI, GP JOULE, SMATRICS), net with a rate
 (EnBW, PUMP), or no VAT statement (chargecloud) — mixed with per-minute and blocking fees. They are read in a separate
 step under ADR 0022 **directly after this one** (owner, 2026-10-03), after analysing the per-minute components per
-feed. Until then the adapter emits no prices.
+feed. Done in L6p (2026-10-03): `AfirPriceReader`, ADR 0022, "Gap filler L6p".
 
 ## Implementation (2026-10-03)
 
@@ -191,7 +191,7 @@ feed. Until then the adapter emits no prices.
 
 ## Open points
 
-1. **Prices from the static feeds** — next step, ADR 0022 (decided, see above).
+1. **Prices from the static feeds** — done in L6p (2026-10-03), ADR 0022, "Gap filler L6p".
 2. **eliso** answers 422 to the broker: ask the Mobilithek support how the offering is delivered.
 3. **Duplicates beyond 30 m** — measure after the first run on the server (new stations within 100 m of an unclaimed
    register entry), then decide whether stations without an EVSE-ID warrant a wider radius.

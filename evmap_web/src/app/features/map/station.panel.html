@@ -86,9 +86,11 @@
         <ul class="plain">
           @for (group of priceRows; track $index) {
             <li class="price">
-              <strong>{{ priceText(group) }}</strong>
+              @for (line of priceLines(group); track $index) {
+                <strong>{{ line }}</strong>
+              }
               <span class="muted">{{ priceDetails(group) }}</span>
-              @if (group.price.furtherFees) {
+              @if (furtherFees(group)) {
                 <span class="muted" i18n="@@price.furtherFees">Weitere Gebühren möglich, z. B. fürs Blockieren nach dem Laden</span>
               }
             </li>

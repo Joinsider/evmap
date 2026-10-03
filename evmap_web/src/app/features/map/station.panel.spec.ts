@@ -73,6 +73,23 @@ describe('StationPanel', () => {
     expect(text).toContain('Preis ohne Ladekarte');
   });
 
+  it('shows several prices of a charge point, each led by how it is paid, with their limits and publisher', async () => {
+    api.prices.set('s1', {
+      stationId: 's1', cheapestEnergyPerKwh: 0.5, currency: 'EUR', sources: [],
+      chargePoints: [{
+        id: 'c1', connectors: [], prices: [
+          { currency: 'EUR', energyPerKwh: 0.5, timeFees: [{ fromMinute: 240, toMinute: 390, perMinute: 0.1, cap: 15, window: { from: '08:00', to: '20:00' } }], free: false, furtherFees: false, paymentMeans: ['qrCode'], source: 'Grid & Co. GmbH via Mobilithek' },
+          { currency: 'EUR', energyPerKwh: 0.59, timeFees: [], free: false, furtherFees: false, paymentMeans: ['emv'], source: 'Grid & Co. GmbH via Mobilithek' },
+        ],
+      }],
+    });
+    const root = await open();
+    const lines = Array.from(root.querySelectorAll('.price strong')).map((line) => line.textContent!.replace(/\u00a0|\u202f/g, ' '));
+
+    expect(lines).toEqual(['QR-Code: 0,50 €/kWh · Min. 240–390: 0,10 €/min, max. 15,00 € (08:00–20:00)', 'Kartenterminal: 0,59 €/kWh']);
+    expect(root.textContent).toContain('Preisdaten: Grid & Co. GmbH via Mobilithek');
+  });
+
   it('lists comments read-only', async () => {
     api.commentsByStation.set('s1', [{ id: 'k1', body: 'Lädt zuverlässig', paidPriceCents: 1290, experience: 'Schnell', createdAt: '2026-09-01T10:00:00Z', updatedAt: '2026-09-01T10:00:00Z', ownedByCurrentUser: false }]);
     const root = await open();

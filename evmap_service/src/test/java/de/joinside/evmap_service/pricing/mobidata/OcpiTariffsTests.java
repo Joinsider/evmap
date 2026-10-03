@@ -6,8 +6,10 @@ import de.joinside.evmap_service.pricing.mobidata.OcpiTariffs.PriceComponent;
 import de.joinside.evmap_service.pricing.mobidata.OcpiTariffs.Tariff;
 import de.joinside.evmap_service.pricing.mobidata.OcpiTariffs.Tax;
 import de.joinside.evmap_service.pricing.mobidata.OcpiTariffs.TimeUnit;
-import de.joinside.evmap_service.pricing.mobidata.MobiDataPricingProperties.OperatorBasis;
-import de.joinside.evmap_service.pricing.mobidata.OcpiTariffs.TableBasis;
+import de.joinside.evmap_service.vatbasis.OperatorBasis;
+import de.joinside.evmap_service.vatbasis.TableBasis;
+import de.joinside.evmap_service.vatbasis.VatBasisTable;
+import de.joinside.evmap_service.vatbasis.VatEvidence;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -258,12 +260,12 @@ class OcpiTariffsTests {
     @ParameterizedTest(name = "{0} net at {1} → {2}")
     @CsvSource({"0.4622,0.19,0.55", "0.4034,0.19,0.48", "0.6639,0.19,0.79", "0.4874,0.19,0.58", "0.504,0.19,0.60"})
     void provesNetPrices(String net, String rate, String gross) {
-        assertThat(OcpiTariffs.provenGross(new BigDecimal(net), new BigDecimal(rate))).isEqualByComparingTo(gross);
+        assertThat(VatEvidence.provenGross(new BigDecimal(net), new BigDecimal(rate))).isEqualByComparingTo(gross);
     }
 
     @ParameterizedTest(name = "{0} is not proven net")
     @CsvSource({"0.64", "0.55", "0.6018", "0.805", "0.411"})
     void doesNotProveRoundOrUnexplainedValues(String net) {
-        assertThat(OcpiTariffs.provenGross(new BigDecimal(net), new BigDecimal("0.19"))).isNull();
+        assertThat(VatEvidence.provenGross(new BigDecimal(net), new BigDecimal("0.19"))).isNull();
     }
 }

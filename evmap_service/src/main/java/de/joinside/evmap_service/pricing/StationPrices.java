@@ -18,12 +18,21 @@ public record StationPrices(UUID stationId, BigDecimal cheapestEnergyPerKwh, Str
 
     /**
      * @param operatorName the charge point's operator, the station's where the source knows none per charge point
-     * @param price        {@code null} when no price is known
-     * @param priceSource  who stated the price: a live source's credited name, or the register's source token
+     * @param prices       usually one; several where they differ by payment means; empty when no price is known
+     * @param priceSource  who stated the prices: a live source's credited name, the publisher a register names, or
+     *                     the register's source token
      */
     public record PricedChargePoint(UUID id, String evseId, String operatorName,
                                     List<Connector> connectors,
-                                    AdHocPrice price, String priceSource) {
+                                    List<AdHocPrice> prices, String priceSource) {
+        public PricedChargePoint {
+            prices = prices == null ? List.of() : List.copyOf(prices);
+        }
+
+        /** The one price, {@code null} when there is none or several. */
+        public AdHocPrice price() {
+            return prices.size() == 1 ? prices.getFirst() : null;
+        }
     }
 
     public record Connector(String connectorType, BigDecimal powerKw, int quantity) {

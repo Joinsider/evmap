@@ -1639,5 +1639,71 @@
         <target>When EVMap changes, we adapt this privacy policy. The version published here applies.</target>
       </segment>
     </unit>
+    <unit id="price.perMinuteRange">
+      <segment>
+        <source>Min. <ph id="0" equiv="minute" disp="minute"/>–<ph id="1" equiv="until" disp="until"/>: <ph id="2" equiv="amount" disp="amount"/>/min</source>
+        <target>min. <ph id="0" equiv="minute" disp="minute"/>–<ph id="1" equiv="until" disp="until"/>: <ph id="2" equiv="amount" disp="amount"/>/min</target>
+      </segment>
+    </unit>
+    <unit id="price.timeBasedRange">
+      <segment>
+        <source>Min. <ph id="0" equiv="minute" disp="minute"/>–<ph id="1" equiv="until" disp="until"/> zeitabhängige Gebühr</source>
+        <target>time-based fee min. <ph id="0" equiv="minute" disp="minute"/>–<ph id="1" equiv="until" disp="until"/></target>
+      </segment>
+    </unit>
+    <unit id="price.cap">
+      <segment>
+        <source>max. <ph id="0" equiv="amount" disp="cap"/></source>
+        <target>max. <ph id="0" equiv="amount" disp="cap"/></target>
+      </segment>
+    </unit>
+    <unit id="price.rateNumber">
+      <segment>
+        <source>Tarif <ph id="0" equiv="number" disp="number"/></source>
+        <target>Rate <ph id="0" equiv="number" disp="number"/></target>
+      </segment>
+    </unit>
+    <unit id="price.payment.qrCode">
+      <segment>
+        <source>QR-Code</source>
+        <target>QR code</target>
+      </segment>
+    </unit>
+    <unit id="price.payment.emv">
+      <segment>
+        <source>Kartenterminal</source>
+        <target>Card terminal</target>
+      </segment>
+    </unit>
+    <unit id="price.payment.nfc">
+      <segment>
+        <source>NFC</source>
+        <target>NFC</target>
+      </segment>
+    </unit>
+    <unit id="price.payment.website">
+      <segment>
+        <source>Website</source>
+        <target>Website</target>
+      </segment>
+    </unit>
+    <unit id="price.payment.mobileAccount">
+      <segment>
+        <source>App</source>
+        <target>App</target>
+      </segment>
+    </unit>
+    <unit id="price.payment.creditCard">
+      <segment>
+        <source>Kreditkarte</source>
+        <target>Credit card</target>
+      </segment>
+    </unit>
+    <unit id="price.payment.debitCard">
+      <segment>
+        <source>Debitkarte</source>
+        <target>Debit card</target>
+      </segment>
+    </unit>
   </file>
 </xliff>

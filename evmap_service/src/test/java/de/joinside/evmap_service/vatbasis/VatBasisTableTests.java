@@ -1,7 +1,5 @@
-package de.joinside.evmap_service.pricing.mobidata;
+package de.joinside.evmap_service.vatbasis;
 
-import de.joinside.evmap_service.pricing.mobidata.MobiDataPricingProperties.OperatorBasis;
-import de.joinside.evmap_service.pricing.mobidata.OcpiTariffs.TableBasis;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

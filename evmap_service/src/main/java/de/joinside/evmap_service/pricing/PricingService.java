@@ -9,6 +9,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -26,8 +27,10 @@ import java.util.stream.Collectors;
  * provider the component scan found.
  * <p>
  * A live tariff wins over the register's price: it is what the operator publishes now, while the register is
- * at best a day old. Both attach to a charge point only by its exact EVSE-ID (live) or because the register
- * stated them for that very charge point; there is no geographic or name-based matching (ADR 0015, ADR 0022).
+ * at best a day old — unless the register's price states its VAT basis and the live one had it inferred: the
+ * Mobilithek's static feeds carry the {@code taxIncluded} flag OCPDB drops (ADR 0022, L6p). Both attach to a charge
+ * point only by its exact EVSE-ID (live) or because the register stated them for that very charge point; there is
+ * no geographic or name-based matching (ADR 0015, ADR 0022).
  */
 @Service
 @EnableConfigurationProperties(PricingProperties.class)
@@ -57,21 +60,21 @@ public class PricingService {
         List<ChargePointInventory.KnownChargePoint> chargePoints = inventory.forStation(stationId);
         Map<String, Reported> live = live(at, chargePoints);
 
-        List<StationPrices.PricedChargePoint> priced = chargePoints.stream()
-                .map(chargePoint -> priced(chargePoint, at, live))
-                .toList();
+        List<StationPrices.PricedChargePoint> priced = new ArrayList<>(chargePoints.size());
         Set<Attribution> sources = new LinkedHashSet<>();
         for (ChargePointInventory.KnownChargePoint chargePoint : chargePoints) {
             Reported reported = reportedFor(chargePoint, live);
-            if (reported != null) sources.add(reported.source());
+            boolean liveShown = reported != null && !storedWins(chargePoint);
+            if (liveShown) sources.add(reported.source());
+            priced.add(priced(chargePoint, at, liveShown ? reported : null));
         }
         Optional<AdHocPrice> cheapest = priced.stream()
-                .map(StationPrices.PricedChargePoint::price)
-                .filter(price -> price != null && price.energyPerKwh() != null)
-                .min(Comparator.comparing(AdHocPrice::energyPerKwh));
+                .flatMap(chargePoint -> chargePoint.prices().stream())
+                .filter(price -> price.lowestEnergyPerKwh() != null)
+                .min(Comparator.comparing(AdHocPrice::lowestEnergyPerKwh));
         log.debug("Station {}: {} of {} charge point(s) priced, {} live", stationId,
-                priced.stream().filter(p -> p.price() != null).count(), priced.size(), live.size());
-        return Optional.of(new StationPrices(stationId, cheapest.map(AdHocPrice::energyPerKwh).orElse(null),
+                priced.stream().filter(p -> !p.prices().isEmpty()).count(), priced.size(), live.size());
+        return Optional.of(new StationPrices(stationId, cheapest.map(AdHocPrice::lowestEnergyPerKwh).orElse(null),
                 cheapest.map(AdHocPrice::currency).orElse(null), priced, List.copyOf(sources)));
     }
 
@@ -80,28 +83,38 @@ public class PricingService {
         return chargePoint.evseIdNormalized() == null ? null : live.get(chargePoint.evseIdNormalized());
     }
 
-    /** A live tariff wins over the register's price; the operator falls back to the station's. */
+    /** A stored price whose source stated the VAT basis beats a live tariff whose basis was inferred. */
+    private static boolean storedWins(ChargePointInventory.KnownChargePoint chargePoint) {
+        return !chargePoint.prices().isEmpty()
+                && chargePoint.prices().stream().allMatch(ChargePointInventory.StoredPrice::vatBasisStated);
+    }
+
+    /** The live tariff when it is shown, else the register's prices; the operator falls back to the station's. */
     private static StationPrices.PricedChargePoint priced(ChargePointInventory.KnownChargePoint chargePoint,
-                                                          ChargePointInventory.StationLocation at,
-                                                          Map<String, Reported> live) {
-        Reported reported = reportedFor(chargePoint, live);
-        AdHocPrice price;
+                                                          ChargePointInventory.StationLocation at, Reported live) {
+        List<AdHocPrice> prices;
         String priceSource;
-        if (reported != null) {
-            price = reported.price();
-            priceSource = reported.source().name();
+        if (live != null) {
+            prices = List.of(live.price());
+            priceSource = live.source().name();
         } else {
-            price = chargePoint.price();
-            priceSource = price == null ? null : chargePoint.source();
+            prices = chargePoint.prices().stream().map(ChargePointInventory.StoredPrice::price).toList();
+            priceSource = chargePoint.prices().stream()
+                    .map(ChargePointInventory.StoredPrice::statedBy)
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElse(prices.isEmpty() ? null : chargePoint.source());
         }
         String operator = chargePoint.operatorName() != null ? chargePoint.operatorName() : at.operatorName();
         return new StationPrices.PricedChargePoint(chargePoint.id(), chargePoint.evseId(), operator,
-                chargePoint.connectors(), price, priceSource);
+                chargePoint.connectors(), prices, priceSource);
     }
 
     private Map<String, Reported> live(ChargePointInventory.StationLocation at,
                                        List<ChargePointInventory.KnownChargePoint> chargePoints) {
+        // A charge point whose stored price wins needs no live tariff; a station without others asks no provider.
         Set<String> wanted = chargePoints.stream()
+                .filter(chargePoint -> !storedWins(chargePoint))
                 .map(ChargePointInventory.KnownChargePoint::evseIdNormalized)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());

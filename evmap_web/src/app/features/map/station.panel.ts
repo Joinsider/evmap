@@ -6,7 +6,7 @@ import { DataSource, StationAvailability, StationChargePoints, StationComment, S
 import { isKnown, liveLabel, liveState, occupancy, serviceStateLabel } from './domain/availability';
 import { formatDate, formatDateTime, formatPower } from './domain/format';
 import { powerTier, tierColor, tierLabel } from './domain/power-tier';
-import { PriceGroup, formatAmount, fromPrice, hasPrices, priceGroups, priceParts, registerSources, unpricedCount } from './domain/prices';
+import { PriceGroup, formatAmount, fromPrice, hasFurtherFees, hasPrices, priceGroups, priceLines, registerSources, unpricedCount } from './domain/prices';
 import { StationSelection } from './station-selection';
 
 /**
@@ -102,11 +102,14 @@ export class StationPanel {
     return priceGroups(prices, station.operatorName, this.locale);
   }
 
-  protected priceText(group: PriceGroup) {
-    return priceParts(group.price, this.locale).join(' · ');
+  protected priceLines(group: PriceGroup) {
+    return priceLines(group.prices, this.locale);
   }
 
-  /** "2 × CCS · 150 kW · Partner AG · Stand 01.04.2026": how many, which plugs, whose and since when. */
+  protected furtherFees(group: PriceGroup) {
+    return hasFurtherFees(group);
+  }
+
   protected priceDetails(group: PriceGroup) {
     const parts: string[] = [];
     const count = group.count;

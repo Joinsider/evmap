@@ -61,7 +61,10 @@ class IrvePriceTextTests {
                 });
         SourcePrice timed = parse("0,17€/kWh + 0,125€/mn");
         assertThat(timed.energyPerKwh()).isEqualByComparingTo("0.17");
-        assertThat(timed.timeFeePerMinute()).isEqualByComparingTo("0.125");
+        assertThat(timed.timeFees()).singleElement().satisfies(fee -> {
+            assertThat(fee.fromMinute()).isZero();
+            assertThat(fee.perMinute()).isEqualByComparingTo("0.125");
+        });
         SourcePrice session = parse("0,39E/kWh et 1E de cout fixe par session de recharge.");
         assertThat(session.energyPerKwh()).isEqualByComparingTo("0.39");
         assertThat(session.sessionFee()).isEqualByComparingTo("1");
@@ -72,7 +75,8 @@ class IrvePriceTextTests {
         SourcePrice price = parse("Charge normale : 0,025€ / min");   // Freshmile, 511
 
         assertThat(price.energyPerKwh()).isNull();
-        assertThat(price.timeFeePerMinute()).isEqualByComparingTo("0.025");
+        assertThat(price.timeFees()).singleElement()
+                .satisfies(fee -> assertThat(fee.perMinute()).isEqualByComparingTo("0.025"));
     }
 
     @Test

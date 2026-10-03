@@ -91,6 +91,12 @@ The sync log of a run, per feed:
 
 - `Mobilithek feed enbw: 5302 station(s) with 11505 charge point(s), 5255 linked to the register; skipped 0 foreign,
   0 without position, 0 charge point(s) relayed by an earlier feed; 0 charge point(s) without EVSE-ID`
+- `Mobilithek feed enbw: ad-hoc prices for 11505 charge point(s); 0 without an established VAT basis, 0 with a rate
+  not understood (ADR 0022, L6p)` — the prices the feed carries, stored with the charge points. On the packages of
+  2026-10-03 about 42.600 charge points got a price; chargecloud's "without an established VAT basis" (~12.200) are
+  operators not in `evmap.vat-basis.operators` ([price-basis-operators.md](price-basis-operators.md)); "not
+  understood" counts rates that would be shown wrongly (evprice's two-hour slots, two fees for one moment, an energy
+  price that changes with the minute).
 - `Mobilithek feed eliso answered HTTP 422 — skipping it this run` — not delivered to us (eliso: not brokered; the
   five offerings awaiting approval answer 404). The feed's stations stay as earlier runs left them.
 - `Source MOBILITHEK supersedes N station(s)` — register entries hidden as duplicates of a Mobilithek station

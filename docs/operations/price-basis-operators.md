@@ -1,9 +1,13 @@
 # VAT basis per operator (German ad-hoc prices)
 
-Runbook for the hand-kept table `evmap.pricing.mobidata.vat-basis` in `evmap_service/src/main/resources/application.yaml`
-(ADR 0022, phase 5r). The why is in [ADR 0022](../adr/0022-prices-at-the-station.md): OCPDB drops the flag that says
-whether a tariff includes VAT (binary-butterfly/ocpdb#278). A tariff whose arithmetic does not prove it net is
-therefore shown only for an operator listed here, and **a price shown wrongly is worse than none**.
+Runbook for the hand-kept table `evmap.vat-basis.operators` in `evmap_service/src/main/resources/application.yaml`
+(ADR 0022, phases 5r and L6p; until L6p it was `evmap.pricing.mobidata.vat-basis`). The why is in
+[ADR 0022](../adr/0022-prices-at-the-station.md): OCPDB drops the flag that says whether a tariff includes VAT
+(binary-butterfly/ocpdb#278), and chargecloud's static Mobilithek feed never states it. A price of either whose
+arithmetic does not prove it net is therefore shown only for an operator listed here, and **a price shown wrongly is
+worse than none**. Both readers use the one table: the API for MobiData BW's tariffs, the sync for chargecloud's
+Mobilithek feed (the operator names agree — both are chargecloud's own export). Every other Mobilithek feed states
+its basis per amount and needs no entry.
 
 ## The rule for an entry
 
@@ -42,7 +46,10 @@ Feeds without a VAT rate (`datex2_chargecloud`): a `NET` entry assumes Germany's
   arithmetic proves net, or one listed `NET` with a tariff that is a whole-cent net price with VAT already added
   (0,6426 = 0,54 × 1,19) — the API suspends the entry for the rest of the process's life and logs at WARN:
   `MobiData BW tariff … of … contradicts its VAT basis entry …; entry suspended`. That operator's prices are gone
-  until someone checks the page again and fixes the entry. Look for the line in the API's logs.
+  until someone checks the page again and fixes the entry. Look for the line in the API's logs. The sync does the
+  same per run for chargecloud's Mobilithek feed: `Mobilithek price … of … contradicts its VAT basis entry …; entry
+  suspended for this run` in the sync's logs; that run stores no price for the operator's charge points that rely
+  on the entry.
 - **Age.** At startup the API names every entry older than `recheck-after` (six months) at WARN:
   `… VAT basis entr(ies) checked more than P6M ago, due for a new check …`. The entries stay in force.
 
@@ -52,7 +59,7 @@ Feeds without a VAT rate (`datex2_chargecloud`): a `NET` entry assumes Germany's
    `tariff_ids` per connector and the operator name exactly as it must be written in the table;
    `GET …/tariffs?limit=1000` the price components.
 2. Open the official price page, compare by the rule above, and write `operator`, `basis`, `checked-on` and
-   `source` (the URL) into `vat-basis`. Keep a short comment with the matched prices.
+   `source` (the URL) into `vat-basis.operators`. Keep a short comment with the matched prices.
 3. `ShippedVatBasisTableTests` binds the real file: a missing date, a duplicate or an unknown basis fails the build.
 
 ## Check of 2026-10-02
