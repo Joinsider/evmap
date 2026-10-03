@@ -3,6 +3,7 @@
 - Status: Accepted 2026-10-01 — part 5a (operator per charge point, ad-hoc prices) implemented on
   `feature/phase-5a-prices-at-station`; 5r (net/gross check per operator) implemented on
   `feature/phase-5r-vat-basis`, its open points 1 and 2 on `claude/vibrant-cannon-0qy3ym` (2026-10-02);
+  L6p (prices from the Mobilithek's static feeds) in progress on `feature/sync-mobilithek-prices` (2026-10-03);
   5b (charging cards) open
 - Date: 2026-10-01
 - Deciders: Joinsider
@@ -307,6 +308,47 @@ Bruchsal, PGG Baden-Baden, Landsberg, Weinheim, Lingen, MWEnergy; Electra, JOLT 
 44,2 % → 46,0 %. No entry is contradicted on the live data. Evidence per operator and what differs from the page:
 `docs/operations/price-basis-operators.md`, "Second round". Backend tests: the self-contradicting fee in
 `OcpiTariffsTests`; `ShippedVatBasisTableTests` binds the 31 entries.
+
+## Gap filler L6p: prices from the Mobilithek's static feeds (2026-10-03)
+
+The static AFIR feeds that became Germany's master data in L6 (ADR 0025) carry ad-hoc prices as DATEX II v3
+`energyRate`s. All 24 delivering packages of 2026-10-03 were analysed before anything was decided:
+
+- 13 feeds carry prices, on ~61.000 refill points. ~36.000 state the VAT basis per price (`taxIncluded`, `taxRate`):
+  eRound, Monta, EDRI, GP JOULE, SMATRICS, gridco, Wirelane, Audi, evprice, EWE gross; EnBW and PUMP net at 19 %.
+  chargecloud (25.392) states neither flag nor rate — the gap OCPDB has for every feed.
+- Shapes beyond "one energy price": a fee per minute from a minute of the session (`timeBasedApplicability
+  .fromMinute`), a cap on it (`priceCap`), fees and energy prices by time of day and weekday (`overallPeriod
+  .validPeriod`: `recurringTimePeriodOfDay`, `recurringDayWeekMonthPeriod`), several ad-hoc rates per refill point
+  that differ by payment means (`payment.paymentMeans`: `qrCode`, `nfc`, `emv`, `website`, `mobileAccount`,
+  `paymentCreditCard`, `paymentDebitCard`), an idle fee after charging ends (Monta, `priceType: other` with text),
+  and energy prices for dated two-hour slots (evprice, `overallStartTime`/`overallEndTime`).
+- Data errors that would be shown wrongly without a check: Wirelane writes a daytime blocking fee as a `pricePerKWh`
+  from minute 240 (its own text says €/min); eRound has 36 per-minute prices of 0,0017 € (an hourly price divided
+  twice); gridco writes `float` noise (0,4499999881).
+
+### Decisions (product owner, 2026-10-03, one question at a time)
+
+1. **Through the sync, into `master.charge_point_price`.** The broker holds only each feed's latest daily snapshot,
+   which the sync already reads; a second reader in the API would fetch ~500 MB again and hold ~150.000 prices in
+   memory. Written through `StationIngestionPort` like the IRVE prices. This is not the "nightly import" rejected
+   above: that would have copied a feed that changes at any time (OCPDB); this one changes once a day at source.
+2. **A price with a stated VAT basis wins over MobiData BW.** It is the operator's own publication with the flag
+   OCPDB loses. A stored price without one (chargecloud) stays behind the live MobiData tariff, which is fresher.
+3. **chargecloud gets the OCPDB rules**: evidence (net × 1,19 on whole cents), then the operator table
+   (`vat-basis`, 19 % assumed for net operators), else no price. The table is shared by both readers.
+4. **Time-dependent prices are shown as delivered** — owner's free-text answer, then scoped: daily recurring windows
+   of time of day and weekday, for fees *and* energy prices ("0,49 €/kWh 8–22 Uhr, 0,45 €/kWh 22–8 Uhr"). evprice's
+   dated two-hour slots are not shown: the sync reads them once a day, and they would be out of date within hours.
+5. **Clock times are read as local time**, the offset ignored: chargecloud and EDRI write `+02:00` (summer time),
+   gridco and Wirelane `+00:00`, and Wirelane's own text says "außer zwischen 20–8 Uhr" for `20:00+00:00–08:00+00:00`.
+6. **Several ad-hoc rates**: identical ones become one; different ones are all shown, each labelled with its payment
+   means from the feed ("QR-Code", "Karte", …), numbered where the feed names none (gridco).
+7. **Price caps are shown** ("ab Min. 45: 0,20 €/min, max. 18 €").
+8. **Idle fees after charging ends** (Monta) are not given an amount: "further fees possible", as OCPDB's parking fees.
+
+Unchanged rules apply: plausibility bands (energy 0,05–1,50 €, session fee ≤ 20 €, per minute 0,005–1 €), a fee
+outside its band keeps no amount, two different prices for one moment are no price, `EUR` only.
 
 ## Open points
 

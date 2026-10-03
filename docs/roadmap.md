@@ -38,7 +38,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | L4 | Lückenfüller: Spanien | fertig ⁸ | [#22](https://github.com/Joinsider/evmap/pull/22) | [0012](adr/0012-additional-national-charging-registers.md) |
 | L5 | Lückenfüller: Mobilithek (Live-Daten Deutschland), vor 8b | fertig ¹³ | [#34](https://github.com/Joinsider/evmap/pull/34) | [0015](adr/0015-live-availability-national-access-points-with-tomtom-fallback.md) |
 | L6 | Lückenfüller: Mobilithek als Stammdatenquelle Deutschland (BNetzA als Rückfall) | fertig ¹⁴ | [#45](https://github.com/Joinsider/evmap/pull/45) | [0025](adr/0025-mobilithek-as-germanys-master-data-source.md) |
-| L6p | Preise aus den statischen Mobilithek-Feeds, direkt nach L6 | offen | | [0022](adr/0022-prices-at-the-station.md) |
+| L6p | Preise aus den statischen Mobilithek-Feeds, direkt nach L6 | in Arbeit | `feature/sync-mobilithek-prices` | [0022](adr/0022-prices-at-the-station.md) |
 
 ¹ Im Repository fertig; offen sind die 👤-Schritte auf dem VPS (Backup-Ziel, Monitore, erste
 Restore-Probe, `docs/operations/backup-and-restore.md` §5).
@@ -351,6 +351,18 @@ Lückenfüller Italien (2026-10-01, Details in ADR 0012, Abschnitt „Italy skip
 - L3 wird übersprungen. Die PUN hat keinen offenen Export mehr; die Portal-API ist laut Product Owner nur mit
   italienischem Ausweis erreichbar, ihre Lizenz ist nicht ausdrücklich erklärt. Ein Adapter gegen die Portal-API
   wurde verworfen. Italien bleibt über OCM abgedeckt.
+
+Lückenfüller Mobilithek-Preise L6p (2026-10-03, Details in ADR 0022, Abschnitt „Gap filler L6p“):
+
+- Die Preise kommen **über den Sync** in `master.charge_point_price` (die Pakete ändern sich ohnehin nur täglich).
+- Ein Preis mit ausdrücklicher Brutto/Netto-Angabe **gewinnt vor MobiData BW**; ohne Angabe (chargecloud) bleibt
+  MobiData BW vorn.
+- chargecloud bekommt **dieselben Regeln wie OCPDB** (Beweis über ganze Cent, sonst Betreibertabelle).
+- **Zeitabhängige Preise werden so gezeigt, wie sie geliefert werden**: täglich wiederkehrende Fenster (Uhrzeit,
+  Wochentag) für Gebühren und Energiepreise; die datumsgebundenen 2-Stunden-Preise von evprice nicht.
+- Uhrzeiten gelten als **Ortszeit**, der Zeitzonen-Zusatz wird ignoriert (Wirelanes eigener Text belegt das).
+- Mehrere Ad-hoc-Tarife: gleiche zusammenfassen, verschiedene **je Zahlungsweg** zeigen.
+- **Preisdeckel** werden angezeigt; Leerlaufgebühren nach Ladeende nur als „weitere Gebühren möglich“.
 
 Lückenfüller Mobilithek-Stammdaten (2026-10-03, Details in ADR 0025):
 
