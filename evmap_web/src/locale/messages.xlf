@@ -737,9 +737,17 @@
         <source>Die Quelle jeder Ladestation steht in ihren Details. EVMap verwendet Daten aus:</source>
       </segment>
     </unit>
-    <unit id="imprint.source.bnetza">
+    <unit id="imprint.source.mobilithek">
       <notes>
         <note category="location">src/app/features/legal/imprint.page.html:19,20</note>
+      </notes>
+      <segment>
+        <source>Deutschland: AFIR-Daten der Ladepunktbetreiber über die Mobilithek (mobilithek.info), je Betreiber unter dessen Lizenz, überwiegend CC BY 4.0: EnBW mobility+, Tesla, EWE Go, Wirelane, Qwello, LichtBlick eMobility, SMATRICS, GP JOULE Connect, Volkswagen Group Charging, Audi, 800 Volt Technologies, ENIO, ELU Mobility, ladenetz.de, ladebusiness, EW Pricing, Grid &amp; Co., Road, Ampeco (EDRI), Monta, chargecloud, vaylens, eRound, e-clearing.net</source>
+      </segment>
+    </unit>
+    <unit id="imprint.source.bnetza">
+      <notes>
+        <note category="location">src/app/features/legal/imprint.page.html:20,21</note>
       </notes>
       <segment>
         <source>Deutschland: Ladesäulenregister der Bundesnetzagentur (Bundesnetzagentur.de), CC BY 4.0</source>
@@ -747,7 +755,7 @@
     </unit>
     <unit id="imprint.source.irve">
       <notes>
-        <note category="location">src/app/features/legal/imprint.page.html:20,21</note>
+        <note category="location">src/app/features/legal/imprint.page.html:21,22</note>
       </notes>
       <segment>
         <source>Frankreich: Base nationale des IRVE, Etalab / data.gouv.fr, Licence Ouverte</source>
@@ -755,7 +763,7 @@
     </unit>
     <unit id="imprint.source.diemo">
       <notes>
-        <note category="location">src/app/features/legal/imprint.page.html:21,22</note>
+        <note category="location">src/app/features/legal/imprint.page.html:22,23</note>
       </notes>
       <segment>
         <source>Schweiz und Liechtenstein: ich-tanke-strom.ch, Bundesamt für Energie (BFE)</source>
@@ -763,7 +771,7 @@
     </unit>
     <unit id="imprint.source.miterd">
       <notes>
-        <note category="location">src/app/features/legal/imprint.page.html:22,23</note>
+        <note category="location">src/app/features/legal/imprint.page.html:23,24</note>
       </notes>
       <segment>
         <source>Spanien: DGT / MITERD, über den nationalen Zugangspunkt der DGT, CC BY</source>
@@ -771,7 +779,7 @@
     </unit>
     <unit id="imprint.source.ocm">
       <notes>
-        <note category="location">src/app/features/legal/imprint.page.html:23,24</note>
+        <note category="location">src/app/features/legal/imprint.page.html:24,25</note>
       </notes>
       <segment>
         <source>Weitere Länder: Open Charge Map und ihre Datenlieferanten, nur Daten unter offenen Lizenzen</source>
@@ -779,7 +787,7 @@
     </unit>
     <unit id="imprint.source.mobidata">
       <notes>
-        <note category="location">src/app/features/legal/imprint.page.html:24,25</note>
+        <note category="location">src/app/features/legal/imprint.page.html:25,26</note>
       </notes>
       <segment>
         <source>Belegung und Preise in Deutschland: MobiData BW (OCPDB), Datenlizenz Deutschland – Namensnennung – Version 2.0</source>
@@ -787,7 +795,7 @@
     </unit>
     <unit id="imprint.source.irveLive">
       <notes>
-        <note category="location">src/app/features/legal/imprint.page.html:25,26</note>
+        <note category="location">src/app/features/legal/imprint.page.html:26,27</note>
       </notes>
       <segment>
         <source>Belegung in Frankreich: transport.data.gouv.fr, Licence Ouverte</source>
@@ -795,7 +803,7 @@
     </unit>
     <unit id="imprint.source.maps">
       <notes>
-        <note category="location">src/app/features/legal/imprint.page.html:26,29</note>
+        <note category="location">src/app/features/legal/imprint.page.html:27,30</note>
       </notes>
       <segment>
         <source>Karte und Ortssuche: Apple Maps</source>
@@ -803,7 +811,7 @@
     </unit>
     <unit id="imprint.privacy">
       <notes>
-        <note category="location">src/app/features/legal/imprint.page.html:29,30</note>
+        <note category="location">src/app/features/legal/imprint.page.html:30,31</note>
       </notes>
       <segment>
         <source>Datenschutz</source>
@@ -811,7 +819,7 @@
     </unit>
     <unit id="imprint.privacyLink">
       <notes>
-        <note category="location">src/app/features/legal/imprint.page.html:30,32</note>
+        <note category="location">src/app/features/legal/imprint.page.html:31,33</note>
       </notes>
       <segment>
         <source>Zur Datenschutzerklärung</source>
@@ -1006,7 +1014,7 @@
         <note category="location">src/app/features/legal/privacy.page.html:30,32</note>
       </notes>
       <segment>
-        <source>Belegung und Preise fragt unser Server bei MobiData BW (Land Baden-Württemberg) und bei transport.data.gouv.fr (Frankreich) ab. Diese Dienste erhalten von uns höchstens einen Kartenausschnitt, nie deine IP-Adresse, eine Kennung oder Kontodaten.</source>
+        <source>Belegung und Preise fragt unser Server bei MobiData BW (Land Baden-Württemberg), bei der Mobilithek (Bundesministerium für Verkehr) und bei transport.data.gouv.fr (Frankreich) ab. Diese Dienste erhalten von uns höchstens einen Kartenausschnitt, nie deine IP-Adresse, eine Kennung oder Kontodaten.</source>
       </segment>
     </unit>
     <unit id="privacy.maps">

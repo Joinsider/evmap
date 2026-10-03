@@ -1,5 +1,6 @@
 package de.joinside.evmap_service.availability.mobilithek;
 
+import de.joinside.evmap_service.mobilithek.MobilithekConnection;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
@@ -82,18 +83,23 @@ record MobilithekProperties(@DefaultValue("true") boolean enabled,
         boolean hasStaticFeed() {
             return isSet(staticSubscriptionId);
         }
+
+        private static boolean isSet(String value) {
+            return value != null && !value.isBlank();
+        }
+    }
+
+    /** What the shared broker client needs of this configuration. */
+    MobilithekConnection connection() {
+        return new MobilithekConnection(brokerUrl, keystorePath, keystoreBase64, keystorePassword, timeout);
     }
 
     boolean hasCertificate() {
-        return isSet(keystorePath) || isSet(keystoreBase64);
+        return connection().hasCertificate();
     }
 
     boolean hasBase64Certificate() {
-        return isSet(keystoreBase64);
-    }
-
-    private static boolean isSet(String value) {
-        return value != null && !value.isBlank();
+        return connection().hasBase64Certificate();
     }
 
     List<Feed> subscribedFeeds() {

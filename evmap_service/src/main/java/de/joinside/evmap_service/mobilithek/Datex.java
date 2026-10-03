@@ -1,4 +1,4 @@
-package de.joinside.evmap_service.availability.mobilithek;
+package de.joinside.evmap_service.mobilithek;
 
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import de.joinside.evmap_service.sync.EvseIds;
@@ -11,18 +11,18 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * What the readers of Mobilithek packages share — the live statuses ({@link AfirStatusParser}) and the static
- * descriptions that translate internal ids ({@link AfirStaticIdParser}): telling the two syntaxes apart, reading
- * XML safely, and recognising an EVSE-ID in whatever a publisher puts in its id fields.
+ * What the readers of Mobilithek packages share — the live statuses and id translations in
+ * {@code availability.mobilithek}, the static descriptions in {@code sync.mobilithek}: telling the two syntaxes
+ * apart, reading XML safely, and recognising an EVSE-ID in whatever a publisher puts in its id fields.
  */
-final class Datex {
-    static final JsonMapper JSON = JsonMapper.builder().build();
+public final class Datex {
+    public static final JsonMapper JSON = JsonMapper.builder().build();
 
     /**
      * XML from a third party: DTDs and external entities refused, namespaces resolved so that elements can be matched
      * by local name whatever prefixes a publisher chooses.
      */
-    static final XMLInputFactory XML = secureXmlFactory();
+    public static final XMLInputFactory XML = secureXmlFactory();
 
     /**
      * The shape of an eMI3 EVSE-ID once {@link EvseIds} has removed the separators: country, operator, then the
@@ -62,7 +62,7 @@ final class Datex {
      * Whether the first character that is not whitespace or a byte order mark is {@code <}. The broker hands a
      * package out as it was delivered, and operators deliver either syntax whatever their offering says.
      */
-    static boolean startsWithMarkup(BufferedInputStream in) throws IOException {
+    public static boolean startsWithMarkup(BufferedInputStream in) throws IOException {
         in.mark(256);
         try {
             for (int i = 0; i < 256; i++) {
@@ -78,18 +78,18 @@ final class Datex {
     }
 
     /** The normalized EVSE-ID of a published id: the id itself, or the starred EVSE-ID embedded in it. */
-    static String evseIdOf(String id) {
+    public static String evseIdOf(String id) {
         String normalized = EvseIds.normalize(id);
         if (normalized == null || isEvseShaped(normalized)) return normalized;
         Matcher embedded = EMBEDDED_EVSE_ID.matcher(id);
         return embedded.find() ? EvseIds.normalize(embedded.group(1)) : normalized;
     }
 
-    static boolean isEvseShaped(String normalizedId) {
+    public static boolean isEvseShaped(String normalizedId) {
         return EVSE_ID_SHAPE.matcher(normalizedId).matches() && !HEX_HASH.matcher(normalizedId).matches();
     }
 
-    static String blankToNull(String text) {
+    public static String blankToNull(String text) {
         return text == null || text.isBlank() ? null : text.trim();
     }
 }

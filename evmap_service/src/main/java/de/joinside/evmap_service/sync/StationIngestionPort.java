@@ -13,6 +13,19 @@ public interface StationIngestionPort {
      */
     IngestionResult upsert(Stream<SourceStation> stations);
 
+    /**
+     * Marks the stations {@code source} has made redundant, and unmarks the ones it no longer does (ADR 0025).
+     * <p>
+     * A station {@code source} does not maintain is superseded by one it does when all of its EVSE-IDs sit on
+     * {@code source}'s stations — then by the one holding most of them — or when it has no EVSE-ID and lies within
+     * 30 m of one, in the same country — then by the nearest. A station with an EVSE-ID {@code source} does not know
+     * is a different charge point and stays. Only countries where {@code source} maintains stations are looked at;
+     * one superseding source per country.
+     *
+     * @return how many stations are superseded by {@code source} after the call
+     */
+    int supersedeDuplicates(String source);
+
     /** Records the start of a run and returns its id. */
     UUID startRun();
 

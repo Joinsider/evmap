@@ -114,7 +114,16 @@ shared with `sync.ch`), for the same reason: the ingestion treats 30 m as "the s
 of one source inside it would overwrite each other on every run. The bundled station is named after the operator
 with most charge points; every other operator stays on its own charge points (`master.charge_point.operator_name`,
 ADR 0022). The EVSE-ID is the charge point's name, kept
-only where it has the shape `ES*XXX*E…`. Austria has no adapter: the E-Control terms forbid storing and relaying the data (ADR 0012,
+only where it has the shape `ES*XXX*E…`. `sync.mobilithek` (ADR 0025) reads the operators' static AFIR feeds from the Mobilithek broker (source token
+`MOBILITHEK`, ~67k German stations from 24 feeds, mTLS with the machine certificate — the sync container needs
+`MOBILITHEK_KEYSTORE`/`_PASSWORD` too). One `SourceStation` per AFIR *station*, id `<feed key>/<idG>` — never change a
+feed's `key` in `application-sync.yaml`; feeds are read in table order and a charge point two feeds carry is emitted
+once, so operators' own feeds come before platforms that relay them. JSON and XML packages go through one tree reader
+(`AfirSiteReader`) and tolerant accessors (`AfirSiteMapper`), because every publisher has its own dialect. The feeds
+name the register's station id (`stationIdBNetzA`, EnBW: `operatorIdBNetzA`), which becomes a `SourceStation.links`
+entry; Mobilithek records set `namesStation = false`, so a station it takes over keeps the register's display and
+operator name. Broker client and DATEX helpers live in the neutral package `mobilithek`, shared with the live provider.
+Austria has no adapter: the E-Control terms forbid storing and relaying the data (ADR 0012,
 "Austria skipped"); nor has Italy, whose PUN register has no open export any more and whose portal API is not
 open to foreign users (ADR 0012, "Italy skipped"). `sync.ocm` crawls Open Charge Map per country with keyset paging, throttled and page-capped because
 their fair usage policy allows automated banning; it needs `OCM_API_KEY` and skips itself with a warning
@@ -127,14 +136,23 @@ tokens — extend it when adding a source, or a wiring mistake ships as a contai
 and ingests one country less than it should.
 
 **Which source owns a station is a per-country table, not order.** `evmap.sync.authority` in
-`application-sync.yaml` maps a country to its authoritative source (`DE: BNetzA`, `FR: IRVE`, `CH: DIEMO`,
-`LI: DIEMO`, `ES: MITERD`); `SourceAuthority` reads it and `PostgresStationIngestionRepository.mayUpdate` applies it. The
+`application-sync.yaml` maps a country to its authoritative source (`DE: MOBILITHEK` with BNetzA as the fallback,
+`FR: IRVE`, `CH: DIEMO`, `LI: DIEMO`, `ES: MITERD`); `SourceAuthority` reads it and `PostgresStationIngestionRepository.mayUpdate` applies it. The
 authority takes over a station another source created first; any other source is only linked once the
 authority has claimed the station, and keeps maintaining the ones the authority has not. A country without
 an entry has no authority and the last source to run wins — adapters have no defined order, so a new
 national register must be added to the table, or Open Charge Map will overwrite its EVSE-IDs.
 `SourceAdapterRegistrationTests` checks that every source named in the shipped table is a registered
 adapter. See ADR 0012, "Switzerland (L2)".
+A record the source has not delivered before is resolved **exactly first, position last** (ADR 0025): the links it
+states (`SourceStation.links`), then the station holding most of its EVSE-IDs, then the nearest within 30 m — and no
+step matches a station the record's own source already maintains under another id, or two stations of one source at
+one place would overwrite each other. After every run the sources in `evmap.sync.supersede` (`MOBILITHEK`) mark the
+stations they make redundant (`master.charging_station.superseded_by`: all EVSE-IDs on the source's stations, or none
+and ≤ 30 m from one) and strip the visible rest of charge points whose EVSE-ID they hold, so no EVSE-ID is listed
+twice; the map, route corridor and operator directory skip them (`StationSpatialRepository
+.NOT_SUPERSEDED`), nothing is deleted — favorites, comments and reports reference stations. Any new station query
+must skip them too.
 
 **`availability` is the second data axis and is not part of `sync`.** Live occupancy is volatile,
 per-EVSE and worthless after minutes, so it never enters `master.*` and never goes through

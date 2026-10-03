@@ -3,6 +3,7 @@ package de.joinside.evmap_service.availability.mobilithek;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.JsonNode;
+import de.joinside.evmap_service.mobilithek.Datex;
 import de.joinside.evmap_service.sync.EvseIds;
 
 import javax.xml.stream.XMLStreamConstants;

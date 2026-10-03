@@ -14,6 +14,12 @@ class StationSpatialRepository {
     StationSpatialRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
 
     /**
+     * A station another source describes better — a register entry next to the Mobilithek station that replaced it
+     * (ADR 0025). It stays reachable by id, for favorites and comments, but is not offered on the map or the route.
+     */
+    static final String NOT_SUPERSEDED = "s.superseded_by IS NULL";
+
+    /**
      * Stations within {@code radiusKm} of the point, at most {@code limit} of them.
      *
      * <p>{@code max_power_kw} is the strongest connector <em>the station has</em> — the lateral
@@ -34,7 +40,8 @@ class StationSpatialRepository {
      * question is "did the user pick this network", and an unnamed one was never picked.
      */
     List<StationController.StationSummary> findNearby(NearbyQuery nearby) {
-        StringBuilder sql = new StringBuilder("SELECT " + COLUMNS + ", p.max_power_kw FROM master.charging_station s LEFT JOIN LATERAL (SELECT MAX(power_kw) AS max_power_kw FROM master.charging_connector WHERE station_id = s.id) p ON true LEFT JOIN master.charging_connector c ON c.station_id = s.id WHERE ST_DWithin(s.location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radius)");
+        StringBuilder sql = new StringBuilder("SELECT " + COLUMNS + ", p.max_power_kw FROM master.charging_station s LEFT JOIN LATERAL (SELECT MAX(power_kw) AS max_power_kw FROM master.charging_connector WHERE station_id = s.id) p ON true LEFT JOIN master.charging_connector c ON c.station_id = s.id WHERE ST_DWithin(s.location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radius)"
+                + " AND " + NOT_SUPERSEDED);
         appendFilters(sql, nearby.connectorTypes(), nearby.minPowerKw(), nearby.operator(), nearby.excludeOperators(), nearby.includeOperators());
         // s.id is the primary key, so the remaining selected columns are functionally dependent on it.
         sql.append(" GROUP BY s.id, p.max_power_kw ORDER BY p.max_power_kw DESC NULLS LAST, s.id LIMIT :limit");
@@ -67,7 +74,8 @@ class StationSpatialRepository {
                 + "FROM route CROSS JOIN master.charging_station s "
                 + "LEFT JOIN LATERAL (SELECT MAX(power_kw) AS max_power_kw FROM master.charging_connector WHERE station_id = s.id) p ON true "
                 + "LEFT JOIN master.charging_connector c ON c.station_id = s.id "
-                + "WHERE s.id IN (SELECT n.id FROM parts JOIN master.charging_station n ON ST_DWithin(n.location, parts.part, :corridor))");
+                + "WHERE s.id IN (SELECT n.id FROM parts JOIN master.charging_station n ON ST_DWithin(n.location, parts.part, :corridor)) "
+                + "AND " + NOT_SUPERSEDED);
         appendFilters(sql, along.connectorTypes(), along.minPowerKw(), null, along.excludeOperators(), along.includeOperators());
         sql.append(" GROUP BY s.id, p.max_power_kw, route.line ORDER BY p.max_power_kw DESC NULLS LAST, s.id LIMIT :limit) ranked ORDER BY ranked.along_km, ranked.id");
         var query = jdbc.sql("WITH route AS (SELECT ST_GeomFromText(:wkt, 4326) AS line), "

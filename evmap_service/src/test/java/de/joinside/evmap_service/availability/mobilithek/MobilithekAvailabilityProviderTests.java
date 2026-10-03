@@ -5,6 +5,7 @@ import de.joinside.evmap_service.availability.ChargePointAvailability;
 import de.joinside.evmap_service.availability.GeoBounds;
 import de.joinside.evmap_service.availability.LiveAvailability;
 import de.joinside.evmap_service.availability.StoredChargePoints;
+import de.joinside.evmap_service.mobilithek.MobilithekBroker;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
