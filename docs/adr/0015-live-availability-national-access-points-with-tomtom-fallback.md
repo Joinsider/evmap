@@ -2,7 +2,7 @@
 
 - Status: Accepted — MobiData BW, France and the Mobilithek (L5) implemented; TomTom rejected
 - Date: 2026-08-03, revised 2026-08-24, 2026-09-28, 2026-10-02
-- Deciders: Johannes Popp
+- Deciders: Joinsider
 
 > **Revision 2026-08-24.** The first revision of this ADR was desk research; nothing had been checked
 > against a live endpoint. Building the first provider disproved four of its load-bearing claims. The
