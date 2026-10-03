@@ -17,6 +17,9 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.GeneralSecurityException;
 import java.time.Clock;
 import java.util.ArrayList;
@@ -43,6 +46,8 @@ class MobilithekSourceAdapter implements SourceAdapter {
     private static final Logger log = LoggerFactory.getLogger(MobilithekSourceAdapter.class);
 
     static final String SOURCE = "MOBILITHEK";
+    private static final FileAttribute<Set<PosixFilePermission>> OWNER_ONLY =
+            PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"));
 
     private final MobilithekSyncProperties properties;
     /** {@code null} when no certificate is configured or it could not be loaded. */
@@ -133,7 +138,8 @@ class MobilithekSourceAdapter implements SourceAdapter {
                                 feed.key(), response.status());
                         return latest;
                     }
-                    Path spooled = Files.createTempFile("mobilithek-" + feed.key() + "-", ".datex");
+                    // Readable by this process only: the temporary directory is shared with every other user.
+                    Path spooled = Files.createTempFile("mobilithek-" + feed.key() + "-", ".datex", OWNER_ONLY);
                     deleteQuietly(latest);
                     latest = spooled;
                     Files.copy(response.body(), spooled, StandardCopyOption.REPLACE_EXISTING);

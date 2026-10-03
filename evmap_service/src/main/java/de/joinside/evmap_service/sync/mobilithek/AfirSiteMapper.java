@@ -48,6 +48,7 @@ final class AfirSiteMapper {
     /** The register's station id, which three publishers type differently; EnBW's is an id despite its name. */
     private static final Set<String> REGISTER_ID_TYPES = Set.of("stationIdBNetzA", "operatorIdBNetzA");
     private static final String EVSE_ID_TYPE = "evseId";
+    private static final String LOCATION_REFERENCE = "locationReference";
     private static final Pattern DIGITS = Pattern.compile("\\d+");
     /** {@code DE*EWE}, {@code DESTA}: an operator id where a name was expected. */
     private static final Pattern OPERATOR_ID = Pattern.compile("[A-Z]{2}\\*?[A-Z0-9]{3}");
@@ -90,15 +91,16 @@ final class AfirSiteMapper {
     private SourceStation station(JsonNode site, JsonNode station) {
         String id = idOf(station);
         if (id == null) return null;
-        JsonNode location = field(station, "locationReference");
-        double[] position = position(location);
-        if (position == null) position = position(field(site, "locationReference"));
+        JsonNode location = field(station, LOCATION_REFERENCE);
+        JsonNode siteLocation = field(site, LOCATION_REFERENCE);
+        Position position = position(location);
+        if (position == null) position = position(siteLocation);
         if (position == null) {
             counters.withoutPosition++;
             return null;
         }
         JsonNode address = find(location, "address");
-        if (address == null) address = find(field(site, "locationReference"), "address");
+        if (address == null) address = find(siteLocation, "address");
         String country = upper(text(field(address, "countryCode")));
         if (country == null) country = countryCode;
         if (!countryCode.equals(country)) {
@@ -118,7 +120,7 @@ final class AfirSiteMapper {
         counters.stations++;
         counters.chargePoints += chargePoints.size();
         return new SourceStation(source, key, name, street(address), text(field(address, "city")),
-                text(field(address, "postcode")), country, operator, position[0], position[1], null,
+                text(field(address, "postcode")), country, operator, position.latitude(), position.longitude(), null,
                 lastUpdated(site, station), List.of(), chargePoints, links, false);
     }
 
@@ -244,7 +246,10 @@ final class AfirSiteMapper {
         return number == null ? street : street + " " + number;
     }
 
-    private static double[] position(JsonNode location) {
+    private record Position(double latitude, double longitude) {
+    }
+
+    private static Position position(JsonNode location) {
         for (String name : new String[]{"coordinatesForDisplay", "pointCoordinates"}) {
             JsonNode coordinates = find(location, name);
             if (coordinates == null) continue;
@@ -253,7 +258,7 @@ final class AfirSiteMapper {
                 String latitude = text(field(point, "latitude"));
                 String longitude = text(field(point, "longitude"));
                 if (latitude != null && longitude != null)
-                    return new double[]{Double.parseDouble(latitude), Double.parseDouble(longitude)};
+                    return new Position(Double.parseDouble(latitude), Double.parseDouble(longitude));
             } catch (NumberFormatException _) {
                 // try the other spelling
             }

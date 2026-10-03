@@ -83,6 +83,10 @@ record MobilithekProperties(@DefaultValue("true") boolean enabled,
         boolean hasStaticFeed() {
             return isSet(staticSubscriptionId);
         }
+
+        private static boolean isSet(String value) {
+            return value != null && !value.isBlank();
+        }
     }
 
     /** What the shared broker client needs of this configuration. */
@@ -96,10 +100,6 @@ record MobilithekProperties(@DefaultValue("true") boolean enabled,
 
     boolean hasBase64Certificate() {
         return connection().hasBase64Certificate();
-    }
-
-    private static boolean isSet(String value) {
-        return value != null && !value.isBlank();
     }
 
     List<Feed> subscribedFeeds() {

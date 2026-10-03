@@ -25,8 +25,10 @@ public record MobilithekConnection(String brokerUrl, String keystorePath, String
     /** Hides the password from logs and exception messages, which would otherwise print every component. */
     @Override
     public String toString() {
-        return "MobilithekConnection[brokerUrl=" + brokerUrl + ", certificate="
-                + (hasBase64Certificate() ? "base64" : hasCertificate() ? keystorePath : "none") + "]";
+        String certificate = "none";
+        if (hasBase64Certificate()) certificate = "base64";
+        else if (hasCertificate()) certificate = keystorePath;
+        return "MobilithekConnection[brokerUrl=" + brokerUrl + ", certificate=" + certificate + "]";
     }
 
     public boolean hasCertificate() {
