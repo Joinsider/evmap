@@ -201,6 +201,16 @@ session cookie instead of script-readable storage.
   `http://localhost`, set it to `false` for Safari or other plain-http origins.
 - Trade-off: the browser now attaches the credential itself (hence CSRF); in exchange an XSS can no
   longer read or exfiltrate it, only act while the page is open.
+- **Only a real 401 signs out** (fix, 2026-10-04). A refused write (CSRF 403, a 400, a 500) is forwarded to
+  `/error`, and that dispatch no longer carries the caller's authentication; `anyRequest().authenticated()`
+  turned it into a 401, so the favorites merge right after a Google/GitHub sign-in signed people out in
+  the page while their cookie stayed valid. The error dispatch is now `permitAll` and keeps its status. The
+  web client additionally treats a 401 from anything but `GET /me` as a question, not a verdict: it asks
+  `/me` and signs out only when that says so.
+- Sign-in UI: the chosen provider's button shows a spinner and a status line ("Weiter zu Apple …"), the
+  callback page a spinner. Coming back from the provider without signing in (cancel, Back button) restores
+  the login page from the back-forward cache; `pageshow` with `persisted` unlocks the buttons and drops
+  the pending `state`/verifier.
 
 ## References
 

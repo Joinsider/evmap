@@ -41,6 +41,23 @@ describe('authInterceptor', () => {
     expect(auth.signedIn()).toBe(false);
   });
 
+  it('stays signed in when another request is refused but the session still holds', async () => {
+    http.post('/api/v1/me/favorites/merge', { stationIds: [] }).subscribe({ error: () => undefined });
+    backend.expectOne('/api/v1/me/favorites/merge').flush(null, { status: 401, statusText: 'Unauthorized' });
+    await new Promise((resolve) => setTimeout(resolve));
+
+    expect(auth.signedIn()).toBe(true);
+  });
+
+  it('signs out after another refused request when the session is really gone', async () => {
+    (TestBed.inject(EvmapApi) as FakeEvmapApi).hasSession = false;
+    http.post('/api/v1/me/favorites/merge', { stationIds: [] }).subscribe({ error: () => undefined });
+    backend.expectOne('/api/v1/me/favorites/merge').flush(null, { status: 401, statusText: 'Unauthorized' });
+    await new Promise((resolve) => setTimeout(resolve));
+
+    expect(auth.signedIn()).toBe(false);
+  });
+
   it('ignores a 401 from somewhere that is not our API', () => {
     http.get('https://elsewhere.example/data').subscribe({ error: () => undefined });
     backend.expectOne('https://elsewhere.example/data').flush(null, { status: 401, statusText: 'Unauthorized' });

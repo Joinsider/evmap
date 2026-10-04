@@ -95,6 +95,15 @@ describe('AuthService', () => {
     expect(await auth.complete('google', new URLSearchParams({ code: 'c', state: 's' }))).toEqual({ error: 'state' });
   });
 
+  it('forgets an abandoned sign-in, so its answer can no longer complete', async () => {
+    const state = (await leave()).searchParams.get('state')!;
+
+    auth.abandon();
+
+    expect(await auth.complete('google', new URLSearchParams({ code: 'the-code', state }))).toEqual({ error: 'state' });
+    expect(api.exchanges).toHaveLength(0);
+  });
+
   it('reports a cancelled sign-in as a provider error', async () => {
     const state = (await leave()).searchParams.get('state')!;
 

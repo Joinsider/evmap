@@ -52,6 +52,14 @@ export class AuthService {
   }
 
   /**
+   * Drops a sign-in that was started but never came back, e.g. when the person cancelled at the
+   * provider and returned with the browser's Back button.
+   */
+  abandon() {
+    sessionStorage.removeItem(PENDING_KEY);
+  }
+
+  /**
    * Finishes a sign-in on the callback route. Returns where to go next, or the reason it failed.
    * The state check is what ties the answer to the tab that asked; for Apple, which has no PKCE,
    * it is the only such binding.

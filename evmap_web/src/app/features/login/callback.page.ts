@@ -10,7 +10,10 @@ import { AuthService, SignInError } from '../../core/auth/auth.service';
     <section class="card">
       @switch (error()) {
         @case (null) {
-          <p i18n="@@callback.working">Anmeldung wird abgeschlossen …</p>
+          <p class="working" role="status" aria-busy="true">
+            <span class="spinner" aria-hidden="true"></span>
+            <ng-container i18n="@@callback.working">Anmeldung wird abgeschlossen …</ng-container>
+          </p>
         }
         @case ('provider') {
           <p class="error" i18n="@@callback.cancelled">Die Anmeldung wurde abgebrochen.</p>
@@ -26,6 +29,14 @@ import { AuthService, SignInError } from '../../core/auth/auth.service';
         <a routerLink="/login" i18n="@@callback.retry">Erneut anmelden</a>
       }
     </section>
+  `,
+  styles: `
+    .working {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 0;
+    }
   `,
 })
 export class CallbackPage implements OnInit {

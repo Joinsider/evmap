@@ -1,5 +1,6 @@
 package de.joinside.evmap_service.api.security;
 
+import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -61,6 +62,10 @@ class SecurityConfiguration {
                 .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // A refused request (CSRF 403, a 400, a 500) is forwarded to /error, and that dispatch no longer
+                        // carries the caller's authentication. Requiring it there turned every such error into a 401,
+                        // which the web client rightly reads as "signed out". The error page keeps the original status.
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         // health/** covers the group endpoints (/actuator/health/container); details
                         // stay hidden by default, so this exposes status only.
                         .requestMatchers("/actuator/health/**").permitAll()

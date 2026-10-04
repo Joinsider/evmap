@@ -152,6 +152,20 @@ class SecurityConfigurationTests {
     }
 
     @Test
+    @DisplayName("an error dispatch keeps the original status instead of turning it into 401")
+    void errorDispatchKeepsStatus() throws Exception {
+        // In a real container a refused cookie write (CSRF) is forwarded to /error without the caller's
+        // authentication; the web client signed people out on the 401 that used to come back from there.
+        mockMvc.perform(get("/error").with(request -> {
+                    request.setDispatcherType(jakarta.servlet.DispatcherType.ERROR);
+                    request.setAttribute(jakarta.servlet.RequestDispatcher.ERROR_STATUS_CODE, 403);
+                    request.setAttribute(jakarta.servlet.RequestDispatcher.ERROR_REQUEST_URI, "/api/v1/me/favorites/merge");
+                    return request;
+                }))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("the moderation queue is admin-only")
     void moderationQueueIsAdminOnly() throws Exception {
         mockMvc.perform(get("/api/v1/admin/reports")).andExpect(status().isUnauthorized());

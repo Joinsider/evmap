@@ -211,6 +211,12 @@
         <target>Accounts with the same verified e-mail address are merged automatically.</target>
       </segment>
     </unit>
+    <unit id="login.leaving">
+      <segment>
+        <source>Weiter zu <ph id="0" equiv="INTERPOLATION" disp="{{ name(leaving) }}"/> …</source>
+        <target>Continuing to <ph id="0" equiv="INTERPOLATION" disp="{{ name(leaving) }}"/> …</target>
+      </segment>
+    </unit>
     <unit id="login.none">
       <segment>
         <source>Auf diesem Server ist noch kein Anmeldeverfahren eingerichtet.</source>

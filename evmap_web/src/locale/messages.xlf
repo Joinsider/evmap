@@ -165,7 +165,7 @@
         <note category="location">src/app/features/admin/reports.page.html:38,40</note>
         <note category="location">src/app/features/admin/station-reports.page.html:34,36</note>
         <note category="location">src/app/features/legal/operator-address.ts:33,37</note>
-        <note category="location">src/app/features/login/login.page.ts:26,29</note>
+        <note category="location">src/app/features/login/login.page.ts:42,45</note>
         <note category="location">src/app/features/map/station.panel.html:5,6</note>
       </notes>
       <segment>
@@ -1379,7 +1379,7 @@
     </unit>
     <unit id="callback.working">
       <notes>
-        <note category="location">src/app/features/login/callback.page.ts:13,15</note>
+        <note category="location">src/app/features/login/callback.page.ts:15,17</note>
       </notes>
       <segment>
         <source>Anmeldung wird abgeschlossen …</source>
@@ -1387,7 +1387,7 @@
     </unit>
     <unit id="callback.cancelled">
       <notes>
-        <note category="location">src/app/features/login/callback.page.ts:16,18</note>
+        <note category="location">src/app/features/login/callback.page.ts:19,21</note>
       </notes>
       <segment>
         <source>Die Anmeldung wurde abgebrochen.</source>
@@ -1395,7 +1395,7 @@
     </unit>
     <unit id="callback.state">
       <notes>
-        <note category="location">src/app/features/login/callback.page.ts:19,21</note>
+        <note category="location">src/app/features/login/callback.page.ts:22,24</note>
       </notes>
       <segment>
         <source>Die Anmeldung ist abgelaufen oder stammt aus einem anderen Fenster. Bitte erneut versuchen.</source>
@@ -1403,7 +1403,7 @@
     </unit>
     <unit id="callback.failed">
       <notes>
-        <note category="location">src/app/features/login/callback.page.ts:22,25</note>
+        <note category="location">src/app/features/login/callback.page.ts:25,28</note>
       </notes>
       <segment>
         <source>Die Anmeldung ist fehlgeschlagen.</source>
@@ -1411,7 +1411,7 @@
     </unit>
     <unit id="callback.retry">
       <notes>
-        <note category="location">src/app/features/login/callback.page.ts:26,29</note>
+        <note category="location">src/app/features/login/callback.page.ts:29,32</note>
       </notes>
       <segment>
         <source>Erneut anmelden</source>
@@ -1419,7 +1419,7 @@
     </unit>
     <unit id="login.title">
       <notes>
-        <note category="location">src/app/features/login/login.page.ts:12,13</note>
+        <note category="location">src/app/features/login/login.page.ts:13,14</note>
       </notes>
       <segment>
         <source>Anmelden</source>
@@ -1427,7 +1427,7 @@
     </unit>
     <unit id="login.hint">
       <notes>
-        <note category="location">src/app/features/login/login.page.ts:13,14</note>
+        <note category="location">src/app/features/login/login.page.ts:14,15</note>
       </notes>
       <segment>
         <source>Konten mit derselben bestätigten E-Mail-Adresse werden automatisch zusammengeführt.</source>
@@ -1435,15 +1435,23 @@
     </unit>
     <unit id="login.none">
       <notes>
-        <note category="location">src/app/features/login/login.page.ts:21,23</note>
+        <note category="location">src/app/features/login/login.page.ts:32,34</note>
       </notes>
       <segment>
         <source>Auf diesem Server ist noch kein Anmeldeverfahren eingerichtet.</source>
       </segment>
     </unit>
+    <unit id="login.leaving">
+      <notes>
+        <note category="location">src/app/features/login/login.page.ts:36,37</note>
+      </notes>
+      <segment>
+        <source>Weiter zu <ph id="0" equiv="INTERPOLATION" disp="{{ name(leaving) }}"/> …</source>
+      </segment>
+    </unit>
     <unit id="login.unavailable">
       <notes>
-        <note category="location">src/app/features/login/login.page.ts:24,26</note>
+        <note category="location">src/app/features/login/login.page.ts:40,42</note>
       </notes>
       <segment>
         <source>Die Anmeldung ist gerade nicht erreichbar.</source>

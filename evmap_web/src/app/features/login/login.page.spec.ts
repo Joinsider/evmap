@@ -52,4 +52,53 @@ describe('LoginPage', () => {
     TestBed.configureTestingModule({ providers: [{ provide: EvmapApi, useValue: failing }] });
     expect((await render()).nativeElement.textContent).toContain('nicht erreichbar');
   });
+
+  it('shows which provider it is leaving for and locks the buttons meanwhile', async () => {
+    vi.spyOn(TestBed.inject(AuthService), 'begin').mockReturnValue(new Promise(() => undefined));
+    const fixture = await render();
+    const page = fixture.nativeElement as HTMLElement;
+
+    page.querySelectorAll('button')[0].click();
+    await fixture.whenStable();
+
+    const buttons = [...page.querySelectorAll('button')];
+    expect(buttons.every((button) => button.disabled)).toBe(true);
+    expect(buttons[0].getAttribute('aria-busy')).toBe('true');
+    expect(buttons[0].querySelector('.spinner')).not.toBeNull();
+    expect(buttons[1].querySelector('.spinner')).toBeNull();
+    expect(page.querySelector('[role=status]')!.textContent).toContain('Weiter zu Apple');
+  });
+
+  it('is usable again when the browser brings it back after a cancelled sign-in', async () => {
+    const auth = TestBed.inject(AuthService);
+    vi.spyOn(auth, 'begin').mockResolvedValue();
+    const abandon = vi.spyOn(auth, 'abandon');
+    const fixture = await render();
+    const page = fixture.nativeElement as HTMLElement;
+    page.querySelector('button')!.click();
+    await fixture.whenStable();
+
+    // A fresh load is no return from the provider: nothing to undo.
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: false }));
+    await fixture.whenStable();
+    expect(page.querySelector('button')!.disabled).toBe(true);
+
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+    await fixture.whenStable();
+
+    expect([...page.querySelectorAll('button')].some((button) => button.disabled)).toBe(false);
+    expect(page.querySelector('[role=status]')!.textContent!.trim()).toBe('');
+    expect(abandon).toHaveBeenCalledOnce();
+  });
+
+  it('unlocks the buttons when the sign-in cannot even start', async () => {
+    vi.spyOn(TestBed.inject(AuthService), 'begin').mockRejectedValue(new Error('no crypto'));
+    const fixture = await render();
+    const page = fixture.nativeElement as HTMLElement;
+
+    page.querySelector('button')!.click();
+    await fixture.whenStable();
+
+    expect(page.querySelector('button')!.disabled).toBe(false);
+  });
 });
