@@ -287,6 +287,18 @@ export interface StationComment {
   ownedByCurrentUser: boolean;
 }
 
+/** What a comment is written or edited with; the author is the session, never a field. */
+export interface CommentPayload {
+  body: string;
+  paidPriceCents?: number;
+  experience?: string;
+}
+
+/** A favorite as the account holds it: the map's station fields plus when it was marked (ADR 0021). */
+export interface FavoriteStation extends StationSummary {
+  favoritedAt?: string;
+}
+
 /** A charging network of the directory (ADR 0014); the name is its identity. */
 export interface Operator {
   name: string;

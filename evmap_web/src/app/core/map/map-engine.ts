@@ -12,6 +12,8 @@ export interface MapPinView {
   title: string;
   /** Charge points free right now, when a live source covers the pin. */
   liveAvailable?: number;
+  /** The pin holds a favorite station: drawn with a star, as on iOS (ADR 0021). */
+  favorite?: boolean;
 }
 
 export interface MapCallbacks {

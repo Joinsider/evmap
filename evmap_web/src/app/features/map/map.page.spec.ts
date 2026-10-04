@@ -6,6 +6,7 @@ import { StationSummary } from '../../core/api/models';
 import { MapEngine } from '../../core/map/map-engine';
 import { FakeEvmapApi } from '../../testing/fake-evmap-api';
 import { FakeMapEngine } from '../../testing/fake-map-engine';
+import { FAVORITES_KEY, FavoritesStore } from './data/favorites.store';
 import { StationSettingsStore } from './data/station-settings.store';
 import { withPreference, withUnlistedProviders } from './domain/station-settings';
 import { MapPage } from './map.page';
@@ -172,5 +173,52 @@ describe('MapPage', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     expect(engine.moves).toEqual([{ viewport: { latitude: 40, longitude: -3.7, latitudeSpan: 0.05, longitudeSpan: 0.05 }, animated: false }]);
+  });
+
+  it('stars pins that hold a favorite and redraws them when the list changes', async () => {
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify({ stations: [station('a', 48.78, 9.18)], synced: false }));
+    api.stationList = [station('a', 48.78, 9.18, 300), station('b', 52.5, 13.4)];
+    const fixture = await open();
+
+    expect(engine.pins.map((pin) => [pin.id, pin.favorite])).toEqual([
+      ['a', true],
+      ['b', false],
+    ]);
+
+    await TestBed.inject(FavoritesStore).add(station('b', 52.5, 13.4));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(engine.pins.find((pin) => pin.id === 'b')!.favorite).toBe(true);
+  });
+
+  it('opens the favorites list, closes the filter for it, and centers on and opens a picked favorite', async () => {
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify({ stations: [station('fav', 50.1, 8.7)], synced: false }));
+    const fixture = await open();
+    const root = fixture.nativeElement as HTMLElement;
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const buttons = () => Array.from(root.querySelectorAll('.controls button')) as HTMLButtonElement[];
+
+    buttons()[0].click();
+    fixture.detectChanges();
+    expect(root.querySelector('app-filter-panel')).not.toBeNull();
+    const queries = api.stationQueries.length;
+
+    buttons()[1].click();
+    fixture.detectChanges();
+    expect(root.querySelector('app-filter-panel')).toBeNull();
+    expect(api.stationQueries.length).toBe(queries + 1);
+    expect(root.querySelector('app-favorites-panel')!.textContent).toContain('Station fav');
+
+    (root.querySelector('app-favorites-panel .open') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(root.querySelector('app-favorites-panel')).toBeNull();
+    expect(engine.moves.at(-1)).toEqual({ viewport: { latitude: 50.1, longitude: 8.7, latitudeSpan: 0.05, longitudeSpan: 0.05 }, animated: true });
+    expect(navigate).toHaveBeenCalledWith(['/station', 'fav']);
+
+    buttons()[1].click();
+    fixture.detectChanges();
+    buttons()[0].click();
+    fixture.detectChanges();
+    expect(root.querySelector('app-favorites-panel')).toBeNull();
   });
 });

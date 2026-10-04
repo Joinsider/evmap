@@ -4,11 +4,14 @@ import {
   Account,
   AdminOverview,
   BlockedAuthor,
+  CommentPayload,
   Contributions,
+  FavoriteStation,
   GeoBounds,
   MapToken,
   Operator,
   ProviderToken,
+  ReportReason,
   ReportedComment,
   ReportedStation,
   SignInProvider,
@@ -60,6 +63,15 @@ export class FakeEvmapApi extends EvmapApi {
   commentsByStation = new Map<string, StationComment[]>();
   directory: Operator[] = [];
   operatorQueries: string[] = [];
+  /** The account's favorites as the backend holds them. */
+  accountFavorites: FavoriteStation[] = [];
+  /** Station ids the backend no longer knows: skipped by a merge, refused by an add. */
+  unknownStations = new Set<string>();
+  /** Makes every write of the participation endpoints fail, as a backend that is down would. */
+  rejectWrites = false;
+  /** The ids sent with each favorites merge. */
+  merges: string[][] = [];
+  private nextComment = 1;
   token: MapToken | null = { token: 'test-token', expiresAt: '2026-10-02T12:30:00Z' };
 
   signInProviders(): Observable<SignInProvider[]> {
@@ -173,6 +185,87 @@ export class FakeEvmapApi extends EvmapApi {
 
   comments(stationId: string): Observable<StationComment[]> {
     return of(this.commentsByStation.get(stationId) ?? []);
+  }
+
+  createComment(stationId: string, payload: CommentPayload): Observable<StationComment> {
+    this.calls.push(`createComment:${stationId}`);
+    if (this.rejectWrites) return throwError(() => new Error('500'));
+    const now = '2026-10-04T10:00:00Z';
+    const comment: StationComment = { id: `new-${this.nextComment++}`, ...payload, createdAt: now, updatedAt: now, ownedByCurrentUser: true };
+    this.commentsByStation.set(stationId, [comment, ...(this.commentsByStation.get(stationId) ?? [])]);
+    return of(comment);
+  }
+
+  updateComment(id: string, payload: CommentPayload): Observable<StationComment> {
+    this.calls.push(`updateComment:${id}`);
+    if (this.rejectWrites) return throwError(() => new Error('500'));
+    for (const [stationId, list] of this.commentsByStation) {
+      const existing = list.find((comment) => comment.id === id);
+      if (!existing) continue;
+      const updated: StationComment = { ...existing, body: payload.body, paidPriceCents: payload.paidPriceCents, experience: payload.experience };
+      this.commentsByStation.set(stationId, list.map((comment) => (comment.id === id ? updated : comment)));
+      return of(updated);
+    }
+    return throwError(() => new Error('404'));
+  }
+
+  deleteComment(id: string): Observable<void> {
+    this.calls.push(`deleteComment:${id}`);
+    if (this.rejectWrites) return throwError(() => new Error('500'));
+    this.hideComment(id);
+    return of(undefined);
+  }
+
+  reportComment(id: string, reason: ReportReason): Observable<void> {
+    this.calls.push(`reportComment:${id}:${reason}`);
+    if (this.rejectWrites) return throwError(() => new Error('500'));
+    this.hideComment(id);
+    return of(undefined);
+  }
+
+  blockAuthor(commentId: string): Observable<void> {
+    this.calls.push(`blockAuthor:${commentId}`);
+    if (this.rejectWrites) return throwError(() => new Error('500'));
+    this.hideComment(commentId);
+    return of(undefined);
+  }
+
+  reportStation(stationId: string, reason: StationReportReason, note?: string): Observable<void> {
+    this.calls.push(`reportStation:${stationId}:${reason}:${note ?? ''}`);
+    return this.rejectWrites ? throwError(() => new Error('500')) : of(undefined);
+  }
+
+  favorites(): Observable<FavoriteStation[]> {
+    return of(this.accountFavorites);
+  }
+
+  addFavorite(stationId: string): Observable<void> {
+    this.calls.push(`addFavorite:${stationId}`);
+    if (this.rejectWrites || this.unknownStations.has(stationId)) return throwError(() => new Error('404'));
+    return of(undefined);
+  }
+
+  removeFavorite(stationId: string): Observable<void> {
+    this.calls.push(`removeFavorite:${stationId}`);
+    if (this.rejectWrites) return throwError(() => new Error('500'));
+    this.accountFavorites = this.accountFavorites.filter((favorite) => favorite.id !== stationId);
+    return of(undefined);
+  }
+
+  mergeFavorites(stationIds: readonly string[]): Observable<FavoriteStation[]> {
+    this.merges.push([...stationIds]);
+    if (this.rejectWrites) return throwError(() => new Error('500'));
+    const known = new Set(this.accountFavorites.map((favorite) => favorite.id));
+    const added = stationIds
+      .filter((id) => !known.has(id) && !this.unknownStations.has(id))
+      .map((id): FavoriteStation => ({ id, displayName: `Station ${id}`, latitude: 48, longitude: 9 }));
+    this.accountFavorites = [...added, ...this.accountFavorites];
+    return of(this.accountFavorites);
+  }
+
+  /** What the backend's visibility does after a delete, report or block: the comment is gone for this viewer. */
+  private hideComment(id: string) {
+    for (const [stationId, list] of this.commentsByStation) this.commentsByStation.set(stationId, list.filter((comment) => comment.id !== id));
   }
 
   operators(query: string): Observable<Operator[]> {

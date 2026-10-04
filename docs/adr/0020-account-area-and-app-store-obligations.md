@@ -121,7 +121,7 @@ complete file protection, shared through `ShareLink`, and removed when the scree
 - iOS had no sign-out UI at all; the account screen adds it.
 - A 401 in the account area signs the iOS session out (the account was deleted elsewhere).
 - Web has no report/block UI: there are no comments on the web yet. Phase 8 must add it, together
-  with the comment list, using the endpoints above.
+  with the comment list, using the endpoints above. Done in phase 8b (ADR 0023, 2026-10-04).
 - `.env.example` files were not touched (the agent cannot read them); the variables are in both
   compose files and in `docs/operations/sign-in-providers.md` §5.
 

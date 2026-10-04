@@ -1,7 +1,8 @@
 # 23. User web app
 
 - Status: Accepted 2026-10-02 — part 8a (map and station, read-only) implemented on `claude/kind-tesla-0rm3p2` ([#29](https://github.com/Joinsider/evmap/pull/29));
-  8b (taking part: comments, reports, blocks, favorites, station reports) open
+  part 8b (taking part: comments, reports, blocks, favorites, station reports) implemented on
+  `feature/phase-8b-web-participation` ([#48](https://github.com/Joinsider/evmap/pull/48), 2026-10-04)
 - Date: 2026-10-02
 - Deciders: Joinsider
 
@@ -145,6 +146,67 @@ container runtime and run on CI.
 4. Before announcing the web app: check response times and load in Uptime Kuma.
 5. Name MapKit JS (Apple) in the published privacy policy (`docs/privacy/data-processing.md`).
 
+## Phase 8b — taking part (2026-10-04)
+
+The backend needed nothing: every endpoint exists since phases 2 and 3 (comments with `PATCH`, report, block,
+favorites with the merge, station reports). 8b is web work only.
+
+### Decisions (product owner, 2026-10-04)
+
+- **The favorites list is a panel over the map**, opened by a "★ Favoriten" button beside "Filter" — the web form of
+  the iOS sheet. Rejected: a page of its own, and the panel plus a section on "Mein Konto". A picked favorite centers
+  the map on it and opens it; the map stays alive.
+
+Settled without asking, following iOS and the existing rules:
+
+- The favorites rule of ADR 0021 unchanged: device-only signed out, union on sign-in, emptied at sign-out, every
+  change undone if the backend refuses it.
+- The paid price is typed **in euros** ("21,40"), not in cents as on iOS: a browser form can take the amount as it is
+  read off the receipt. It is sent as cents, as before.
+- Signed out, the comment and error-report entries are links to `/login?returnUrl=/station/<id>`, so a sign-in comes
+  back to the station.
+- Deleting an own comment asks once inline (as the filter reset does), no browser `confirm()`.
+
+### What was built
+
+- `EvmapApi` gained `createComment`, `updateComment`, `deleteComment`, `reportComment`, `blockAuthor`,
+  `reportStation`, `favorites`, `addFavorite`, `removeFavorite`, `mergeFavorites` (REST and fake).
+- `features/map/data/FavoritesStore` (root): the port of the iOS `FavoritesViewModel`. `localStorage` key
+  `evmap.favorites.v1` holds whole stations plus a `synced` flag — whether the list is the account's copy. The app
+  initializer settles the session before the store exists, so its effect sees the real state: a restored session
+  merges, and a signed-out start with `synced: true` (session expired, or signed out on a page that never loaded the
+  store) empties the list. A list that never met an account is never emptied, the counterpart of iOS not clearing at a
+  signed-out launch. A merge whose answer arrives after the account changed is dropped. Lenient parsing like the
+  settings store; storage failures only cost persistence.
+- `CommentsSection`: list, write, edit, delete (own), "Melden oder blockieren" (others', signed in) with the four
+  reasons of ADR 0020 or blocking the author. The list is reloaded after every change and whenever the viewer
+  changes, because the backend decides what a viewer sees. Form limits from the backend (2000 / 32 characters), the
+  price checked by `domain/comment-form`.
+- `StationReportForm`: the five reasons of ADR 0021, an optional note (500), the hint not to enter personal data, a
+  thank-you once sent.
+- `StationPanel`: the star (works signed out), the two components; the "write comments in the iPhone app" hint is
+  gone.
+- `FavoritesPanel` and the map: pins holding a favorite carry a star in the marker text — "★" alone, "3★" with free
+  charge points, "12★" on a cluster — so no number is lost to it (`glyphText` in `MapKitEngine`). Pins redraw when
+  the list changes.
+- Privacy: the new `localStorage` entry in `docs/privacy/data-processing.md` and on `/datenschutz`.
+- Web: 163 tests (37 new), production build for `de` and `en`. Checked in the browser against a mock API on desktop
+  and phone width: star, comment form, report dialog, error report, favorites panel. The real backend and the real map
+  were not used.
+
+### Deviations from the plan
+
+- iOS draws a star *badge* on the pin; MapKit JS's `MarkerAnnotation` has a single glyph text, so the web puts the star
+  into it. A custom annotation element would be the alternative if it reads badly on the real map.
+- Favorites outside the loaded stations are not drawn on the map (as on iOS).
+
+### 👤 Steps for the product owner
+
+1. After rolling out the web image: sign in on the web, write, edit and delete a comment; report one and block an
+   author with a second account; mark a favorite signed out, sign in (union with the iPhone's list), sign out (list
+   empty); report a station error and close it in `/admin/station-reports`.
+2. Look at the star on the real map once (Maps key from 8a needed).
+
 ## Open points
 
 1. **Rate limiting of the token endpoint.** Signing is local and cheap, so none is built. If abuse shows up, the
@@ -154,6 +216,7 @@ container runtime and run on CI.
 
 ## References
 
+- Phase 8b: `features/map/{comments-section,station-report-form,favorites-panel}.ts`, `features/map/data/favorites.store.ts`
 - ADR 0009 (viewport loading, pins), ADR 0011 (search moves the camera only), ADR 0014 (settings, provider
   preferences), ADR 0015 (live availability), ADR 0017 (route links), ADR 0018 (web client, MapKit JS), ADR 0020
   (moderation on the web), ADR 0021 (favorites), ADR 0022 (prices), ADR 0002 (logging)

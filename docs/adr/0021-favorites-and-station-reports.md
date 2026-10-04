@@ -126,7 +126,7 @@ the account screen lists station reports.
    (b) a per-account limit in the API; (c) `limit_req` in the web container's nginx.
 2. **Telling the reporter what was decided.** They see the status in "my contributions" only; ADR 0020
    open point 2 (push or e-mail) covers this too.
-3. **Favorites on the web.** The web has no station view before phase 8; the endpoints are ready for it.
+3. ~~**Favorites on the web.**~~ Done in phase 8b (ADR 0023): favorites, the star and station reports on the web.
 
 ## References
 

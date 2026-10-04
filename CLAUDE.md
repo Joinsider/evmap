@@ -309,8 +309,11 @@ for sync. See ADR 0003.
 ## Web architecture
 
 `evmap_web/` is one Angular application (standalone components, zoneless, signals) with lazy feature
-areas under `src/app/features/` (`map`, `login`, `account`, `admin`, `home` for the forbidden page); phase 8b of the
-user web app (comments, reports, favorites) joins `map` and `account`.
+areas under `src/app/features/` (`map`, `login`, `account`, `admin`, `home` for the forbidden page). Taking part
+(phase 8b) lives in `map`: `CommentsSection` (write, edit, delete, report or block), `StationReportForm`, and
+`FavoritesStore` — the port of the iOS `FavoritesViewModel` (`localStorage` key `evmap.favorites.v1` with a `synced`
+flag: union on sign-in, an account copy is emptied when the session ends, a list that never met an account never is),
+shown as stars on the pins and in `FavoritesPanel`.
 
 The **map is the start page** (ADR 0023, phase 8a) and the station panel its child route `/station/:id`, so opening
 a station keeps the map alive. MapKit JS sits behind `core/map/MapEngine` (`MapKitEngine`, provided only by the map

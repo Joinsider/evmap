@@ -1,0 +1,93 @@
+<h3 i18n="@@comments.title">Community</h3>
+
+@if (comments.hasValue()) {
+  @if (comments.value().length === 0) {
+    <p class="muted" i18n="@@comments.empty">Noch keine Kommentare.</p>
+  }
+  <ul class="plain">
+    @for (comment of comments.value(); track comment.id) {
+      <li class="comment">
+        @if (is('edit', comment)) {
+          <ng-container *ngTemplateOutlet="form" />
+        } @else {
+          <p>{{ comment.body }}</p>
+          <p class="muted">{{ meta(comment) }}</p>
+          @if (comment.ownedByCurrentUser) {
+            @if (is('delete', comment)) {
+              <p role="alert"><strong i18n="@@comments.deleteSure">Kommentar löschen?</strong></p>
+              <div class="actions">
+                <button type="button" class="danger" [disabled]="busy()" (click)="delete(comment)" i18n="@@action.delete">Löschen</button>
+                <button type="button" class="link" [disabled]="busy()" (click)="cancel()" i18n="@@action.cancel">Abbrechen</button>
+              </div>
+            } @else {
+              <div class="actions">
+                <button type="button" class="link" (click)="edit(comment)" i18n="@@action.edit">Bearbeiten</button>
+                <button type="button" class="link" (click)="confirmDelete(comment)" i18n="@@action.delete">Löschen</button>
+              </div>
+            }
+          } @else if (auth.signedIn()) {
+            @if (is('moderate', comment)) {
+              <fieldset class="moderation">
+                <legend i18n="@@comments.moderation.title">Kommentar melden</legend>
+                <p class="muted" i18n="@@comments.moderation.message">Wähle einen Grund, um den Kommentar zu melden. Gemeldete Kommentare werden dir nicht mehr angezeigt. Oder blockiere den Autor, dann siehst du keinen seiner Kommentare mehr.</p>
+                @for (reason of reasons; track reason) {
+                  <button type="button" class="choice" [disabled]="busy()" (click)="report(comment, reason)">{{ reasonLabel(reason) }}</button>
+                }
+                <button type="button" class="choice danger" [disabled]="busy()" (click)="block(comment)" i18n="@@comments.blockAuthor">Autor blockieren</button>
+                <button type="button" class="link" [disabled]="busy()" (click)="cancel()" i18n="@@action.cancel">Abbrechen</button>
+              </fieldset>
+            } @else {
+              <div class="actions">
+                <button type="button" class="link" (click)="moderate(comment)" i18n="@@comments.moderate">Melden oder blockieren</button>
+              </div>
+            }
+          }
+        }
+        @if (failed() && (is('edit', comment) || is('delete', comment) || is('moderate', comment))) {
+          <p class="error" role="alert" i18n="@@comments.failedWrite">Das hat nicht geklappt. Bitte versuche es erneut.</p>
+        }
+      </li>
+    }
+  </ul>
+} @else if (comments.error()) {
+  <p class="muted" i18n="@@comments.failed">Kommentare konnten nicht geladen werden.</p>
+}
+
+@if (auth.signedIn()) {
+  @if (is('write')) {
+    <ng-container *ngTemplateOutlet="form" />
+    @if (failed()) {
+      <p class="error" role="alert" i18n="@@comments.failedWrite">Das hat nicht geklappt. Bitte versuche es erneut.</p>
+    }
+  } @else if (!is('edit')) {
+    <button type="button" class="primary" (click)="write()" i18n="@@comments.add">Kommentar schreiben</button>
+  }
+} @else {
+  <p class="muted">
+    <a routerLink="/login" [queryParams]="{ returnUrl: loginLink() }" i18n="@@comments.loginRequired">Zum Kommentieren bitte anmelden.</a>
+  </p>
+}
+
+<ng-template #form>
+  <form class="editor" (submit)="$event.preventDefault(); save()">
+    <label>
+      <span i18n="@@comments.message">Kommentar</span>
+      <textarea rows="4" [maxLength]="maxBody" [value]="body()" (input)="setBody($any($event.target).value)" required></textarea>
+    </label>
+    <label>
+      <span i18n="@@comments.experience">Ladeerfahrung (optional)</span>
+      <input type="text" [maxLength]="maxExperience" [value]="experience()" (input)="setExperience($any($event.target).value)" />
+    </label>
+    <label>
+      <span i18n="@@comments.priceEuro">Bezahlter Preis in Euro (optional)</span>
+      <input type="text" inputmode="decimal" [value]="price()" (input)="setPrice($any($event.target).value)" />
+    </label>
+    @if (body().trim() && !payload()) {
+      <p class="error" i18n="@@comments.priceInvalid">Bitte den Preis als Betrag angeben, z. B. 21,40.</p>
+    }
+    <div class="actions">
+      <button type="submit" class="primary" [disabled]="!canSave(payload())" i18n="@@action.save">Speichern</button>
+      <button type="button" class="link" [disabled]="busy()" (click)="cancel()" i18n="@@action.cancel">Abbrechen</button>
+    </div>
+  </form>
+</ng-template>

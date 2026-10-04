@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { EvmapApi } from '../../core/api/evmap-api';
 import { FakeEvmapApi } from '../../testing/fake-evmap-api';
+import { FavoritesStore } from './data/favorites.store';
 import { StationPanel } from './station.panel';
 import { StationSelection } from './station-selection';
 
@@ -9,6 +10,7 @@ describe('StationPanel', () => {
   let api: FakeEvmapApi;
 
   beforeEach(() => {
+    localStorage.clear();
     api = new FakeEvmapApi();
     api.details.set('s1', {
       station: { id: 's1', displayName: 'EnBW Stuttgart', street: 'Hauptstr. 1', postalCode: '70173', city: 'Stuttgart', operatorName: 'EnBW', latitude: 48.78, longitude: 9.18, availabilityStatus: 'OPERATIONAL', maxPowerKw: 150 },
@@ -104,5 +106,25 @@ describe('StationPanel', () => {
     const root = await open('missing');
 
     expect(root.textContent).toContain('Diese Station gibt es nicht');
+  });
+
+  it('marks the station as a favorite with the star and unmarks it again, signed out too', async () => {
+    const root = await open();
+    const star = root.querySelector('.star') as HTMLButtonElement;
+    expect(star.getAttribute('aria-pressed')).toBe('false');
+    expect(star.getAttribute('aria-label')).toBe('Zu Favoriten hinzufügen');
+
+    const favorites = TestBed.inject(FavoritesStore);
+
+    star.click();
+    expect(favorites.stations()).toMatchObject([{ id: 's1', displayName: 'EnBW Stuttgart' }]);
+    star.click();
+    expect(favorites.isFavorite('s1')).toBe(false);
+  });
+
+  it('shows the error report entry below the comments', async () => {
+    const root = await open();
+
+    expect(root.querySelector('app-station-report-form')!.textContent).toContain('Zum Melden eines Fehlers bitte anmelden.');
   });
 });

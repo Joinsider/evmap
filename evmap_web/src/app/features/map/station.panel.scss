@@ -43,9 +43,29 @@
   color: var(--muted);
 }
 
+.title {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-right: 2rem;
+}
+
 h2 {
-  margin: 0 2rem 0.25rem 0;
+  margin: 0 0 0.25rem;
   font-size: 1.25rem;
+}
+
+.star {
+  background: none;
+  border: none;
+  padding: 0 0.25rem;
+  font-size: 1.375rem;
+  line-height: 1.2;
+  color: var(--muted);
+
+  &.on {
+    color: var(--warning);
+  }
 }
 
 h3 {
@@ -107,11 +127,6 @@ section {
   display: flex;
   flex-direction: column;
   padding: 0.25rem 0 0.5rem;
-}
-
-.comment p {
-  margin: 0.25rem 0;
-  white-space: pre-wrap;
 }
 
 .credit {

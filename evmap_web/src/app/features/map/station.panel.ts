@@ -2,39 +2,44 @@ import { Component, LOCALE_ID, computed, effect, inject, input } from '@angular/
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { EvmapApi } from '../../core/api/evmap-api';
-import { DataSource, StationAvailability, StationChargePoints, StationComment, StationSummary } from '../../core/api/models';
+import { DataSource, StationAvailability, StationChargePoints, StationSummary } from '../../core/api/models';
+import { CommentsSection } from './comments-section';
+import { FavoritesStore } from './data/favorites.store';
 import { isKnown, liveLabel, liveState, occupancy, serviceStateLabel } from './domain/availability';
 import { formatDate, formatDateTime, formatPower } from './domain/format';
 import { powerTier, tierColor, tierLabel } from './domain/power-tier';
-import { PriceGroup, formatAmount, fromPrice, hasFurtherFees, hasPrices, priceGroups, priceLines, registerSources, unpricedCount } from './domain/prices';
+import { PriceGroup, fromPrice, hasFurtherFees, hasPrices, priceGroups, priceLines, registerSources, unpricedCount } from './domain/prices';
+import { StationReportForm } from './station-report-form';
 import { StationSelection } from './station-selection';
 
 /**
  * One station beside the map, under `/station/:id` so it can be linked and reloaded (ADR 0023). Detail, live state,
  * prices and comments load independently: a live or tariff source that is down leaves its section out, never the
- * station (ADR 0015, ADR 0022). Read-only in 8a; writing, reporting and favorites follow in 8b.
+ * station (ADR 0015, ADR 0022). Signed in, people comment, report and keep favorites (8b); favorites work signed out too.
  */
 @Component({
   selector: 'app-station-panel',
-  imports: [RouterLink],
+  imports: [RouterLink, CommentsSection, StationReportForm],
   templateUrl: './station.panel.html',
   styleUrl: './station.panel.scss',
 })
 export class StationPanel {
   private readonly api = inject(EvmapApi);
   private readonly selection = inject(StationSelection);
+  protected readonly favorites = inject(FavoritesStore);
   protected readonly locale = inject(LOCALE_ID);
 
   /** From the route (`withComponentInputBinding`). */
   readonly id = input.required<string>();
 
   protected readonly noAddress = $localize`:@@station.addressUnavailable:Keine Adresse verfügbar`;
+  protected readonly addFavorite = $localize`:@@favorites.add:Zu Favoriten hinzufügen`;
+  protected readonly removeFavorite = $localize`:@@favorites.remove:Aus Favoriten entfernen`;
   protected readonly chargePointLabel = $localize`:@@station.live.chargePoint:Ladepunkt`;
 
   protected readonly detail = rxResource({ params: () => this.id(), stream: ({ params }) => this.api.station(params) });
   protected readonly live = rxResource({ params: () => this.id(), stream: ({ params }) => this.api.stationAvailability(params) });
   protected readonly prices = rxResource({ params: () => this.id(), stream: ({ params }) => this.api.chargePoints(params) });
-  protected readonly comments = rxResource({ params: () => this.id(), stream: ({ params }) => this.api.comments(params) });
 
   protected readonly knownLive = computed(() => {
     const live = this.live.hasValue() ? this.live.value() : undefined;
@@ -133,14 +138,7 @@ export class StationPanel {
     return registerSources(prices, groups).join(', ');
   }
 
-  /** "28.09.2026 · Bezahlt: 21,40 € · Schnell": when, what was paid, how it went. */
-  protected commentMeta(comment: StationComment) {
-    const parts = [formatDate(comment.createdAt, this.locale)];
-    if (comment.paidPriceCents !== undefined && comment.paidPriceCents !== null) {
-      const amount = formatAmount(comment.paidPriceCents / 100, 'EUR', this.locale);
-      parts.push($localize`:@@comments.paid:Bezahlt: ${amount}:amount:`);
-    }
-    if (comment.experience) parts.push(comment.experience);
-    return parts.join(' · ');
+  protected toggleFavorite(station: StationSummary) {
+    void this.favorites.toggle(station);
   }
 }

@@ -8,7 +8,15 @@
   } @else if (detail.hasValue()) {
     @let station = detail.value().station;
     <header>
-      <h2 id="station-title">{{ station.displayName }}</h2>
+      <div class="title">
+        <h2 id="station-title">{{ station.displayName }}</h2>
+        @let favorite = favorites.isFavorite(station.id);
+        <button type="button" class="star" [class.on]="favorite" [attr.aria-pressed]="favorite" (click)="toggleFavorite(station)"
+          [attr.aria-label]="favorite ? removeFavorite : addFavorite" [title]="favorite ? removeFavorite : addFavorite">{{ favorite ? '★' : '☆' }}</button>
+      </div>
+      @if (favorites.failed()) {
+        <p class="error" role="alert" i18n="@@favorites.failed">Die Favoriten konnten nicht mit deinem Konto abgeglichen werden.</p>
+      }
       <p class="muted">{{ address(station) || noAddress }}</p>
       @if (station.operatorName) {
         <p>{{ station.operatorName }}</p>
@@ -117,23 +125,11 @@
     }
 
     <section>
-      <h3 i18n="@@comments.title">Community</h3>
-      @if (comments.hasValue()) {
-        @if (comments.value().length === 0) {
-          <p class="muted" i18n="@@comments.empty">Noch keine Kommentare.</p>
-        }
-        <ul class="plain">
-          @for (comment of comments.value(); track comment.id) {
-            <li class="comment">
-              <p>{{ comment.body }}</p>
-              <p class="muted">{{ commentMeta(comment) }}</p>
-            </li>
-          }
-        </ul>
-      } @else if (comments.error()) {
-        <p class="muted" i18n="@@comments.failed">Kommentare konnten nicht geladen werden.</p>
-      }
-      <p class="muted" i18n="@@comments.webSoon">Kommentieren geht bisher in der iPhone-App.</p>
+      <app-comments-section [stationId]="station.id" />
+    </section>
+
+    <section>
+      <app-station-report-form [stationId]="station.id" />
     </section>
 
     @if (detail.value().sources.length) {
