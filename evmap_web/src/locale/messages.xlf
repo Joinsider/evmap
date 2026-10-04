@@ -1129,9 +1129,17 @@
         <source>Lokaler Speicher „evmap.stationSettings.v1“: deine Filter und die Auswahl der Ladenetze, damit sie beim nächsten Besuch wieder gelten. Bleibt, bis du die Einstellungen zurücksetzt oder die Website-Daten löschst.</source>
       </segment>
     </unit>
+    <unit id="privacy.storage.favorites">
+      <notes>
+        <note category="location">src/app/features/legal/privacy.page.html:49,50</note>
+      </notes>
+      <segment>
+        <source>Lokaler Speicher „evmap.favorites.v1“: deine Favoriten mit Name, Adresse und Position der Stationen, damit sie ohne Konto funktionieren. Nach der Anmeldung wird die Liste mit deinem Konto zusammengeführt; beim Abmelden wird sie aus dem Browser entfernt. Sonst bleibt sie, bis du die Favoriten entfernst oder die Website-Daten löschst.</source>
+      </segment>
+    </unit>
     <unit id="privacy.storage.signIn">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:49,51</note>
+        <note category="location">src/app/features/legal/privacy.page.html:50,52</note>
       </notes>
       <segment>
         <source>Sitzungsspeicher während einer Anmeldung: zwei Zufallswerte, die den Anmeldeablauf absichern. Sie werden bei der Rückkehr vom Anmeldedienst gelöscht.</source>
@@ -1139,7 +1147,7 @@
     </unit>
     <unit id="privacy.storageBasis">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:51,52</note>
+        <note category="location">src/app/features/legal/privacy.page.html:52,53</note>
       </notes>
       <segment>
         <source>Diese Einträge sind für die von dir gewünschten Funktionen unbedingt erforderlich (§ 25 Abs. 2 Nr. 2 TDDDG). Eine Einwilligung ist dafür nicht nötig.</source>
@@ -1147,7 +1155,7 @@
     </unit>
     <unit id="privacy.storageApp">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:52,54</note>
+        <note category="location">src/app/features/legal/privacy.page.html:53,55</note>
       </notes>
       <segment>
         <source>Die App speichert auf deinem Gerät deine Einstellungen, deinen Suchverlauf, Favoriten, Routen und gespeicherte Orte sowie nach der Anmeldung ein Zugangstoken. Suchverlauf, Routen und Orte verlassen dein Gerät nicht. Sie verschwinden, wenn du sie löschst oder die App entfernst.</source>
@@ -1155,7 +1163,7 @@
     </unit>
     <unit id="privacy.account">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:54,55</note>
+        <note category="location">src/app/features/legal/privacy.page.html:55,56</note>
       </notes>
       <segment>
         <source>7. Anmeldung und Benutzerkonto</source>
@@ -1163,7 +1171,7 @@
     </unit>
     <unit id="privacy.accountBody">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:55,56</note>
+        <note category="location">src/app/features/legal/privacy.page.html:56,57</note>
       </notes>
       <segment>
         <source>Für Kommentare, Meldungen und Favoriten auf mehreren Geräten brauchst du ein Konto. Du meldest dich mit Apple, Google oder GitHub an; ein Passwort bei uns gibt es nicht. Vom Anmeldedienst erhalten und speichern wir eine Kennung deines dortigen Kontos, deine E-Mail-Adresse und die Angabe, ob der Dienst sie bestätigt hat. Einen Namen fragen wir nicht ab; schickt Apple ihn trotzdem mit, verwerfen wir ihn.</source>
@@ -1171,7 +1179,7 @@
     </unit>
     <unit id="privacy.accountEmail">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:56,57</note>
+        <note category="location">src/app/features/legal/privacy.page.html:57,58</note>
       </notes>
       <segment>
         <source>Die E-Mail-Adresse verwenden wir nur, um Anmeldungen verschiedener Dienste mit derselben bestätigten Adresse zu einem Konto zusammenzuführen. Wir schreiben dir keine E-Mails, zeigen die Adresse niemandem außer dir und protokollieren sie nicht. Eine von Apple weitergeleitete Adresse („E-Mail-Adresse verbergen“) wird mit nichts verknüpft.</source>
@@ -1179,7 +1187,7 @@
     </unit>
     <unit id="privacy.accountApple">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:57,58</note>
+        <note category="location">src/app/features/legal/privacy.page.html:58,59</note>
       </notes>
       <segment>
         <source>Bei einer Anmeldung mit Apple speichern wir zusätzlich ein verschlüsseltes Token. Damit widerrufen wir die Anmeldung bei Apple, wenn du dein Konto löschst; das verlangt Apple.</source>
@@ -1187,7 +1195,7 @@
     </unit>
     <unit id="privacy.accountProviders">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:58,59</note>
+        <note category="location">src/app/features/legal/privacy.page.html:59,60</note>
       </notes>
       <segment>
         <source>Bei der Anmeldung erfährt der jeweilige Dienst, dass du dich bei EVMap anmeldest. Anbieter sind Apple Distribution International Ltd. (Cork, Irland), Google Ireland Limited (Gordon House, Barrow Street, Dublin 4, Irland) und GitHub, Inc. (88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, USA). Bei Google und GitHub können Daten in die USA übermittelt werden; Google LLC und GitHub, Inc. sind nach dem EU-US Data Privacy Framework zertifiziert (Art. 45 DSGVO).</source>
@@ -1195,7 +1203,7 @@
     </unit>
     <unit id="privacy.accountBasis">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:59,61</note>
+        <note category="location">src/app/features/legal/privacy.page.html:60,62</note>
       </notes>
       <segment>
         <source>Rechtsgrundlage ist die Bereitstellung deines Kontos (Art. 6 Abs. 1 lit. b DSGVO). Wir speichern die Daten, bis du dein Konto löschst.</source>
@@ -1203,7 +1211,7 @@
     </unit>
     <unit id="privacy.contributions">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:61,63</note>
+        <note category="location">src/app/features/legal/privacy.page.html:62,64</note>
       </notes>
       <segment>
         <source>8. Deine Beiträge</source>
@@ -1211,7 +1219,7 @@
     </unit>
     <unit id="privacy.contributions.comments">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:63,64</note>
+        <note category="location">src/app/features/legal/privacy.page.html:64,65</note>
       </notes>
       <segment>
         <source>Kommentare zu Ladestationen (Text, optional bezahlter Preis und Erfahrung) sind für alle sichtbar, aber ohne Namen oder Konto. Wir speichern, zu welchem Konto ein Kommentar gehört, damit du ihn bearbeiten und löschen kannst.</source>
@@ -1219,7 +1227,7 @@
     </unit>
     <unit id="privacy.contributions.reports">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:64,65</note>
+        <note category="location">src/app/features/legal/privacy.page.html:65,66</note>
       </notes>
       <segment>
         <source>Meldungen von Kommentaren und Fehlermeldungen zu Stationen (Grund, optional ein Freitext) sehen die Administratoren, aber nicht, wer gemeldet hat.</source>
@@ -1227,7 +1235,7 @@
     </unit>
     <unit id="privacy.contributions.blocks">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:65,66</note>
+        <note category="location">src/app/features/legal/privacy.page.html:66,67</note>
       </notes>
       <segment>
         <source>Blockierst du jemanden, gilt das nur für dich; die blockierte Person erfährt davon nichts.</source>
@@ -1235,7 +1243,7 @@
     </unit>
     <unit id="privacy.contributions.favorites">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:66,68</note>
+        <note category="location">src/app/features/legal/privacy.page.html:67,69</note>
       </notes>
       <segment>
         <source>Favoriten speichern wir mit Konto auf unserem Server, damit du sie auf allen Geräten hast; ohne Konto bleiben sie auf deinem Gerät.</source>
@@ -1243,7 +1251,7 @@
     </unit>
     <unit id="privacy.contributionsBasis">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:68,70</note>
+        <note category="location">src/app/features/legal/privacy.page.html:69,71</note>
       </notes>
       <segment>
         <source>Rechtsgrundlage ist die Bereitstellung dieser Funktionen (Art. 6 Abs. 1 lit. b DSGVO), für Moderation und Fehlermeldungen unser berechtigtes Interesse an sicheren Beiträgen und richtigen Stationsdaten (Art. 6 Abs. 1 lit. f DSGVO). Die Daten bleiben gespeichert, bis du sie löschst, die Station aus den Registern verschwindet oder du dein Konto löschst.</source>
@@ -1251,7 +1259,7 @@
     </unit>
     <unit id="privacy.backups">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:70,71</note>
+        <note category="location">src/app/features/legal/privacy.page.html:71,72</note>
       </notes>
       <segment>
         <source>9. Datensicherung</source>
@@ -1259,7 +1267,7 @@
     </unit>
     <unit id="privacy.backupsBody">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:71,73</note>
+        <note category="location">src/app/features/legal/privacy.page.html:72,74</note>
       </notes>
       <segment>
         <source>Wir sichern die Datenbank jede Nacht verschlüsselt auf einem zweiten, ebenfalls selbst betriebenen Server. Sicherungen bewahren wir höchstens etwa drei Monate auf. Gelöschte Daten können bis dahin in älteren Sicherungen enthalten sein; wir verwenden sie nur, um nach einem Datenverlust den Betrieb wiederherzustellen. Rechtsgrundlage ist unser berechtigtes Interesse an der Verfügbarkeit des Dienstes (Art. 6 Abs. 1 lit. f, Art. 32 DSGVO).</source>
@@ -1267,7 +1275,7 @@
     </unit>
     <unit id="privacy.noSharing">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:73,74</note>
+        <note category="location">src/app/features/legal/privacy.page.html:74,75</note>
       </notes>
       <segment>
         <source>10. Kein Tracking, keine Weitergabe</source>
@@ -1275,7 +1283,7 @@
     </unit>
     <unit id="privacy.noSharingBody">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:74,75</note>
+        <note category="location">src/app/features/legal/privacy.page.html:75,76</note>
       </notes>
       <segment>
         <source>Wir setzen keine Analyse- oder Tracking-Werkzeuge ein, zeigen keine Werbung und bilden keine Profile. Die App enthält keine Werkzeuge anderer Anbieter zur Analyse oder Fehlerberichterstattung; ihre Protokolle bleiben auf deinem Gerät. Wir verkaufen keine Daten und geben sie nur an die oben genannten Dienste weiter. Eine automatisierte Entscheidungsfindung findet nicht statt.</source>
@@ -1283,7 +1291,7 @@
     </unit>
     <unit id="privacy.voluntary">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:75,77</note>
+        <note category="location">src/app/features/legal/privacy.page.html:76,78</note>
       </notes>
       <segment>
         <source>Du bist nicht verpflichtet, uns Daten bereitzustellen. Ohne Konto kannst du lediglich keine Beiträge schreiben und Favoriten nicht geräteübergreifend nutzen.</source>
@@ -1291,7 +1299,7 @@
     </unit>
     <unit id="privacy.rights">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:77,78</note>
+        <note category="location">src/app/features/legal/privacy.page.html:78,79</note>
       </notes>
       <segment>
         <source>11. Deine Rechte</source>
@@ -1299,7 +1307,7 @@
     </unit>
     <unit id="privacy.rightsIntro">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:78,79</note>
+        <note category="location">src/app/features/legal/privacy.page.html:79,80</note>
       </notes>
       <segment>
         <source>Du hast das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung der Verarbeitung (Art. 18) und Datenübertragbarkeit (Art. 20). Eine erteilte Einwilligung kannst du jederzeit mit Wirkung für die Zukunft widerrufen (Art. 7 Abs. 3).</source>
@@ -1307,7 +1315,7 @@
     </unit>
     <unit id="privacy.rightsSelfService">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:79,80</note>
+        <note category="location">src/app/features/legal/privacy.page.html:80,81</note>
       </notes>
       <segment>
         <source>Deine Daten herunterladen und dein Konto löschen kannst du selbst, auf der Website unter „Mein Konto“ und in der App unter Einstellungen › Konto. Das Löschen wirkt sofort und vollständig; nur ältere Sicherungen enthalten die Daten noch bis zu drei Monate.</source>
@@ -1315,7 +1323,7 @@
     </unit>
     <unit id="privacy.accountLink">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:80,81</note>
+        <note category="location">src/app/features/legal/privacy.page.html:81,82</note>
       </notes>
       <segment>
         <source>Zu „Mein Konto“</source>
@@ -1323,7 +1331,7 @@
     </unit>
     <unit id="privacy.objection">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:81,82</note>
+        <note category="location">src/app/features/legal/privacy.page.html:82,83</note>
       </notes>
       <segment>
         <source>Widerspruchsrecht</source>
@@ -1331,7 +1339,7 @@
     </unit>
     <unit id="privacy.objectionBody">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:82,83</note>
+        <note category="location">src/app/features/legal/privacy.page.html:83,84</note>
       </notes>
       <segment>
         <source>Soweit wir Daten auf Grundlage berechtigter Interessen verarbeiten (Art. 6 Abs. 1 lit. f DSGVO), kannst du aus Gründen, die sich aus deiner besonderen Situation ergeben, jederzeit widersprechen (Art. 21 DSGVO).</source>
@@ -1339,7 +1347,7 @@
     </unit>
     <unit id="privacy.complaint">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:83,84</note>
+        <note category="location">src/app/features/legal/privacy.page.html:84,85</note>
       </notes>
       <segment>
         <source>Beschwerderecht</source>
@@ -1347,7 +1355,7 @@
     </unit>
     <unit id="privacy.complaintBody">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:84,86</note>
+        <note category="location">src/app/features/legal/privacy.page.html:85,87</note>
       </notes>
       <segment>
         <source>Du kannst dich bei einer Datenschutz-Aufsichtsbehörde beschweren (Art. 77 DSGVO), etwa bei der Behörde deines Wohnorts.</source>
@@ -1355,7 +1363,7 @@
     </unit>
     <unit id="privacy.changes">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:86,87</note>
+        <note category="location">src/app/features/legal/privacy.page.html:87,88</note>
       </notes>
       <segment>
         <source>12. Änderungen</source>
@@ -1363,7 +1371,7 @@
     </unit>
     <unit id="privacy.changesBody">
       <notes>
-        <note category="location">src/app/features/legal/privacy.page.html:87,89</note>
+        <note category="location">src/app/features/legal/privacy.page.html:88,90</note>
       </notes>
       <segment>
         <source>Wenn sich EVMap ändert, passen wir diese Datenschutzerklärung an. Es gilt die jeweils hier veröffentlichte Fassung.</source>

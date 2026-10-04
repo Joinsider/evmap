@@ -1891,5 +1891,11 @@
         <target>Remove from favorites</target>
       </segment>
     </unit>
+    <unit id="privacy.storage.favorites">
+      <segment>
+        <source>Lokaler Speicher „evmap.favorites.v1“: deine Favoriten mit Name, Adresse und Position der Stationen, damit sie ohne Konto funktionieren. Nach der Anmeldung wird die Liste mit deinem Konto zusammengeführt; beim Abmelden wird sie aus dem Browser entfernt. Sonst bleibt sie, bis du die Favoriten entfernst oder die Website-Daten löschst.</source>
+        <target>Local storage “evmap.favorites.v1”: your favorites with the stations' name, address and position, so they work without an account. After you sign in, the list is merged with your account; signing out removes it from the browser. Otherwise it is kept until you remove the favorites or clear the website data.</target>
+      </segment>
+    </unit>
   </file>
 </xliff>

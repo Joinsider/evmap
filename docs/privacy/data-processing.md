@@ -1,6 +1,6 @@
 # Verarbeitung personenbezogener Daten in EVMap
 
-- Stand: 2026-10-02 (Phase 8a: Nutzer-Web-App mit Karte; Impressum und Datenschutzerklärung, ADR 0024)
+- Stand: 2026-10-04 (Phase 8b: Kommentare, Meldungen, Favoriten im Web; vorher 8a und ADR 0024)
 - Gilt für: iOS-Client (`evMap_ios/`), Web-Client (`evmap_web/`) und API-Service (`evmap_service/`)
 
 Dieses Dokument ist eine **technische Bestandsaufnahme** für Entwicklung und
@@ -40,6 +40,7 @@ hinein.
 | Datenexport-Datei (iOS, seit Phase 2) | Weitergabe des Exports über das Teilen-Menü | temporäres Verzeichnis der App, mit vollständigem Dateischutz | bis der Konto-Bildschirm verlassen wird (dann gelöscht) oder das System das temporäre Verzeichnis leert | Art. 6 Abs. 1 lit. b (Art. 15/20) |
 | Kartenausschnitt der Web-App (seit Phase 8a, ADR 0023) | Ladestationen im sichtbaren Bereich laden | nur flüchtig im Browser; als Mittelpunkt und Radius (bzw. als Rechteck für die Live-Belegung) an die API übertragen, wie in iOS | nicht gespeichert | Art. 6 Abs. 1 lit. f |
 | Filter und Anbieterauswahl der Web-App (seit Phase 8a) | Einstellungen beim nächsten Besuch wiederherstellen | `localStorage` des Browsers (Schlüssel `evmap.stationSettings.v1`: Steckertypen, Mindestleistung, Anbieternamen); nie an den Server gesendet außer als Filter der Stationsabfrage, nie geloggt | bis die Person „Einstellungen zurücksetzen“ wählt oder die Website-Daten des Browsers löscht | Art. 6 Abs. 1 lit. f; § 25 Abs. 2 Nr. 2 TDDDG (für die gewünschte Funktion unbedingt erforderlich) — juristisch zu prüfen |
+| Favorisierte Stationen, lokal (Web, seit Phase 8b, ADR 0023) | Favoriten ohne Konto; Liste und Sterne auf der Karte ohne Anfrage | `localStorage` des Browsers (Schlüssel `evmap.favorites.v1`: Stationsdatensätze wie auf der Karte und ein Merker, ob die Liste vom Konto stammt); nie geloggt | bis Entfernen oder Löschen der Website-Daten; nach der Anmeldung mit dem Konto vereinigt, **beim Abmelden oder Ablauf der Sitzung geleert**, wenn sie vom Konto stammt | Art. 6 Abs. 1 lit. b; § 25 Abs. 2 Nr. 2 TDDDG (für die gewünschte Funktion unbedingt erforderlich) |
 | IP-Adresse, Kartenausschnitt und Suchtext gegenüber **Apple** (Web-App, seit Phase 8a) | Kartendarstellung und Ortssuche über MapKit JS | Apple lädt Skript, Kacheln und Suchergebnisse von `*.apple-mapkit.com`; der Browser sendet dabei IP-Adresse, die angezeigten Kartenbereiche und den Text der Ortssuche direkt an Apple. Wir speichern davon nichts; das MapKit-Token enthält keine personenbezogenen Daten (nur Team-ID, Domain, Ablauf) | nach Apples Bedingungen (Apple Developer Program License Agreement, MapKit-JS-Bedingungen) | Art. 6 Abs. 1 lit. f; in der Datenschutzerklärung zu nennen, ob ein Auftragsverarbeitungs- oder Drittlandbezug besteht, ist juristisch zu prüfen |
 | Zeitstempel (`created_at`, `last_login_at`) | Sortierung, Betrieb | `user_data.*` | wie zugehöriger Datensatz | Art. 6 Abs. 1 lit. f |
 | Client-Logs | Fehlerdiagnose | ausschließlich Unified Log des Nutzergeräts | siehe §3 | keine Verarbeitung durch den Verantwortlichen (§3) |

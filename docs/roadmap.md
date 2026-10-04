@@ -30,7 +30,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | 6 | Routenplaner Stufe 2 | offen | | 0017 |
 | 7 | Routenplaner Stufe 3 | offen | | 0017 |
 | 8a | Nutzer-Web-App: Karte und Station (lesend), vor 5b gezogen | fertig ¹² | [#29](https://github.com/Joinsider/evmap/pull/29) | [0023](adr/0023-user-web-app.md) |
-| 8b | Nutzer-Web-App: Mitmachen (Kommentare, Melden, Favoriten) | in Arbeit | `feature/phase-8b-web-participation` | [0023](adr/0023-user-web-app.md) |
+| 8b | Nutzer-Web-App: Mitmachen (Kommentare, Melden, Favoriten) | fertig ¹⁶ | `feature/phase-8b-web-participation` | [0023](adr/0023-user-web-app.md) |
 | 9 | CarPlay als Lade-App | offen | | neu |
 | L1 | Lückenfüller: Österreich | übersprungen ⁴ | | [0012](adr/0012-additional-national-charging-registers.md) |
 | L2 | Lückenfüller: Schweiz | fertig ⁵ | [#18](https://github.com/Joinsider/evmap/pull/18) | [0012](adr/0012-additional-national-charging-registers.md) |
@@ -122,6 +122,11 @@ Brutto/Netto-Angabe). Gefunden und entschieden beim Lauf über die echten Daten:
 („Min. 240–390“), und abgelaufene Saisonpreise. Offen sind die 👤-Schritte: Zertifikat für den Sync-Container (aus L6),
 nach dem ersten Lauf einige Stationen auf Handy und Web ansehen (ADR 0022, „Gap filler L6p“). Als Nächstes: **8b**
 (Mitmachen im Web), danach 5b.
+
+¹⁶ Im Repository fertig (Web 163 Tests und Build grün, im Browser gegen eine gemockte API geprüft), Backend unverändert.
+Offen sind die 👤-Schritte aus ADR 0023, „Phase 8b“: nach dem Ausrollen im Web kommentieren, melden, blockieren,
+Favoriten ohne und mit Konto prüfen, einen Stationsfehler melden und im Admin-Bereich schließen; den Stern auf der echten
+Karte ansehen. Als Nächstes: **5b** (Ladekarten).
 
 Separat angestoßen (Teil von Phase 0): `permitAll` für `/api/v1/stations/**` auf GET beschränken.
 Erledigt mit PR #8 (Commit `3d40492`), vor Beginn von Phase 0 auf `master` geprüft.
@@ -358,6 +363,11 @@ Lückenfüller Italien (2026-10-01, Details in ADR 0012, Abschnitt „Italy skip
 - L3 wird übersprungen. Die PUN hat keinen offenen Export mehr; die Portal-API ist laut Product Owner nur mit
   italienischem Ausweis erreichbar, ihre Lizenz ist nicht ausdrücklich erklärt. Ein Adapter gegen die Portal-API
   wurde verworfen. Italien bleibt über OCM abgedeckt.
+
+Phase 8b (2026-10-04, Details in ADR 0023, Abschnitt „Phase 8b“):
+
+- Die Favoritenliste im Web ist ein **Panel über der Karte**, geöffnet über einen Stern-Button neben „Filter“; ein
+  gewählter Favorit zentriert die Karte und öffnet die Station.
 
 Lückenfüller Mobilithek-Preise L6p (2026-10-03, Details in ADR 0022, Abschnitt „Gap filler L6p“):
 
