@@ -30,7 +30,7 @@ Werte: `offen` · `in Arbeit` · `fertig` · `übersprungen`.
 | 6 | Routenplaner Stufe 2 | offen | | 0017 |
 | 7 | Routenplaner Stufe 3 | offen | | 0017 |
 | 8a | Nutzer-Web-App: Karte und Station (lesend), vor 5b gezogen | fertig ¹² | [#29](https://github.com/Joinsider/evmap/pull/29) | [0023](adr/0023-user-web-app.md) |
-| 8b | Nutzer-Web-App: Mitmachen (Kommentare, Melden, Favoriten) | fertig ¹⁶ | `feature/phase-8b-web-participation` | [0023](adr/0023-user-web-app.md) |
+| 8b | Nutzer-Web-App: Mitmachen (Kommentare, Melden, Favoriten) | fertig ¹⁶ | [#48](https://github.com/Joinsider/evmap/pull/48) | [0023](adr/0023-user-web-app.md) |
 | 9 | CarPlay als Lade-App | offen | | neu |
 | L1 | Lückenfüller: Österreich | übersprungen ⁴ | | [0012](adr/0012-additional-national-charging-registers.md) |
 | L2 | Lückenfüller: Schweiz | fertig ⁵ | [#18](https://github.com/Joinsider/evmap/pull/18) | [0012](adr/0012-additional-national-charging-registers.md) |

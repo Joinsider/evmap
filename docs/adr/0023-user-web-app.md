@@ -2,7 +2,7 @@
 
 - Status: Accepted 2026-10-02 — part 8a (map and station, read-only) implemented on `claude/kind-tesla-0rm3p2` ([#29](https://github.com/Joinsider/evmap/pull/29));
   part 8b (taking part: comments, reports, blocks, favorites, station reports) implemented on
-  `feature/phase-8b-web-participation` (2026-10-04)
+  `feature/phase-8b-web-participation` ([#48](https://github.com/Joinsider/evmap/pull/48), 2026-10-04)
 - Date: 2026-10-02
 - Deciders: Joinsider
 
