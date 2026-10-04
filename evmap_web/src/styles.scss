@@ -60,3 +60,28 @@ button.link {
 .error {
   color: var(--danger);
 }
+
+/* A small busy indicator inline with text: sign-in, callback. Static for people who asked for less motion. */
+.spinner {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  flex: none;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  vertical-align: -0.15em;
+  animation: spinner 0.7s linear infinite;
+}
+
+@keyframes spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.8s;
+  }
+}
