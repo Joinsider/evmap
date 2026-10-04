@@ -9,7 +9,8 @@ export const MAX_EXPERIENCE = 32;
  * amount as people read it off the receipt. `undefined` for an empty field, `null` for anything that is not an amount.
  */
 export function parsePrice(text: string): number | undefined | null {
-  const value = text.trim().replace(/\s*€$/, '');
+  const trimmed = text.trim();
+  const value = trimmed.endsWith('€') ? trimmed.slice(0, -1).trimEnd() : trimmed;
   if (!value) return undefined;
   const match = /^(\d{1,5})(?:[.,](\d{1,2}))?$/.exec(value);
   if (!match) return null;

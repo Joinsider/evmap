@@ -1509,8 +1509,8 @@
     <unit id="action.cancel">
       <notes>
         <note category="location">src/app/features/map/comments-section.html:20,21</note>
-        <note category="location">src/app/features/map/comments-section.html:36,37</note>
-        <note category="location">src/app/features/map/comments-section.html:89,91</note>
+        <note category="location">src/app/features/map/comments-section.html:37,38</note>
+        <note category="location">src/app/features/map/comments-section.html:90,92</note>
         <note category="location">src/app/features/map/filter-panel.html:97,99</note>
         <note category="location">src/app/features/map/station-report-form.ts:52,54</note>
       </notes>
@@ -1528,7 +1528,7 @@
     </unit>
     <unit id="comments.moderation.title">
       <notes>
-        <note category="location">src/app/features/map/comments-section.html:30,31</note>
+        <note category="location">src/app/features/map/comments-section.html:31,32</note>
       </notes>
       <segment>
         <source>Kommentar melden</source>
@@ -1536,7 +1536,7 @@
     </unit>
     <unit id="comments.moderation.message">
       <notes>
-        <note category="location">src/app/features/map/comments-section.html:31,32</note>
+        <note category="location">src/app/features/map/comments-section.html:32,33</note>
       </notes>
       <segment>
         <source>Wähle einen Grund, um den Kommentar zu melden. Gemeldete Kommentare werden dir nicht mehr angezeigt. Oder blockiere den Autor, dann siehst du keinen seiner Kommentare mehr.</source>
@@ -1544,7 +1544,7 @@
     </unit>
     <unit id="comments.blockAuthor">
       <notes>
-        <note category="location">src/app/features/map/comments-section.html:35,36</note>
+        <note category="location">src/app/features/map/comments-section.html:36,37</note>
       </notes>
       <segment>
         <source>Autor blockieren</source>
@@ -1552,7 +1552,7 @@
     </unit>
     <unit id="comments.moderate">
       <notes>
-        <note category="location">src/app/features/map/comments-section.html:40,42</note>
+        <note category="location">src/app/features/map/comments-section.html:41,43</note>
       </notes>
       <segment>
         <source>Melden oder blockieren</source>
@@ -1560,8 +1560,8 @@
     </unit>
     <unit id="comments.failedWrite">
       <notes>
-        <note category="location">src/app/features/map/comments-section.html:46,50</note>
-        <note category="location">src/app/features/map/comments-section.html:59,61</note>
+        <note category="location">src/app/features/map/comments-section.html:47,51</note>
+        <note category="location">src/app/features/map/comments-section.html:60,62</note>
       </notes>
       <segment>
         <source>Das hat nicht geklappt. Bitte versuche es erneut.</source>
@@ -1569,7 +1569,7 @@
     </unit>
     <unit id="comments.failed">
       <notes>
-        <note category="location">src/app/features/map/comments-section.html:52,55</note>
+        <note category="location">src/app/features/map/comments-section.html:53,56</note>
       </notes>
       <segment>
         <source>Kommentare konnten nicht geladen werden.</source>
@@ -1577,7 +1577,7 @@
     </unit>
     <unit id="comments.add">
       <notes>
-        <note category="location">src/app/features/map/comments-section.html:62,65</note>
+        <note category="location">src/app/features/map/comments-section.html:63,66</note>
       </notes>
       <segment>
         <source>Kommentar schreiben</source>
@@ -1585,7 +1585,7 @@
     </unit>
     <unit id="comments.loginRequired">
       <notes>
-        <note category="location">src/app/features/map/comments-section.html:66,71</note>
+        <note category="location">src/app/features/map/comments-section.html:67,72</note>
       </notes>
       <segment>
         <source>Zum Kommentieren bitte anmelden.</source>
@@ -1593,7 +1593,7 @@
     </unit>
     <unit id="comments.message">
       <notes>
-        <note category="location">src/app/features/map/comments-section.html:73,74</note>
+        <note category="location">src/app/features/map/comments-section.html:74,75</note>
       </notes>
       <segment>
         <source>Kommentar</source>
@@ -1601,7 +1601,7 @@
     </unit>
     <unit id="comments.experience">
       <notes>
-        <note category="location">src/app/features/map/comments-section.html:77,78</note>
+        <note category="location">src/app/features/map/comments-section.html:78,79</note>
       </notes>
       <segment>
         <source>Ladeerfahrung (optional)</source>
@@ -1609,7 +1609,7 @@
     </unit>
     <unit id="comments.priceEuro">
       <notes>
-        <note category="location">src/app/features/map/comments-section.html:81,82</note>
+        <note category="location">src/app/features/map/comments-section.html:82,83</note>
       </notes>
       <segment>
         <source>Bezahlter Preis in Euro (optional)</source>
@@ -1617,7 +1617,7 @@
     </unit>
     <unit id="comments.priceInvalid">
       <notes>
-        <note category="location">src/app/features/map/comments-section.html:85,87</note>
+        <note category="location">src/app/features/map/comments-section.html:86,88</note>
       </notes>
       <segment>
         <source>Bitte den Preis als Betrag angeben, z. B. 21,40.</source>
@@ -1625,7 +1625,7 @@
     </unit>
     <unit id="action.save">
       <notes>
-        <note category="location">src/app/features/map/comments-section.html:88,89</note>
+        <note category="location">src/app/features/map/comments-section.html:89,90</note>
       </notes>
       <segment>
         <source>Speichern</source>

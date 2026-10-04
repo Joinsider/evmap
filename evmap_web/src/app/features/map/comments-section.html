@@ -27,14 +27,15 @@
             }
           } @else if (auth.signedIn()) {
             @if (is('moderate', comment)) {
-              <div class="moderation" role="group" i18n-aria-label="@@comments.moderation.title" aria-label="Kommentar melden">
+              <fieldset class="moderation">
+                <legend i18n="@@comments.moderation.title">Kommentar melden</legend>
                 <p class="muted" i18n="@@comments.moderation.message">Wähle einen Grund, um den Kommentar zu melden. Gemeldete Kommentare werden dir nicht mehr angezeigt. Oder blockiere den Autor, dann siehst du keinen seiner Kommentare mehr.</p>
                 @for (reason of reasons; track reason) {
                   <button type="button" class="choice" [disabled]="busy()" (click)="report(comment, reason)">{{ reasonLabel(reason) }}</button>
                 }
                 <button type="button" class="choice danger" [disabled]="busy()" (click)="block(comment)" i18n="@@comments.blockAuthor">Autor blockieren</button>
                 <button type="button" class="link" [disabled]="busy()" (click)="cancel()" i18n="@@action.cancel">Abbrechen</button>
-              </div>
+              </fieldset>
             } @else {
               <div class="actions">
                 <button type="button" class="link" (click)="moderate(comment)" i18n="@@comments.moderate">Melden oder blockieren</button>
