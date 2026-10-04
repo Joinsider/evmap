@@ -1039,12 +1039,6 @@
         <target>Comments could not be loaded.</target>
       </segment>
     </unit>
-    <unit id="comments.webSoon">
-      <segment>
-        <source>Kommentieren geht bisher in der iPhone-App.</source>
-        <target>For now, comments can be written in the iPhone app.</target>
-      </segment>
-    </unit>
     <unit id="station.sources">
       <segment>
         <source>Datenquellen</source>
@@ -1703,6 +1697,198 @@
       <segment>
         <source>Debitkarte</source>
         <target>Debit card</target>
+      </segment>
+    </unit>
+    <unit id="comments.deleteSure">
+      <segment>
+        <source>Kommentar löschen?</source>
+        <target>Delete comment?</target>
+      </segment>
+    </unit>
+    <unit id="action.delete">
+      <segment>
+        <source>Löschen</source>
+        <target>Delete</target>
+      </segment>
+    </unit>
+    <unit id="action.edit">
+      <segment>
+        <source>Bearbeiten</source>
+        <target>Edit</target>
+      </segment>
+    </unit>
+    <unit id="comments.moderation.title">
+      <segment>
+        <source>Kommentar melden</source>
+        <target>Report comment</target>
+      </segment>
+    </unit>
+    <unit id="comments.moderation.message">
+      <segment>
+        <source>Wähle einen Grund, um den Kommentar zu melden. Gemeldete Kommentare werden dir nicht mehr angezeigt. Oder blockiere den Autor, dann siehst du keinen seiner Kommentare mehr.</source>
+        <target>Choose a reason to report the comment. Reported comments are no longer shown to you. Or block the author to stop seeing any of their comments.</target>
+      </segment>
+    </unit>
+    <unit id="comments.blockAuthor">
+      <segment>
+        <source>Autor blockieren</source>
+        <target>Block author</target>
+      </segment>
+    </unit>
+    <unit id="comments.moderate">
+      <segment>
+        <source>Melden oder blockieren</source>
+        <target>Report or block</target>
+      </segment>
+    </unit>
+    <unit id="comments.failedWrite">
+      <segment>
+        <source>Das hat nicht geklappt. Bitte versuche es erneut.</source>
+        <target>That did not work. Please try again.</target>
+      </segment>
+    </unit>
+    <unit id="comments.add">
+      <segment>
+        <source>Kommentar schreiben</source>
+        <target>Write comment</target>
+      </segment>
+    </unit>
+    <unit id="comments.loginRequired">
+      <segment>
+        <source>Zum Kommentieren bitte anmelden.</source>
+        <target>Sign in to leave a comment.</target>
+      </segment>
+    </unit>
+    <unit id="comments.message">
+      <segment>
+        <source>Kommentar</source>
+        <target>Comment</target>
+      </segment>
+    </unit>
+    <unit id="comments.experience">
+      <segment>
+        <source>Ladeerfahrung (optional)</source>
+        <target>Charging experience (optional)</target>
+      </segment>
+    </unit>
+    <unit id="comments.priceEuro">
+      <segment>
+        <source>Bezahlter Preis in Euro (optional)</source>
+        <target>Price paid in euros (optional)</target>
+      </segment>
+    </unit>
+    <unit id="comments.priceInvalid">
+      <segment>
+        <source>Bitte den Preis als Betrag angeben, z. B. 21,40.</source>
+        <target>Please enter the price as an amount, e.g. 21.40.</target>
+      </segment>
+    </unit>
+    <unit id="action.save">
+      <segment>
+        <source>Speichern</source>
+        <target>Save</target>
+      </segment>
+    </unit>
+    <unit id="favorites.title">
+      <segment>
+        <source>Favoriten</source>
+        <target>Favorites</target>
+      </segment>
+    </unit>
+    <unit id="favorites.failed">
+      <segment>
+        <source>Die Favoriten konnten nicht mit deinem Konto abgeglichen werden.</source>
+        <target>Your favorites could not be synchronized with your account.</target>
+      </segment>
+    </unit>
+    <unit id="favorites.removeShort">
+      <segment>
+        <source>Entfernen</source>
+        <target>Remove</target>
+      </segment>
+    </unit>
+    <unit id="favorites.empty.web">
+      <segment>
+        <source>Noch keine Favoriten. Klicke in einer Station auf den Stern.</source>
+        <target>No favorites yet. Click the star in a station.</target>
+      </segment>
+    </unit>
+    <unit id="favorites.synced.web">
+      <segment>
+        <source>Deine Favoriten sind mit deinem Konto synchronisiert. Beim Abmelden werden sie aus diesem Browser entfernt.</source>
+        <target>Your favorites are synchronized with your account. Signing out removes them from this browser.</target>
+      </segment>
+    </unit>
+    <unit id="favorites.deviceOnly.web">
+      <segment>
+        <source>Deine Favoriten sind nur in diesem Browser gespeichert. Melde dich an, um sie mit deinem Konto zu synchronisieren.</source>
+        <target>Your favorites are stored in this browser only. Sign in to synchronize them with your account.</target>
+      </segment>
+    </unit>
+    <unit id="station.report">
+      <segment>
+        <source>Fehler melden</source>
+        <target>Report a problem</target>
+      </segment>
+    </unit>
+    <unit id="station.report.loginRequired">
+      <segment>
+        <source>Zum Melden eines Fehlers bitte anmelden.</source>
+        <target>Sign in to report a problem.</target>
+      </segment>
+    </unit>
+    <unit id="station.report.thanks.title">
+      <segment>
+        <source>Danke!</source>
+        <target>Thank you!</target>
+      </segment>
+    </unit>
+    <unit id="station.report.thanks.message">
+      <segment>
+        <source>Deine Meldung ist eingegangen und wird geprüft.</source>
+        <target>Your report has been received and will be reviewed.</target>
+      </segment>
+    </unit>
+    <unit id="station.report.reason">
+      <segment>
+        <source>Was stimmt nicht?</source>
+        <target>What is wrong?</target>
+      </segment>
+    </unit>
+    <unit id="station.report.note">
+      <segment>
+        <source>Anmerkung (optional)</source>
+        <target>Note (optional)</target>
+      </segment>
+    </unit>
+    <unit id="station.report.footer">
+      <segment>
+        <source>Bitte keine persönlichen Daten angeben. Wir prüfen die Meldung; die Stationsdaten ändern sich nicht sofort.</source>
+        <target>Please do not include personal data. We review the report; the station data does not change right away.</target>
+      </segment>
+    </unit>
+    <unit id="station.report.failed">
+      <segment>
+        <source>Die Meldung konnte nicht gesendet werden. Bitte versuche es erneut.</source>
+        <target>The report could not be sent. Please try again.</target>
+      </segment>
+    </unit>
+    <unit id="station.report.send">
+      <segment>
+        <source>Senden</source>
+        <target>Send</target>
+      </segment>
+    </unit>
+    <unit id="favorites.add">
+      <segment>
+        <source>Zu Favoriten hinzufügen</source>
+        <target>Add to favorites</target>
+      </segment>
+    </unit>
+    <unit id="favorites.remove">
+      <segment>
+        <source>Aus Favoriten entfernen</source>
+        <target>Remove from favorites</target>
       </segment>
     </unit>
   </file>

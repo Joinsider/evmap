@@ -138,4 +138,48 @@ describe('RestEvmapApi', () => {
     directory.forEach((r) => r.flush([]));
     backend.expectOne('/api/v1/map/token').flush({ token: 't', expiresAt: '2026-10-02T12:30:00Z' });
   });
+
+  it('writes, edits and deletes comments, reports them and blocks authors on their own paths', () => {
+    api.createComment('s 1', { body: 'Gut', paidPriceCents: 2140 }).subscribe();
+    api.updateComment('c1', { body: 'Besser' }).subscribe();
+    api.deleteComment('c1').subscribe();
+    api.reportComment('c2', 'spam').subscribe();
+    api.blockAuthor('c2').subscribe();
+
+    const created = backend.expectOne('/api/v1/stations/s%201/comments');
+    expect(created.request.method).toBe('POST');
+    expect(created.request.body).toEqual({ body: 'Gut', paidPriceCents: 2140 });
+    created.flush({});
+    const updated = backend.expectOne((request) => request.url === '/api/v1/comments/c1' && request.method === 'PATCH');
+    expect(updated.request.body).toEqual({ body: 'Besser' });
+    updated.flush({});
+    backend.expectOne((request) => request.url === '/api/v1/comments/c1' && request.method === 'DELETE').flush(null);
+    const report = backend.expectOne('/api/v1/comments/c2/report');
+    expect(report.request.body).toEqual({ reason: 'spam' });
+    report.flush(null);
+    expect(backend.expectOne('/api/v1/comments/c2/block-author').request.method).toBe('POST');
+  });
+
+  it('reports a station with reason and note', () => {
+    api.reportStation('s1', 'defective', 'Display dunkel').subscribe();
+
+    const request = backend.expectOne('/api/v1/stations/s1/reports');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ reason: 'defective', note: 'Display dunkel' });
+    request.flush(null);
+  });
+
+  it('reads, adds, removes and merges the account favorites', () => {
+    api.favorites().subscribe();
+    api.addFavorite('s1').subscribe();
+    api.removeFavorite('s1').subscribe();
+    api.mergeFavorites(['s1', 's2']).subscribe();
+
+    expect(backend.expectOne((request) => request.url === '/api/v1/me/favorites' && request.method === 'GET')).toBeTruthy();
+    expect(backend.expectOne((request) => request.url === '/api/v1/me/favorites/s1' && request.method === 'PUT')).toBeTruthy();
+    expect(backend.expectOne((request) => request.url === '/api/v1/me/favorites/s1' && request.method === 'DELETE')).toBeTruthy();
+    const merge = backend.expectOne('/api/v1/me/favorites/merge');
+    expect(merge.request.method).toBe('POST');
+    expect(merge.request.body).toEqual({ stationIds: ['s1', 's2'] });
+  });
 });

@@ -3,11 +3,14 @@ import {
   Account,
   AdminOverview,
   BlockedAuthor,
+  CommentPayload,
   Contributions,
+  FavoriteStation,
   GeoBounds,
   MapToken,
   Operator,
   ProviderToken,
+  ReportReason,
   ReportedComment,
   ReportedStation,
   SignInProvider,
@@ -88,6 +91,32 @@ export abstract class EvmapApi {
   abstract chargePoints(id: string): Observable<StationChargePoints>;
 
   abstract comments(stationId: string): Observable<StationComment[]>;
+
+  abstract createComment(stationId: string, payload: CommentPayload): Observable<StationComment>;
+
+  /** Only the author's own comments; any other id answers 404. */
+  abstract updateComment(id: string, payload: CommentPayload): Observable<StationComment>;
+
+  abstract deleteComment(id: string): Observable<void>;
+
+  /** Reports someone else's comment; from then on it is hidden for the reporter alone (ADR 0020). */
+  abstract reportComment(id: string, reason: ReportReason): Observable<void>;
+
+  /** Blocks the author of a comment without learning who it is (ADR 0020). */
+  abstract blockAuthor(commentId: string): Observable<void>;
+
+  /** Files an error report on a station; master data stays untouched (ADR 0021). */
+  abstract reportStation(stationId: string, reason: StationReportReason, note?: string): Observable<void>;
+
+  /** The account's favorites, newest first (ADR 0021). */
+  abstract favorites(): Observable<FavoriteStation[]>;
+
+  abstract addFavorite(stationId: string): Observable<void>;
+
+  abstract removeFavorite(stationId: string): Observable<void>;
+
+  /** The sign-in merge: adds the device's favorites to the account's and answers with the union. */
+  abstract mergeFavorites(stationIds: readonly string[]): Observable<FavoriteStation[]>;
 
   /** The charging-network directory: the biggest without a query, else names containing it. */
   abstract operators(query: string, limit: number): Observable<Operator[]>;

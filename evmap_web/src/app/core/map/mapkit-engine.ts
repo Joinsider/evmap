@@ -180,7 +180,7 @@ class MapKitHandle implements MapHandle {
       if (this.drawn.has(pin.id)) continue;
       const annotation = new this.mapkit.MarkerAnnotation(new this.mapkit.Coordinate(pin.latitude, pin.longitude), {
         color: pin.color,
-        glyphText: pin.glyph || (pin.liveAvailable ? String(pin.liveAvailable) : '⚡'),
+        glyphText: glyphText(pin),
         title: pin.title,
         titleVisibility: this.mapkit.FeatureVisibility?.Hidden ?? 'hidden',
         subtitleVisibility: this.mapkit.FeatureVisibility?.Hidden ?? 'hidden',
@@ -213,5 +213,15 @@ class MapKitHandle implements MapHandle {
 }
 
 function signature(pin: MapPinView): string {
-  return `${pin.latitude},${pin.longitude},${pin.color},${pin.glyph},${pin.title},${pin.liveAvailable ?? ''}`;
+  return `${pin.latitude},${pin.longitude},${pin.color},${pin.glyph},${pin.title},${pin.liveAvailable ?? ''},${pin.favorite === true}`;
+}
+
+/**
+ * The marker's text: the cluster count, else the free charge points, else a bolt. A favorite adds a star — alone it
+ * replaces the bolt ("★"), with a number it follows it ("3★"), so the count is never lost to the badge.
+ */
+export function glyphText(pin: MapPinView): string {
+  const base = pin.glyph || (pin.liveAvailable ? String(pin.liveAvailable) : '');
+  if (pin.favorite) return `${base}★`;
+  return base || '⚡';
 }

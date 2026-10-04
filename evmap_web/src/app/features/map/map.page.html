@@ -17,6 +17,7 @@
       <app-place-search [near]="viewport()" (chosen)="placeChosen($event)" />
     }
     <button type="button" class="control" (click)="openFilter()" [attr.aria-expanded]="filterOpen()" i18n="@@map.filter">Filter</button>
+    <button type="button" class="control" (click)="openFavorites()" [attr.aria-expanded]="favoritesOpen()">★ <ng-container i18n="@@favorites.title">Favoriten</ng-container></button>
   </div>
 
   @if (state() === 'ready') {
@@ -40,6 +41,10 @@
 
   @if (filterOpen()) {
     <app-filter-panel (closed)="closeFilter()" />
+  }
+
+  @if (favoritesOpen()) {
+    <app-favorites-panel (closed)="favoritesOpen.set(false)" (chosen)="favoriteChosen($event)" />
   }
 
   <router-outlet />

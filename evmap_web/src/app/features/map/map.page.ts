@@ -4,6 +4,7 @@ import { Subscription } from 'rxjs';
 import { EvmapApi } from '../../core/api/evmap-api';
 import { StationAvailability, StationSummary } from '../../core/api/models';
 import { MapEngine, MapHandle, MapPinView, Place } from '../../core/map/map-engine';
+import { FavoritesStore } from './data/favorites.store';
 import { StationSettingsStore } from './data/station-settings.store';
 import { isUsable } from './domain/availability';
 import { StationPin, clusterStations } from './domain/clusters';
@@ -11,6 +12,7 @@ import { formatPower } from './domain/format';
 import { POWER_TIERS, legendLabel, powerTier, tierColor, tierLabel } from './domain/power-tier';
 import { matchesNothing, stationFilter } from './domain/station-settings';
 import { MAX_STATIONS, START_VIEWPORT, Viewport, bounds, effectiveFilter, isCovered, radiusKm } from './domain/viewport';
+import { FavoritesPanel } from './favorites-panel';
 import { FilterPanel } from './filter-panel';
 import { PlaceSearch } from './place-search';
 import { StationSelection } from './station-selection';
@@ -25,7 +27,7 @@ const CLOSE_SPAN = 0.05;
  */
 @Component({
   selector: 'app-map',
-  imports: [RouterOutlet, FilterPanel, PlaceSearch],
+  imports: [RouterOutlet, FilterPanel, FavoritesPanel, PlaceSearch],
   providers: [StationSelection],
   templateUrl: './map.page.html',
   styleUrl: './map.page.scss',
@@ -34,6 +36,7 @@ export class MapPage implements AfterViewInit, OnDestroy {
   private readonly api = inject(EvmapApi);
   private readonly engine = inject(MapEngine);
   private readonly store = inject(StationSettingsStore);
+  private readonly favorites = inject(FavoritesStore);
   private readonly router = inject(Router);
   private readonly selection = inject(StationSelection);
   private readonly locale = inject(LOCALE_ID);
@@ -44,6 +47,7 @@ export class MapPage implements AfterViewInit, OnDestroy {
   protected readonly loadFailed = signal(false);
   protected readonly truncated = signal(false);
   protected readonly filterOpen = signal(false);
+  protected readonly favoritesOpen = signal(false);
   protected readonly viewport = signal<Viewport>(START_VIEWPORT);
   protected readonly legend = POWER_TIERS.map(({ tier }) => ({ color: tierColor(tier), label: legendLabel(tier), name: tierLabel(tier) }));
 
@@ -65,6 +69,11 @@ export class MapPage implements AfterViewInit, OnDestroy {
         const visible = position.latitude > box.latMin && position.latitude < box.latMax && position.longitude > box.lonMin && position.longitude < box.lonMax;
         if (!visible) this.handle!.setViewport({ ...position, latitudeSpan: CLOSE_SPAN, longitudeSpan: CLOSE_SPAN }, false);
       });
+    });
+    // The stars on the pins follow the list, whoever changed it (station panel, favorites panel, a sign-in merge).
+    effect(() => {
+      this.favorites.ids();
+      untracked(() => this.redraw());
     });
   }
 
@@ -93,7 +102,20 @@ export class MapPage implements AfterViewInit, OnDestroy {
   }
 
   protected openFilter() {
+    this.favoritesOpen.set(false);
     this.filterOpen.set(true);
+  }
+
+  protected openFavorites() {
+    if (this.filterOpen()) this.closeFilter();
+    this.favoritesOpen.set(true);
+  }
+
+  /** A favorite picked from the list: the map centers on it and opens it, as on iOS (ADR 0021). */
+  protected favoriteChosen(station: StationSummary) {
+    this.favoritesOpen.set(false);
+    this.handle?.setViewport({ latitude: station.latitude, longitude: station.longitude, latitudeSpan: CLOSE_SPAN, longitudeSpan: CLOSE_SPAN }, true);
+    void this.router.navigate(['/station', station.id]);
   }
 
   /** Settings persist as they change; the map reloads only when the panel closes, as on iOS (ADR 0014). */
@@ -173,10 +195,11 @@ export class MapPage implements AfterViewInit, OnDestroy {
   private redraw() {
     if (!this.handle) return;
     this.pins = clusterStations(this.stations(), this.viewport().latitudeSpan, this.live());
-    this.handle.setPins(this.pins.map((pin) => this.pinView(pin)));
+    const favorites = this.favorites.ids();
+    this.handle.setPins(this.pins.map((pin) => this.pinView(pin, favorites)));
   }
 
-  private pinView(pin: StationPin): MapPinView {
+  private pinView(pin: StationPin, favorites: ReadonlySet<string>): MapPinView {
     const count = pin.stations.length;
     const station = pin.stations[0];
     const title =
@@ -191,6 +214,7 @@ export class MapPage implements AfterViewInit, OnDestroy {
       glyph: count > 1 ? String(count) : '',
       title,
       liveAvailable: pin.liveAvailable,
+      favorite: pin.stations.some((member) => favorites.has(member.id)),
     };
   }
 

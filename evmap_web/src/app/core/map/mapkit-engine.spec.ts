@@ -3,7 +3,7 @@ import { EvmapApi } from '../api/evmap-api';
 import { FakeEvmapApi } from '../../testing/fake-evmap-api';
 import { START_VIEWPORT } from '../../features/map/domain/viewport';
 import { MapCallbacks, MapPinView } from './map-engine';
-import { MapKitEngine } from './mapkit-engine';
+import { MapKitEngine, glyphText } from './mapkit-engine';
 
 type Listener = (event?: unknown) => void;
 
@@ -239,5 +239,16 @@ describe('MapKitEngine', () => {
     kit.searchFails = true;
     expect(await engine.autocomplete('Stuttgart', START_VIEWPORT)).toEqual([]);
     expect(await engine.resolve(suggestion)).toBeNull();
+  });
+});
+
+describe('glyphText', () => {
+  it('shows count, free charge points or a bolt, and adds a star for favorites without losing the number', () => {
+    expect(glyphText(pin('a'))).toBe('⚡');
+    expect(glyphText({ ...pin('a'), liveAvailable: 3 })).toBe('3');
+    expect(glyphText({ ...pin('a'), glyph: '12' })).toBe('12');
+    expect(glyphText({ ...pin('a'), favorite: true })).toBe('★');
+    expect(glyphText({ ...pin('a'), liveAvailable: 3, favorite: true })).toBe('3★');
+    expect(glyphText({ ...pin('a'), glyph: '12', favorite: true })).toBe('12★');
   });
 });

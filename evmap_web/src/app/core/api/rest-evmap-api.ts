@@ -6,11 +6,14 @@ import {
   Account,
   AdminOverview,
   BlockedAuthor,
+  CommentPayload,
   Contributions,
+  FavoriteStation,
   GeoBounds,
   MapToken,
   Operator,
   ProviderToken,
+  ReportReason,
   ReportedComment,
   ReportedStation,
   SignInProvider,
@@ -138,6 +141,46 @@ export class RestEvmapApi extends EvmapApi {
 
   comments(stationId: string): Observable<StationComment[]> {
     return this.http.get<StationComment[]>(`/api/v1/stations/${encodeURIComponent(stationId)}/comments`);
+  }
+
+  createComment(stationId: string, payload: CommentPayload): Observable<StationComment> {
+    return this.http.post<StationComment>(`/api/v1/stations/${encodeURIComponent(stationId)}/comments`, payload);
+  }
+
+  updateComment(id: string, payload: CommentPayload): Observable<StationComment> {
+    return this.http.patch<StationComment>(`/api/v1/comments/${encodeURIComponent(id)}`, payload);
+  }
+
+  deleteComment(id: string): Observable<void> {
+    return this.http.delete<void>(`/api/v1/comments/${encodeURIComponent(id)}`);
+  }
+
+  reportComment(id: string, reason: ReportReason): Observable<void> {
+    return this.http.post<void>(`/api/v1/comments/${encodeURIComponent(id)}/report`, { reason });
+  }
+
+  blockAuthor(commentId: string): Observable<void> {
+    return this.http.post<void>(`/api/v1/comments/${encodeURIComponent(commentId)}/block-author`, null);
+  }
+
+  reportStation(stationId: string, reason: StationReportReason, note?: string): Observable<void> {
+    return this.http.post<void>(`/api/v1/stations/${encodeURIComponent(stationId)}/reports`, { reason, note });
+  }
+
+  favorites(): Observable<FavoriteStation[]> {
+    return this.http.get<FavoriteStation[]>('/api/v1/me/favorites');
+  }
+
+  addFavorite(stationId: string): Observable<void> {
+    return this.http.put<void>(`/api/v1/me/favorites/${encodeURIComponent(stationId)}`, null);
+  }
+
+  removeFavorite(stationId: string): Observable<void> {
+    return this.http.delete<void>(`/api/v1/me/favorites/${encodeURIComponent(stationId)}`);
+  }
+
+  mergeFavorites(stationIds: readonly string[]): Observable<FavoriteStation[]> {
+    return this.http.post<FavoriteStation[]>('/api/v1/me/favorites/merge', { stationIds });
   }
 
   operators(query: string, limit: number): Observable<Operator[]> {

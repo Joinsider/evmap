@@ -1465,6 +1465,172 @@
         <source>Mit GitHub anmelden</source>
       </segment>
     </unit>
+    <unit id="comments.title">
+      <notes>
+        <note category="location">src/app/features/map/comments-section.html:1,3</note>
+      </notes>
+      <segment>
+        <source>Community</source>
+      </segment>
+    </unit>
+    <unit id="comments.empty">
+      <notes>
+        <note category="location">src/app/features/map/comments-section.html:5,7</note>
+      </notes>
+      <segment>
+        <source>Noch keine Kommentare.</source>
+      </segment>
+    </unit>
+    <unit id="comments.deleteSure">
+      <notes>
+        <note category="location">src/app/features/map/comments-section.html:17,18</note>
+      </notes>
+      <segment>
+        <source>Kommentar löschen?</source>
+      </segment>
+    </unit>
+    <unit id="action.delete">
+      <notes>
+        <note category="location">src/app/features/map/comments-section.html:19,20</note>
+        <note category="location">src/app/features/map/comments-section.html:25,26</note>
+      </notes>
+      <segment>
+        <source>Löschen</source>
+      </segment>
+    </unit>
+    <unit id="action.cancel">
+      <notes>
+        <note category="location">src/app/features/map/comments-section.html:20,21</note>
+        <note category="location">src/app/features/map/comments-section.html:36,37</note>
+        <note category="location">src/app/features/map/comments-section.html:89,91</note>
+        <note category="location">src/app/features/map/filter-panel.html:97,99</note>
+        <note category="location">src/app/features/map/station-report-form.ts:52,54</note>
+      </notes>
+      <segment>
+        <source>Abbrechen</source>
+      </segment>
+    </unit>
+    <unit id="action.edit">
+      <notes>
+        <note category="location">src/app/features/map/comments-section.html:24,25</note>
+      </notes>
+      <segment>
+        <source>Bearbeiten</source>
+      </segment>
+    </unit>
+    <unit id="comments.moderation.title">
+      <notes>
+        <note category="location">src/app/features/map/comments-section.html:30,31</note>
+      </notes>
+      <segment>
+        <source>Kommentar melden</source>
+      </segment>
+    </unit>
+    <unit id="comments.moderation.message">
+      <notes>
+        <note category="location">src/app/features/map/comments-section.html:31,32</note>
+      </notes>
+      <segment>
+        <source>Wähle einen Grund, um den Kommentar zu melden. Gemeldete Kommentare werden dir nicht mehr angezeigt. Oder blockiere den Autor, dann siehst du keinen seiner Kommentare mehr.</source>
+      </segment>
+    </unit>
+    <unit id="comments.blockAuthor">
+      <notes>
+        <note category="location">src/app/features/map/comments-section.html:35,36</note>
+      </notes>
+      <segment>
+        <source>Autor blockieren</source>
+      </segment>
+    </unit>
+    <unit id="comments.moderate">
+      <notes>
+        <note category="location">src/app/features/map/comments-section.html:40,42</note>
+      </notes>
+      <segment>
+        <source>Melden oder blockieren</source>
+      </segment>
+    </unit>
+    <unit id="comments.failedWrite">
+      <notes>
+        <note category="location">src/app/features/map/comments-section.html:46,50</note>
+        <note category="location">src/app/features/map/comments-section.html:59,61</note>
+      </notes>
+      <segment>
+        <source>Das hat nicht geklappt. Bitte versuche es erneut.</source>
+      </segment>
+    </unit>
+    <unit id="comments.failed">
+      <notes>
+        <note category="location">src/app/features/map/comments-section.html:52,55</note>
+      </notes>
+      <segment>
+        <source>Kommentare konnten nicht geladen werden.</source>
+      </segment>
+    </unit>
+    <unit id="comments.add">
+      <notes>
+        <note category="location">src/app/features/map/comments-section.html:62,65</note>
+      </notes>
+      <segment>
+        <source>Kommentar schreiben</source>
+      </segment>
+    </unit>
+    <unit id="comments.loginRequired">
+      <notes>
+        <note category="location">src/app/features/map/comments-section.html:66,71</note>
+      </notes>
+      <segment>
+        <source>Zum Kommentieren bitte anmelden.</source>
+      </segment>
+    </unit>
+    <unit id="comments.message">
+      <notes>
+        <note category="location">src/app/features/map/comments-section.html:73,74</note>
+      </notes>
+      <segment>
+        <source>Kommentar</source>
+      </segment>
+    </unit>
+    <unit id="comments.experience">
+      <notes>
+        <note category="location">src/app/features/map/comments-section.html:77,78</note>
+      </notes>
+      <segment>
+        <source>Ladeerfahrung (optional)</source>
+      </segment>
+    </unit>
+    <unit id="comments.priceEuro">
+      <notes>
+        <note category="location">src/app/features/map/comments-section.html:81,82</note>
+      </notes>
+      <segment>
+        <source>Bezahlter Preis in Euro (optional)</source>
+      </segment>
+    </unit>
+    <unit id="comments.priceInvalid">
+      <notes>
+        <note category="location">src/app/features/map/comments-section.html:85,87</note>
+      </notes>
+      <segment>
+        <source>Bitte den Preis als Betrag angeben, z. B. 21,40.</source>
+      </segment>
+    </unit>
+    <unit id="action.save">
+      <notes>
+        <note category="location">src/app/features/map/comments-section.html:88,89</note>
+      </notes>
+      <segment>
+        <source>Speichern</source>
+      </segment>
+    </unit>
+    <unit id="comments.paid">
+      <notes>
+        <note category="location">src/app/features/map/comments-section.ts:62</note>
+      </notes>
+      <segment>
+        <source>Bezahlt: <ph id="0" equiv="amount" disp="amount"/></source>
+      </segment>
+    </unit>
     <unit id="station.availability.operational">
       <notes>
         <note category="location">src/app/features/map/domain/availability.ts:10</note>
@@ -1731,20 +1897,71 @@
         <source>ab <ph id="0" equiv="amount" disp="amount"/>/kWh</source>
       </segment>
     </unit>
+    <unit id="favorites.title">
+      <notes>
+        <note category="location">src/app/features/map/favorites-panel.ts:14,15</note>
+        <note category="location">src/app/features/map/map.page.html:20,21</note>
+      </notes>
+      <segment>
+        <source>Favoriten</source>
+      </segment>
+    </unit>
+    <unit id="filter.done">
+      <notes>
+        <note category="location">src/app/features/map/favorites-panel.ts:15,17</note>
+        <note category="location">src/app/features/map/filter-panel.html:4,7</note>
+      </notes>
+      <segment>
+        <source>Fertig</source>
+      </segment>
+    </unit>
+    <unit id="favorites.failed">
+      <notes>
+        <note category="location">src/app/features/map/favorites-panel.ts:18,20</note>
+        <note category="location">src/app/features/map/station.panel.html:18,20</note>
+      </notes>
+      <segment>
+        <source>Die Favoriten konnten nicht mit deinem Konto abgeglichen werden.</source>
+      </segment>
+    </unit>
+    <unit id="favorites.removeShort">
+      <notes>
+        <note category="location">src/app/features/map/favorites-panel.ts:29,31</note>
+      </notes>
+      <segment>
+        <source>Entfernen</source>
+      </segment>
+    </unit>
+    <unit id="favorites.empty.web">
+      <notes>
+        <note category="location">src/app/features/map/favorites-panel.ts:32,35</note>
+      </notes>
+      <segment>
+        <source>Noch keine Favoriten. Klicke in einer Station auf den Stern.</source>
+      </segment>
+    </unit>
+    <unit id="favorites.synced.web">
+      <notes>
+        <note category="location">src/app/features/map/favorites-panel.ts:37,39</note>
+      </notes>
+      <segment>
+        <source>Deine Favoriten sind mit deinem Konto synchronisiert. Beim Abmelden werden sie aus diesem Browser entfernt.</source>
+      </segment>
+    </unit>
+    <unit id="favorites.deviceOnly.web">
+      <notes>
+        <note category="location">src/app/features/map/favorites-panel.ts:39,42</note>
+      </notes>
+      <segment>
+        <source>Deine Favoriten sind nur in diesem Browser gespeichert. Melde dich an, um sie mit deinem Konto zu synchronisieren.</source>
+      </segment>
+    </unit>
     <unit id="filter.title">
       <notes>
         <note category="location">src/app/features/map/filter-panel.html:3,4</note>
       </notes>
       <segment>
         <source>Filter</source>
-      </segment>
-    </unit>
-    <unit id="filter.done">
-      <notes>
-        <note category="location">src/app/features/map/filter-panel.html:4,7</note>
-      </notes>
-      <segment>
-        <source>Fertig</source>
       </segment>
     </unit>
     <unit id="filter.connector">
@@ -1902,14 +2119,6 @@
         <source>Einstellungen zurücksetzen</source>
       </segment>
     </unit>
-    <unit id="action.cancel">
-      <notes>
-        <note category="location">src/app/features/map/filter-panel.html:97,99</note>
-      </notes>
-      <segment>
-        <source>Abbrechen</source>
-      </segment>
-    </unit>
     <unit id="filter.power.any">
       <notes>
         <note category="location">src/app/features/map/filter-panel.ts:96</note>
@@ -1976,7 +2185,7 @@
     </unit>
     <unit id="map.filter">
       <notes>
-        <note category="location">src/app/features/map/map.page.html:19,22</note>
+        <note category="location">src/app/features/map/map.page.html:19,20</note>
       </notes>
       <segment>
         <source>Filter</source>
@@ -1984,7 +2193,7 @@
     </unit>
     <unit id="stations.loading">
       <notes>
-        <note category="location">src/app/features/map/map.page.html:25,26</note>
+        <note category="location">src/app/features/map/map.page.html:26,27</note>
       </notes>
       <segment>
         <source>Stationen werden geladen …</source>
@@ -1992,7 +2201,7 @@
     </unit>
     <unit id="stations.failed">
       <notes>
-        <note category="location">src/app/features/map/map.page.html:27,28</note>
+        <note category="location">src/app/features/map/map.page.html:28,29</note>
       </notes>
       <segment>
         <source>Stationen konnten nicht geladen werden.</source>
@@ -2000,7 +2209,7 @@
     </unit>
     <unit id="stations.truncated">
       <notes>
-        <note category="location">src/app/features/map/map.page.html:29,33</note>
+        <note category="location">src/app/features/map/map.page.html:30,34</note>
       </notes>
       <segment>
         <source>Nur die stärksten Ladestationen — zum Anzeigen aller hineinzoomen</source>
@@ -2008,7 +2217,7 @@
     </unit>
     <unit id="map.legend">
       <notes>
-        <note category="location">src/app/features/map/map.page.html:33,34</note>
+        <note category="location">src/app/features/map/map.page.html:34,35</note>
       </notes>
       <segment>
         <source>Legende: Die Farbe eines Pins zeigt die maximale Ladeleistung.</source>
@@ -2016,7 +2225,7 @@
     </unit>
     <unit id="map.cluster">
       <notes>
-        <note category="location">src/app/features/map/map.page.ts:184</note>
+        <note category="location">src/app/features/map/map.page.ts:207</note>
       </notes>
       <segment>
         <source><ph id="0" equiv="count" disp="count"/> Ladestationen</source>
@@ -2039,6 +2248,78 @@
         <source>Zu dieser Adresse wurde kein Ort gefunden.</source>
       </segment>
     </unit>
+    <unit id="station.report">
+      <notes>
+        <note category="location">src/app/features/map/station-report-form.ts:23,25</note>
+      </notes>
+      <segment>
+        <source>Fehler melden</source>
+      </segment>
+    </unit>
+    <unit id="station.report.loginRequired">
+      <notes>
+        <note category="location">src/app/features/map/station-report-form.ts:25,28</note>
+      </notes>
+      <segment>
+        <source>Zum Melden eines Fehlers bitte anmelden.</source>
+      </segment>
+    </unit>
+    <unit id="station.report.thanks.title">
+      <notes>
+        <note category="location">src/app/features/map/station-report-form.ts:29</note>
+      </notes>
+      <segment>
+        <source>Danke!</source>
+      </segment>
+    </unit>
+    <unit id="station.report.thanks.message">
+      <notes>
+        <note category="location">src/app/features/map/station-report-form.ts:29,31</note>
+      </notes>
+      <segment>
+        <source>Deine Meldung ist eingegangen und wird geprüft.</source>
+      </segment>
+    </unit>
+    <unit id="station.report.reason">
+      <notes>
+        <note category="location">src/app/features/map/station-report-form.ts:34,35</note>
+      </notes>
+      <segment>
+        <source>Was stimmt nicht?</source>
+      </segment>
+    </unit>
+    <unit id="station.report.note">
+      <notes>
+        <note category="location">src/app/features/map/station-report-form.ts:43,44</note>
+      </notes>
+      <segment>
+        <source>Anmerkung (optional)</source>
+      </segment>
+    </unit>
+    <unit id="station.report.footer">
+      <notes>
+        <note category="location">src/app/features/map/station-report-form.ts:46,47</note>
+      </notes>
+      <segment>
+        <source>Bitte keine persönlichen Daten angeben. Wir prüfen die Meldung; die Stationsdaten ändern sich nicht sofort.</source>
+      </segment>
+    </unit>
+    <unit id="station.report.failed">
+      <notes>
+        <note category="location">src/app/features/map/station-report-form.ts:48,50</note>
+      </notes>
+      <segment>
+        <source>Die Meldung konnte nicht gesendet werden. Bitte versuche es erneut.</source>
+      </segment>
+    </unit>
+    <unit id="station.report.send">
+      <notes>
+        <note category="location">src/app/features/map/station-report-form.ts:51,52</note>
+      </notes>
+      <segment>
+        <source>Senden</source>
+      </segment>
+    </unit>
     <unit id="station.close">
       <notes>
         <note category="location">src/app/features/map/station.panel.html:2,4</note>
@@ -2057,7 +2338,7 @@
     </unit>
     <unit id="station.live.title">
       <notes>
-        <note category="location">src/app/features/map/station.panel.html:34,35</note>
+        <note category="location">src/app/features/map/station.panel.html:42,43</note>
       </notes>
       <segment>
         <source>Live-Verfügbarkeit</source>
@@ -2065,7 +2346,7 @@
     </unit>
     <unit id="station.live.source">
       <notes>
-        <note category="location">src/app/features/map/station.panel.html:53,54</note>
+        <note category="location">src/app/features/map/station.panel.html:61,62</note>
       </notes>
       <segment>
         <source>Live-Daten:</source>
@@ -2073,7 +2354,7 @@
     </unit>
     <unit id="station.connectors">
       <notes>
-        <note category="location">src/app/features/map/station.panel.html:66,67</note>
+        <note category="location">src/app/features/map/station.panel.html:74,75</note>
       </notes>
       <segment>
         <source>Anschlüsse</source>
@@ -2081,7 +2362,7 @@
     </unit>
     <unit id="station.noConnectors">
       <notes>
-        <note category="location">src/app/features/map/station.panel.html:68,70</note>
+        <note category="location">src/app/features/map/station.panel.html:76,78</note>
       </notes>
       <segment>
         <source>Keine Angaben zu den Anschlüssen.</source>
@@ -2089,7 +2370,7 @@
     </unit>
     <unit id="price.title">
       <notes>
-        <note category="location">src/app/features/map/station.panel.html:85,86</note>
+        <note category="location">src/app/features/map/station.panel.html:93,94</note>
       </notes>
       <segment>
         <source>Ad-hoc-Preis</source>
@@ -2097,7 +2378,7 @@
     </unit>
     <unit id="price.furtherFees">
       <notes>
-        <note category="location">src/app/features/map/station.panel.html:94,96</note>
+        <note category="location">src/app/features/map/station.panel.html:102,104</note>
       </notes>
       <segment>
         <source>Weitere Gebühren möglich, z. B. fürs Blockieren nach dem Laden</source>
@@ -2105,7 +2386,7 @@
     </unit>
     <unit id="price.disclaimer">
       <notes>
-        <note category="location">src/app/features/map/station.panel.html:102,103</note>
+        <note category="location">src/app/features/map/station.panel.html:110,111</note>
       </notes>
       <segment>
         <source>Preis ohne Ladekarte, wie vom Betreiber veröffentlicht. Mit einer Ladekarte kann er abweichen.</source>
@@ -2113,48 +2394,16 @@
     </unit>
     <unit id="price.source">
       <notes>
-        <note category="location">src/app/features/map/station.panel.html:105,106</note>
-        <note category="location">src/app/features/map/station.panel.html:114</note>
+        <note category="location">src/app/features/map/station.panel.html:113,114</note>
+        <note category="location">src/app/features/map/station.panel.html:122</note>
       </notes>
       <segment>
         <source>Preisdaten:</source>
       </segment>
     </unit>
-    <unit id="comments.title">
-      <notes>
-        <note category="location">src/app/features/map/station.panel.html:120,121</note>
-      </notes>
-      <segment>
-        <source>Community</source>
-      </segment>
-    </unit>
-    <unit id="comments.empty">
-      <notes>
-        <note category="location">src/app/features/map/station.panel.html:123,125</note>
-      </notes>
-      <segment>
-        <source>Noch keine Kommentare.</source>
-      </segment>
-    </unit>
-    <unit id="comments.failed">
-      <notes>
-        <note category="location">src/app/features/map/station.panel.html:134,136</note>
-      </notes>
-      <segment>
-        <source>Kommentare konnten nicht geladen werden.</source>
-      </segment>
-    </unit>
-    <unit id="comments.webSoon">
-      <notes>
-        <note category="location">src/app/features/map/station.panel.html:136,139</note>
-      </notes>
-      <segment>
-        <source>Kommentieren geht bisher in der iPhone-App.</source>
-      </segment>
-    </unit>
     <unit id="station.sources">
       <notes>
-        <note category="location">src/app/features/map/station.panel.html:140</note>
+        <note category="location">src/app/features/map/station.panel.html:136</note>
       </notes>
       <segment>
         <source>Datenquellen</source>
@@ -2162,16 +2411,32 @@
     </unit>
     <unit id="station.addressUnavailable">
       <notes>
-        <note category="location">src/app/features/map/station.panel.ts:31</note>
+        <note category="location">src/app/features/map/station.panel.ts:35</note>
       </notes>
       <segment>
         <source>Keine Adresse verfügbar</source>
       </segment>
     </unit>
+    <unit id="favorites.add">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.ts:36</note>
+      </notes>
+      <segment>
+        <source>Zu Favoriten hinzufügen</source>
+      </segment>
+    </unit>
+    <unit id="favorites.remove">
+      <notes>
+        <note category="location">src/app/features/map/station.panel.ts:37</note>
+      </notes>
+      <segment>
+        <source>Aus Favoriten entfernen</source>
+      </segment>
+    </unit>
     <unit id="station.live.chargePoint">
       <notes>
-        <note category="location">src/app/features/map/station.panel.ts:32</note>
-        <note category="location">src/app/features/map/station.panel.ts:124</note>
+        <note category="location">src/app/features/map/station.panel.ts:38</note>
+        <note category="location">src/app/features/map/station.panel.ts:129</note>
       </notes>
       <segment>
         <source>Ladepunkt</source>
@@ -2179,7 +2444,7 @@
     </unit>
     <unit id="station.live.observedAt">
       <notes>
-        <note category="location">src/app/features/map/station.panel.ts:85</note>
+        <note category="location">src/app/features/map/station.panel.ts:90</note>
       </notes>
       <segment>
         <source>Zuletzt gemeldet <ph id="0" equiv="date" disp="date"/></source>
@@ -2187,7 +2452,7 @@
     </unit>
     <unit id="station.live.unresolved">
       <notes>
-        <note category="location">src/app/features/map/station.panel.ts:90</note>
+        <note category="location">src/app/features/map/station.panel.ts:95</note>
       </notes>
       <segment>
         <source><ph id="0" equiv="count" disp="count"/> weitere Ladepunkte ohne Live-Daten</source>
@@ -2195,7 +2460,7 @@
     </unit>
     <unit id="price.chargePointCount">
       <notes>
-        <note category="location">src/app/features/map/station.panel.ts:116</note>
+        <note category="location">src/app/features/map/station.panel.ts:121</note>
       </notes>
       <segment>
         <source><ph id="0" equiv="count" disp="count"/> ×</source>
@@ -2203,7 +2468,7 @@
     </unit>
     <unit id="price.observedAt">
       <notes>
-        <note category="location">src/app/features/map/station.panel.ts:122</note>
+        <note category="location">src/app/features/map/station.panel.ts:127</note>
       </notes>
       <segment>
         <source>Stand <ph id="0" equiv="date" disp="date"/></source>
@@ -2211,18 +2476,10 @@
     </unit>
     <unit id="price.unpriced">
       <notes>
-        <note category="location">src/app/features/map/station.panel.ts:129</note>
+        <note category="location">src/app/features/map/station.panel.ts:134</note>
       </notes>
       <segment>
         <source>Ladepunkte ohne bekannten Preis: <ph id="0" equiv="count" disp="count"/></source>
-      </segment>
-    </unit>
-    <unit id="comments.paid">
-      <notes>
-        <note category="location">src/app/features/map/station.panel.ts:141</note>
-      </notes>
-      <segment>
-        <source>Bezahlt: <ph id="0" equiv="amount" disp="amount"/></source>
       </segment>
     </unit>
     <unit id="report.reason.spam">
