@@ -18,7 +18,7 @@ services:
     # POSTGRES_DB/USER/PASSWORD below mean what they say. Do not swap in kartoza/postgis:
     # it reads POSTGRES_PASS/POSTGRES_DBNAME instead and silently ignores these, leaving a
     # `gis` database and a randomly generated password the API can never authenticate with.
-    image: postgis/postgis:17-3.5
+    image: postgis/postgis:17-3.6
     restart: unless-stopped
     environment:
       POSTGRES_DB: evmap
